@@ -131,7 +131,7 @@ All routes except `/health` and `POST /api/session` need `Authorization: Bearer 
 | `GET /api/settings` | — | `SettingsView` | Settings, including `models`: the fixed voice model, the planner allowlist and the providers in backup order |
 | `PATCH /api/settings` | `SettingsUpdate` | `SettingsView` | Tool toggles, privacy switches, planner model, backups on or off |
 
-Provider IDs: `nebius`, `openrouter`, `agentrouter`, `nararouter`, `experimentallab`, `tavily`, `perplexity`. The browser only ever sees provider IDs, display names and model names; never keys or URLs.
+Provider IDs: `nebius`, `nvidia` (NVIDIA API catalog, hosted speech models), `openrouter`, `agentrouter`, `nararouter`, `experimentallab`, `tavily`, `perplexity`. The browser only ever sees provider IDs, display names and model names; never keys or URLs.
 
 ## 4. Key flows
 

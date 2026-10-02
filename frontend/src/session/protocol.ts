@@ -34,6 +34,7 @@ export interface Source {
 
 export type ProviderId =
   | 'nebius'
+  | 'nvidia'
   | 'openrouter'
   | 'agentrouter'
   | 'nararouter'
@@ -43,6 +44,7 @@ export type ProviderId =
 
 export const PROVIDER_NAMES: Record<ProviderId, string> = {
   nebius: 'Nebius',
+  nvidia: 'NVIDIA API',
   openrouter: 'OpenRouter',
   agentrouter: 'AgentRouter',
   nararouter: 'Nararouter',

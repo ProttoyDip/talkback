@@ -36,7 +36,14 @@ Id = Annotated[str, Field(min_length=1, max_length=64)]
 
 # Model providers (plan.md section 8). Keys and base URLs never leave the server.
 ProviderId = Literal[
-    "nebius", "openrouter", "agentrouter", "nararouter", "experimentallab", "tavily", "perplexity"
+    "nebius",
+    "nvidia",  # NVIDIA API catalog (build.nvidia.com): hosted speech models for plan B
+    "openrouter",
+    "agentrouter",
+    "nararouter",
+    "experimentallab",
+    "tavily",
+    "perplexity",
 ]
 ModelRole = Literal["voice", "planner", "search"]
 
