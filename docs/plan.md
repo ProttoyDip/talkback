@@ -80,6 +80,8 @@ Each package is one or more pull requests. "Needs" lists what must be merged fir
 | X7 | **VoiceChat client** (`voice_client.py`): same interface as the fake model, connects to the real container over private network | X1, Nebius GPU (section 7) | Real conversation end to end on Nebius |
 | X8 | **Evaluation** (`eval/latency.py`, `eval/interruptions.py`, 50 scripted conversations with pre-recorded user audio) | X2, then X7 for real numbers | Script prints median, p95, interruption accuracy, backchannel false-stop rate |
 | X9 | **Deployment**: Nebius VM setup notes, HTTPS, serve built frontend, access code for a public demo (SECURITY.md T8) | X7 | Demo URL works over HTTPS |
+| X10 | **LLM provider chain** (`providers.py`): one OpenAI-compatible client per provider, tried in order (section 8). Switch on auth, quota, rate-limit, server errors and timeouts; cool a failed provider down (longer for "out of credit"). Model allowlist per provider. Send `model.active` when the provider changes. Add `OPENROUTER_API_KEY`, `AGENTROUTER_API_KEY`, `NARAROUTER_API_KEY`, `EXPERIMENTALLAB_API_KEY`, `PERPLEXITY_API_KEY` (empty) to `.env.example`. The planner (X6) uses this chain | X6, C1 | Mocked tests for every switch reason; keys never logged |
+| X11 | **Search fallback**: Tavily first, Perplexity search second, same result sanitizing as X3 | X3 | Mocked tests; Tavily failure switches to Perplexity |
 
 ### Claude Code — frontend
 
@@ -91,8 +93,15 @@ Each package is one or more pull requests. "Needs" lists what must be merged fir
 | F4 | **Live timeline and transcript**: canvas lanes from real levels, interrupt ticks, unheard words from `transcript.trim`, tool chips from `tool.status`, confirm card from `tool.confirm_request` | F1–F3, X1 | Interrupting the fake model shows the trim live |
 | F5 | **Onboarding** (design.md 5.1): welcome, mic permission with browser-specific help, privacy promise, headphones tip | none | All four steps, keyboard and 375 px checked |
 | F6 | **Memory panel, Toast** (design.md 5.3, `Toast` from 11) | C0.4 | Works against X4, and against a mock until X4 lands |
-| F7 | **Skills panel and Settings** (design.md 5.4, 5.5) | C0.5, C0.6 | Works against X5 and settings API |
+| F7 | **Skills panel and Settings** (design.md 5.4, 5.5), including a **Models** section: the voice model (fixed), a planner model picker (allowlist only), the backup order with on/off per provider, and which provider is active now | C0.5, C0.6, C1 | Works against X5 and settings API |
+| F9 | **Backup notice**: a small "Backup model" label in the status bar while a backup provider answers, so the user always knows which model is in use | C1 | Shows and clears on `model.active` |
 | F8 | **Accessibility and polish pass**: keyboard, screen reader, contrast, reduced motion, 375 px, error states (design.md 5.6, 7) | F1–F7 | Checklist in design.md section 10 step 6 passes |
+
+### Contract change C1 (Claude Code, after Phase 0 merges)
+
+| ID | Change |
+|---|---|
+| C1 | `SettingsView` gets `models`: the voice model (name, where it runs), the planner options (`id`, provider, model, `available` = key configured) and backup search. `SettingsUpdate` gets `planner_model` and per-provider on/off. New server event `model.active {role, provider, model, backup}`. Keys and base URLs never leave the server |
 
 ## 6. Timeline
 
@@ -111,13 +120,35 @@ If the real voice model is late, the demo still works on the fake model plus the
 |---|---|
 | Now | Apply for Nebius hackathon GPU credits; create a Nebius AI Cloud project |
 | Now | Get API keys: Nebius Token Factory, Tavily. Put them only in `backend/.env` |
+| Now | Send the base URL and model list (or docs link) for AgentRouter, Nararouter and ExperimentalLab. They are not used until this is confirmed (section 8) |
+| Now | Set a spending limit on every provider account. The keys pasted in chat are in its history: rotate them if this history may be shared |
 | Now | Turn on GitHub secret scanning and push protection (Settings → Code security) |
 | Now | Replace `[YOUR SECURITY EMAIL]` in `SECURITY.md` |
 | Week 1 | Start an H100 VM on Nebius; check how to run the VoiceChat container (prd.md 13) |
 | Each day | Review and merge pull requests from both agents |
 | Week 4 | Record the 3-minute demo video; upload to YouTube; submit on Devpost |
 
-## 8. Rules for both agents
+## 8. Model providers, backups and user choice
+
+### 8.1 What each provider can do
+
+| Role | Primary | Backups, in order | Notes |
+|---|---|---|---|
+| Voice (speech to speech) | NVIDIA NemotronLabs VoiceChat on a Nebius H100 | None | No backup provider hosts a full-duplex speech model. The fallback for voice is still the cascaded pipeline (prd.md 12) |
+| Planner and summaries (text LLM) | Nemotron 3 Nano on Nebius Token Factory | OpenRouter (an NVIDIA Nemotron model first), then AgentRouter, Nararouter, ExperimentalLab | Backups only after their base URL and models are confirmed |
+| Web search | Tavily | Perplexity search | Same sanitizing rules (SECURITY.md T1) |
+
+### 8.2 Rules
+
+- **Hackathon rule first.** The default is always Nebius Token Factory and Nebius AI Cloud with NVIDIA models. Backups are for development and outages only. Record the demo and the evaluation numbers on the primary.
+- **Keys stay on the server**, only in `backend/.env` (SECURITY.md T6). The browser sees provider and model names, never keys or URLs.
+- **When to switch:** authentication errors, "out of credit" (402), rate limits (429), server errors (5xx) and timeouts. A failed provider waits before it is tried again (a few minutes; much longer after 402).
+- **Privacy is visible.** A backup provider receives the user's words. Settings lists every provider that may receive data, and the user can turn each backup off. With all backups off, a primary failure shows an error instead of switching.
+- **Visible model.** The status bar shows "Backup model" while a backup answers; Settings shows which model is active and why.
+- **User choice.** The user can pick the planner model from an allowlist kept on the server. NVIDIA models are listed first and marked as the default. The voice model cannot be changed.
+- **Unknown providers** are added only after their documentation is checked: an OpenAI-compatible API, a clear data policy, exact model IDs pinned in the allowlist.
+
+## 9. Rules for both agents
 
 1. Read `docs/prd.md`, `docs/architecture.md`, `docs/design.md`, `SECURITY.md` and this file before starting.
 2. Edit only the folders you own (section 2). If you need a change in the other side or in the contract, write it in the pull request description instead.
