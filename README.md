@@ -2,7 +2,7 @@
 
 # TalkBack
 
-**A voice assistant you can interrupt.**
+**The voice assistant you can interrupt.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)

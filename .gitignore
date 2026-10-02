@@ -1,0 +1,33 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / React
+node_modules/
+dist/
+build/
+.vite/
+
+# Evaluation output
+eval/results/
+*.wav
+!docs/**/*.wav
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local tool data
+.kilo/
