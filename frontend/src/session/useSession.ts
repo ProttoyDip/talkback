@@ -13,7 +13,7 @@ export type AudioSink = (seq: number, pcm: Int16Array) => void
  * The session starts only when the user starts it (SECURITY.md T2), which is
  * also the user gesture browsers require before audio can play.
  */
-export function useSession(mode: SessionMode) {
+export function useSession(mode: SessionMode, replaySpeed = 1) {
   const [model, dispatch] = useReducer(reduce, initialModel)
   const [started, setStarted] = useState(false)
   const [muted, setMutedState] = useState(false)
@@ -24,7 +24,7 @@ export function useSession(mode: SessionMode) {
 
   useEffect(() => {
     if (!started) return
-    const transport: Transport = mode === 'replay' ? new ReplayTransport() : new LiveTransport()
+    const transport: Transport = mode === 'replay' ? new ReplayTransport(replaySpeed) : new LiveTransport()
     transportRef.current = transport
     transport.connect({
       onEvent: (event) => {
@@ -38,7 +38,7 @@ export function useSession(mode: SessionMode) {
       transport.close()
       transportRef.current = null
     }
-  }, [mode, started])
+  }, [mode, started, replaySpeed])
 
   const start = useCallback(() => setStarted(true), [])
 

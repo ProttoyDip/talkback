@@ -155,7 +155,20 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173. The screen uses static example data. Add `?state=interrupted`, `?state=tool`, `?state=confirm`, `?state=muted` or `?state=offline` to the URL to preview each state.
+Open http://localhost:5173 and press the mic button (or `Space`) to start a live session with the backend. Other modes:
+
+- http://localhost:5173/?replay plays the recorded demo conversation, with no backend needed.
+- `?state=interrupted`, `?state=tool`, `?state=confirm`, `?state=muted` or `?state=offline` shows a static preview of each state.
+
+### Run the frontend tests
+
+```bash
+cd frontend
+npm test        # unit tests (Vitest)
+npm run e2e     # end-to-end tests (Playwright)
+```
+
+The end-to-end tests use the installed Microsoft Edge with a fake microphone, and start the backend and the dev server if they are not running. The backend virtual environment from "Run the backend" must exist.
 
 ## Configuration
 

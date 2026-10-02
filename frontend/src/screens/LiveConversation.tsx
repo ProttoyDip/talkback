@@ -61,8 +61,16 @@ function backupLabel(model: ConversationModel): string | undefined {
 }
 
 /** The real conversation: server events (live) or the demo fixture (replay). */
-export function LiveConversation({ mode, debug }: { mode: SessionMode; debug: boolean }) {
-  const session = useSession(mode)
+export function LiveConversation({
+  mode,
+  debug,
+  replaySpeed = 1,
+}: {
+  mode: SessionMode
+  debug: boolean
+  replaySpeed?: number
+}) {
+  const session = useSession(mode, replaySpeed)
   const { model, started, muted, setMuted, answerConfirm, reconnect } = session
 
   // Mic capture (F2) and playback (F3) write here; the timeline samples it.
