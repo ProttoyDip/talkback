@@ -34,6 +34,12 @@ ToolName = Literal["weather", "web_search", "memory_read", "memory_write", "memo
 # Ids are short opaque strings created by the server.
 Id = Annotated[str, Field(min_length=1, max_length=64)]
 
+# Model providers (plan.md section 8). Keys and base URLs never leave the server.
+ProviderId = Literal[
+    "nebius", "openrouter", "agentrouter", "nararouter", "experimentallab", "tavily", "perplexity"
+]
+ModelRole = Literal["voice", "planner", "search"]
+
 
 class Message(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -169,6 +175,17 @@ class ErrorEvent(Message):
     retry_in_ms: int | None = Field(default=None, ge=0)
 
 
+class ModelActive(Message):
+    """Which provider and model now serve a role. Sent at session start and
+    whenever the server switches (backup = not the primary provider)."""
+
+    type: Literal["model.active"] = "model.active"
+    role: ModelRole
+    provider: ProviderId
+    model: str = Field(min_length=1, max_length=128)
+    backup: bool
+
+
 class SessionEnd(Message):
     """Sent just before the server closes the WebSocket."""
 
@@ -187,6 +204,7 @@ ServerMessage = Annotated[
     | MemorySaved
     | Metrics
     | ErrorEvent
+    | ModelActive
     | SessionEnd,
     Field(discriminator="type"),
 ]
@@ -238,6 +256,31 @@ class SkillRunAccepted(Rest):
     run_id: Id
 
 
+class ProviderInfo(Rest):
+    id: ProviderId
+    name: str  # display name, e.g. "Nebius Token Factory"
+    role: ModelRole
+    primary: bool
+    enabled: bool  # the user can turn backups off
+    configured: bool  # the server has a key for it
+    receives_user_words: bool  # shown in Settings for privacy (plan.md 8.2)
+
+
+class ModelOption(Rest):
+    id: Id  # stable, e.g. "nebius:nemotron-3-nano"
+    provider: ProviderId
+    model: str
+    nvidia: bool
+    available: bool  # provider enabled and configured
+
+
+class ModelsView(Rest):
+    voice_model: str  # fixed; cannot be changed
+    planner_model: Id  # selected ModelOption id
+    planner_options: list[ModelOption]  # allowlist, NVIDIA models first
+    providers: list[ProviderInfo]  # per role, in backup order
+
+
 class ToolSetting(Rest):
     enabled: bool
     description: str  # what the tool can access, shown in Settings
@@ -247,9 +290,12 @@ class SettingsView(Rest):
     tools: dict[ToolName, ToolSetting]
     save_recordings: bool  # off by default (FR-18)
     transcripts_in_logs: bool  # off by default
+    models: ModelsView
 
 
 class SettingsUpdate(Rest):
     tools: dict[ToolName, bool] | None = None
     save_recordings: bool | None = None
     transcripts_in_logs: bool | None = None
+    planner_model: Id | None = None  # must be an available ModelOption id
+    providers: dict[ProviderId, bool] | None = None  # turn backups on or off

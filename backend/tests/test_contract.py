@@ -44,3 +44,23 @@ def test_unknown_server_event_is_rejected():
         server_message.validate_python({"type": "state", "state": "idle", "extra": 1})
     with pytest.raises(ValidationError):
         server_message.validate_python({"type": "nope"})
+
+
+def test_model_active_event():
+    event = server_message.validate_python(
+        {"type": "model.active", "role": "planner", "provider": "openrouter",
+         "model": "nvidia/nemotron-3-nano", "backup": True}
+    )
+    assert event.backup is True
+    with pytest.raises(ValidationError):
+        server_message.validate_python(
+            {"type": "model.active", "role": "planner", "provider": "unknown-router",
+             "model": "x", "backup": False}
+        )
+
+
+def test_settings_view_never_carries_keys():
+    from app.protocol import ProviderInfo, SettingsView
+
+    fields = set(SettingsView.model_fields) | set(ProviderInfo.model_fields)
+    assert not {f for f in fields if "key" in f or "url" in f or "secret" in f}
