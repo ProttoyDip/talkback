@@ -25,7 +25,7 @@ export function MicButton({ mode, level, disabled, onToggle }: MicButtonProps) {
     : muted
       ? 'Unmute microphone'
       : mode === 'off'
-        ? 'Turn on microphone'
+        ? 'Start talking'
         : 'Mute microphone'
 
   return (
@@ -58,7 +58,7 @@ export function MicButton({ mode, level, disabled, onToggle }: MicButtonProps) {
         </button>
       </div>
       <p aria-hidden className="hidden font-mono text-label uppercase text-text-muted lg:block">
-        {disabled ? 'Offline' : muted ? 'Muted · Space to unmute' : 'Space to mute'}
+        {disabled ? 'Offline' : muted ? 'Muted · Space to unmute' : mode === 'off' ? 'Space to start' : 'Space to mute'}
       </p>
     </div>
   )

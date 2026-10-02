@@ -51,7 +51,7 @@ export function PreviewConversation({ state: requested, debug }: { state: Conver
       : undefined,
     timeline: state === 'idle' || offline ? QUIET : placeholderTimeline,
     inputLevel: state === 'listening' || state === 'overlap' ? placeholderInputLevel : 0,
-    muted,
+    micMode: muted ? 'muted' : 'live',
     micDisabled: offline,
   }
 
