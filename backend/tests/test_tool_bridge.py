@@ -23,7 +23,7 @@ def unpack(payload):
 def bridge(handler=None, sensitive=False, **kwargs):
     handler = handler or AsyncMock(return_value=[ToolResult("Title", "https://example.com", "snippet")])
     emit, filler = AsyncMock(), AsyncMock()
-    instance = ToolBridge("session", [Tool("memory_delete", "Run test?", Arguments, handler, sensitive)], emit, filler, **kwargs)
+    instance = ToolBridge("session", [Tool("memory_delete", "Run test?", Arguments, handler, sensitive, lambda args: "Delete the test memory?")], emit, filler, **kwargs)
     return instance, handler, emit, filler
 
 
@@ -282,11 +282,12 @@ def test_sensitive_confirmation_includes_actual_argument(value):
     class MemoryArguments(Arguments):
         text: str
     handler, emit = AsyncMock(return_value=[]), AsyncMock()
-    instance = ToolBridge('session', [Tool('memory_delete', 'Delete this memory?', MemoryArguments, handler)], emit, AsyncMock())
+    instance = ToolBridge('session', [Tool('memory_delete', 'Delete this memory?', MemoryArguments, handler, confirmation_summary=lambda args: f'Delete the memory ?{args.text}??')], emit, AsyncMock())
     async def event(message):
         if isinstance(message, ToolConfirmRequest):
             assert value in message.summary
-            assert 'text' in message.summary
+            assert message.summary == f'Delete the memory ?{value}??'
+            assert '{' not in message.summary
             handler.assert_not_called()
             instance.confirm(ToolConfirm(type='tool.confirm', call_id=message.call_id, approved=True))
     emit.side_effect = event
@@ -298,8 +299,17 @@ def test_oversize_confirmation_is_rejected_without_truncating_action():
     class MemoryArguments(Arguments):
         text: str
     handler, emit = AsyncMock(), AsyncMock()
-    instance = ToolBridge('session', [Tool('memory_delete', 'Delete this memory?', MemoryArguments, handler)], emit, AsyncMock())
+    instance = ToolBridge('session', [Tool('memory_delete', 'Delete this memory?', MemoryArguments, handler, confirmation_summary=lambda args: f'Delete the memory ?{args.text}??')], emit, AsyncMock())
     result = unpack(asyncio.run(instance.execute(request(arguments={'text': 'x' * 301}), 'turn')))
     assert result[0]['error'] == 'confirmation_summary_too_long'
     assert not any(isinstance(call.args[0], ToolConfirmRequest) for call in emit.await_args_list)
     handler.assert_not_called()
+
+
+def test_sensitive_tool_without_summary_cannot_run():
+    handler, emit = AsyncMock(), AsyncMock()
+    instance = ToolBridge('session', [Tool('memory_delete', 'Delete memory', Arguments, handler)], emit, AsyncMock())
+    result = unpack(asyncio.run(instance.execute(request(), 'turn')))
+    assert result[0]['error'] == 'confirmation_summary_missing'
+    handler.assert_not_called()
+    assert not any(isinstance(call.args[0], ToolConfirmRequest) for call in emit.await_args_list)

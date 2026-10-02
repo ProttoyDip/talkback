@@ -24,3 +24,4 @@ class Tool:
     arguments: type[Arguments]
     run: Callable[[Arguments], Awaitable[list[ToolResult]]]
     sensitive: bool = True
+    confirmation_summary: Callable[[Arguments], str] | None = None
