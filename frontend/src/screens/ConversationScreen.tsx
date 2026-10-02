@@ -4,7 +4,7 @@ import { Banner, type BannerProps } from '../components/Banner'
 import { ConfirmCard } from '../components/ConfirmCard'
 import { Drawer } from '../components/Drawer'
 import { DuplexTimeline } from '../components/DuplexTimeline'
-import { MicButton } from '../components/MicButton'
+import { MicButton, type MicMode } from '../components/MicButton'
 import { NavRail, TabBar, type Panel } from '../components/Navigation'
 import { StatusBar } from '../components/StatusBar'
 import { TranscriptTurn } from '../components/TranscriptTurn'
@@ -20,9 +20,11 @@ export interface ConversationView {
   timeline: TimelineData
   /** Mic input level, 0..1. */
   inputLevel: number
-  muted: boolean
+  micMode: MicMode
   micDisabled: boolean
   latencyMs?: number
+  /** Set while a backup model answers, e.g. "Planner: nemotron via OpenRouter". */
+  backup?: string
 }
 
 interface ConversationScreenProps {
@@ -79,7 +81,7 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
 
   const mic = (
     <MicButton
-      mode={view.muted ? 'muted' : 'live'}
+      mode={view.micMode}
       level={view.inputLevel}
       disabled={micDisabled}
       onToggle={onToggleMute}
@@ -92,7 +94,13 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
 
       <main className="flex min-w-0 flex-1 justify-center">
         <div className="flex h-dvh w-full max-w-stage flex-col gap-6 px-4 pt-6 sm:px-8 lg:pt-8">
-          <StatusBar state={state} tool={view.tool} debug={debug} latencyMs={view.latencyMs} />
+          <StatusBar
+            state={state}
+            tool={view.tool}
+            debug={debug}
+            latencyMs={view.latencyMs}
+            backup={view.backup}
+          />
 
           {view.banner && <Banner {...view.banner} />}
 

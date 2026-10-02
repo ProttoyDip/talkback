@@ -7,9 +7,11 @@ interface StatusBarProps {
   debug: boolean
   /** Live latency in ms. Undefined until the backend sends `metrics`. */
   latencyMs?: number
+  /** Set while a backup provider answers (plan.md 8.2): "Planner: model via provider". */
+  backup?: string
 }
 
-export function StatusBar({ state, tool, debug, latencyMs }: StatusBarProps) {
+export function StatusBar({ state, tool, debug, latencyMs, backup }: StatusBarProps) {
   const offline = state === 'offline'
 
   return (
@@ -20,6 +22,15 @@ export function StatusBar({ state, tool, debug, latencyMs }: StatusBarProps) {
       </p>
 
       <div className="flex items-center gap-4">
+        {backup && (
+          <p
+            className="flex h-8 items-center rounded-pill border border-warning px-3 font-mono text-label font-medium uppercase text-warning"
+            title={backup}
+          >
+            Backup model
+            <span className="sr-only">: {backup}</span>
+          </p>
+        )}
         {debug && (
           <p className="font-mono text-label uppercase text-text-muted">
             Latency{' '}

@@ -157,9 +157,11 @@ export function DuplexTimeline({ data, offline, muted }: DuplexTimelineProps) {
         {showInterrupts && (
           // Tick marks sit over the lane column only (second grid column).
           <div className="pointer-events-none relative col-start-2 row-start-1 row-end-3 h-full">
-            {data.interrupts.map((seconds) => (
+            {data.interrupts.map((seconds, i) => (
+              // Keyed by order, not position: the position moves as the
+              // window slides, and a new key would restart the fade-in.
               <motion.div
-                key={seconds}
+                key={i}
                 className="absolute inset-y-0 flex flex-col items-center"
                 style={{ left: `${(seconds / data.windowSeconds) * 100}%` }}
                 initial={{ opacity: 0 }}

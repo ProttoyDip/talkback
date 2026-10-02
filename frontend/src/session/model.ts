@@ -3,9 +3,10 @@
  * shows. No timers, no I/O, so it is easy to test against the shared fixture.
  */
 import type { ConfirmRequest, ConversationState, Segment, ToolCall, Turn } from '../state/types'
-import type { ErrorCode, ServerEvent, SessionEndReason, ToolName } from './protocol'
+import type { ErrorCode, ModelRole, ProviderId, ServerEvent, SessionEndReason, ToolName } from './protocol'
 
-export type Connection = 'connecting' | 'open' | 'reconnecting' | 'closed'
+/** ready: not started yet; the user starts the session (SECURITY.md T2). */
+export type Connection = 'ready' | 'connecting' | 'open' | 'reconnecting' | 'closed'
 
 interface Backchannel {
   id: string
@@ -44,13 +45,16 @@ export interface ConversationModel {
    * sound ends, so this is where the "mm-hm" marker goes.
    */
   overlapStart?: { turnId: string; at: number }
+  /** Which provider and model serve each role (model.active). */
+  models: Partial<Record<ModelRole, { provider: ProviderId; model: string; backup: boolean }>>
 }
 
 export const initialModel: ConversationModel = {
-  connection: 'connecting',
+  connection: 'ready',
   state: 'idle',
   turns: [],
   interrupts: [],
+  models: {},
 }
 
 export type Action =
@@ -177,6 +181,15 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
 
     case 'session.end':
       return { ...model, ended: event.reason }
+
+    case 'model.active':
+      return {
+        ...model,
+        models: {
+          ...model.models,
+          [event.role]: { provider: event.provider, model: event.model, backup: event.backup },
+        },
+      }
 
     case 'audio.chunk':
       return model // audio is handled by the playback layer

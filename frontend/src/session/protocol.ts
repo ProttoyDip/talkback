@@ -32,6 +32,27 @@ export interface Source {
   url: string
 }
 
+export type ProviderId =
+  | 'nebius'
+  | 'openrouter'
+  | 'agentrouter'
+  | 'nararouter'
+  | 'experimentallab'
+  | 'tavily'
+  | 'perplexity'
+
+export const PROVIDER_NAMES: Record<ProviderId, string> = {
+  nebius: 'Nebius',
+  openrouter: 'OpenRouter',
+  agentrouter: 'AgentRouter',
+  nararouter: 'Nararouter',
+  experimentallab: 'ExperimentalLab',
+  tavily: 'Tavily',
+  perplexity: 'Perplexity',
+}
+
+export type ModelRole = 'voice' | 'planner' | 'search'
+
 export type ErrorCode = 'voice_engine_offline' | 'tool_failed' | 'rate_limited' | 'internal'
 
 export type SessionEndReason = 'idle' | 'time_limit' | 'server_shutdown' | 'protocol_error'
@@ -61,6 +82,7 @@ export type ServerEvent =
   | { type: 'memory.saved'; id: string; text: string }
   | { type: 'metrics'; latency_ms: number }
   | { type: 'error'; code: ErrorCode; message: string; retry_in_ms?: number }
+  | { type: 'model.active'; role: ModelRole; provider: ProviderId; model: string; backup: boolean }
   | { type: 'session.end'; reason: SessionEndReason }
 
 const SERVER_EVENT_TYPES = new Set<ServerEvent['type']>([
@@ -74,6 +96,7 @@ const SERVER_EVENT_TYPES = new Set<ServerEvent['type']>([
   'memory.saved',
   'metrics',
   'error',
+  'model.active',
   'session.end',
 ])
 
