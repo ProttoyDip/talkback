@@ -96,7 +96,7 @@ One WebSocket: `wss://<host>/ws/session?token=<session-token>`. The token comes 
 | Direction | `type` | Payload | Purpose |
 |---|---|---|---|
 | C → S | `session.start` | `{client_sample_rate: 16000}` | Open a conversation (must be first) |
-| C → S | `playback.position` | `{seq, samples_played}` | Sent every 100 ms and on stop |
+| C → S | `playback.position` | `{seq, samples_played}` | Sent every 100 ms while audio plays, and right after a flush. `samples_played` counts all assistant samples (22.05 kHz) played since the session started; `seq` is the chunk playing now. The server maps this to words |
 | C → S | `control.mute` | `{muted}` | User mute toggle |
 | C → S | `tool.confirm` | `{call_id, approved}` | Answer to a confirmation request |
 | S → C | `state` | `{state, tool?}` | Drives the UI state machine; `tool` is set with state `tool` |
