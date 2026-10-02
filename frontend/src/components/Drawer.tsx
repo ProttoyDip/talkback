@@ -2,41 +2,27 @@ import { motion } from 'motion/react'
 import { useEffect, useRef } from 'react'
 import { enter, exit } from '../styles/motion'
 import { Icon } from './Icon'
+import type { ConversationModel } from '../session/model'
+import { MemoryPanel } from './panels/MemoryPanel'
+import { SettingsPanel } from './panels/SettingsPanel'
+import { SkillsPanel } from './panels/SkillsPanel'
 import type { Panel } from './Navigation'
 
-const TITLES: Record<Panel, string> = { memory: 'Memory', skills: 'Skills' }
-
-/*
- * Memory and Skills panels are later steps (design.md 5.3, 5.4). Until then
- * the drawer shows their empty states, which are real states of the product.
- */
-function EmptyState({ panel }: { panel: Panel }) {
-  if (panel === 'memory') {
-    return (
-      <div className="flex flex-col gap-2">
-        <p className="text-body text-text">Nothing remembered yet.</p>
-        <p className="text-body text-text-muted">
-          Try: <span className="text-voice-user">“Remember that I prefer Celsius.”</span>
-        </p>
-      </div>
-    )
-  }
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="text-body text-text">No skills yet.</p>
-      <p className="text-body text-text-muted">
-        Skills like <span className="font-mono text-data text-text">morning brief</span> appear
-        here once they are added.
-      </p>
-    </div>
-  )
-}
+const TITLES: Record<Panel, string> = { memory: 'Memory', skills: 'Skills', settings: 'Settings' }
 
 /**
  * Right drawer, 360 px on desktop; a full-height sheet below 1024 px
  * (design.md 4).
  */
-export function Drawer({ panel, onClose }: { panel: Panel; onClose: () => void }) {
+export interface DrawerContext {
+  /** Changes when TalkBack saves a memory, so the open list refreshes. */
+  memoryVersion?: string
+  sessionOpen: boolean
+  onSkillRan: (name: string) => void
+  activeModels: ConversationModel['models']
+}
+
+export function Drawer({ panel, onClose, context }: { panel: Panel; onClose: () => void; context: DrawerContext }) {
   const closeRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     closeRef.current?.focus()
@@ -63,7 +49,9 @@ export function Drawer({ panel, onClose }: { panel: Panel; onClose: () => void }
         </button>
       </header>
       <div className="flex-1 overflow-y-auto p-6">
-        <EmptyState panel={panel} />
+        {panel === 'memory' && <MemoryPanel refreshKey={context.memoryVersion} />}
+        {panel === 'skills' && <SkillsPanel sessionOpen={context.sessionOpen} onRan={context.onSkillRan} />}
+        {panel === 'settings' && <SettingsPanel active={context.activeModels} />}
       </div>
     </motion.aside>
   )

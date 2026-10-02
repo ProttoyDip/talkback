@@ -6,6 +6,11 @@ import { laneInk, micButton, status } from './helpers'
 test.describe.configure({ mode: 'serial' })
 test.skip(({ isMobile }) => isMobile, 'live backend checks run once, on desktop')
 
+// These tests are about the session, not the first-run welcome.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('talkback.onboarded', '1'))
+})
+
 function recordSocket(page: Page) {
   const frames: number[] = []
   const messages: Array<Record<string, unknown>> = []

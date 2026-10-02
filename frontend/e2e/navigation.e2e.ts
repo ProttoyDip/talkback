@@ -15,12 +15,10 @@ test('M opens Memory, K opens Skills, Esc closes (design.md 7)', async ({ page }
   await expect(page.getByRole('complementary', { name: 'Skills' })).toBeHidden()
 })
 
-test('Settings is marked as not available yet', async ({ page }) => {
-  await page.goto('/?state=idle')
-  await expect(page.getByRole('button', { name: 'Settings (not available yet)' })).toHaveAttribute(
-    'aria-disabled',
-    'true',
-  )
+test('Settings opens as a panel', async ({ page }) => {
+  await page.goto('/?state=idle&mock')
+  await page.getByRole('button', { name: 'Settings' }).first().click()
+  await expect(page.getByRole('complementary', { name: 'Settings' })).toBeVisible()
 })
 
 test('keyboard focus shows a 2 px ring', async ({ page, isMobile }) => {
