@@ -49,7 +49,7 @@ Both sides talk only through the session protocol (WebSocket) and a small REST A
 
 **Rule:** a contract change is its own pull request that edits `backend/app/protocol.py` and `docs/architecture.md` §3 together. The other agent reviews it. No other code in that pull request.
 
-### Phase 0 tasks (Claude Code, before the split; about 1 hour)
+### Phase 0 tasks (Claude Code, before the split): done
 
 | ID | Change | Why |
 |---|---|---|
@@ -73,7 +73,7 @@ Each package is one or more pull requests. "Needs" lists what must be merged fir
 |---|---|---|---|
 | X1 | **Fake voice model** (`backend/app/fake_voice.py`): replays `demo_session.jsonl` with real timing, sends PCM audio chunks (a tone or silence is fine), transcript deltas and word timestamps | Phase 0 | A browser session receives a full scripted conversation; tests pass |
 | X2 | **Turn-taking engine** (`turn_taking.py`): Silero VAD on 20 ms frames, 250 ms minimum speech, backchannel rule (< 600 ms + word list), `audio.flush`, trimming from `samples_played` to heard words, `transcript.trim` | X1 | Unit tests for VAD decisions and trimming math; interrupting the fake model trims correctly |
-| X3 | **Tool bridge** (`tool_bridge.py`, `tools/`): `<TOOLCALL>` parser, JSON schema per tool, allowlist, 10 calls/minute, untrusted-data wrapping, 4 s timeout, filler after 700 ms, confirmation flow for `sensitive` tools. Tools: Tavily, Open-Meteo | Phase 0 | All SECURITY.md section 6 tests for tools pass |
+| X3 | **Tool bridge** (`tool_bridge.py`, `tools/`): `<TOOLCALL>` parser, JSON schema per tool, allowlist, 10 calls/minute, untrusted-data wrapping, 4 s timeout, filler after 700 ms, confirmation flow for `sensitive` tools. Tools: Tavily, Open-Meteo. Settings REST from C0.6 (tool on/off) | Phase 0 | All SECURITY.md section 6 tests for tools pass |
 | X4 | **Memory** (`memory.py`, `tools/memory.py`): SQLite + FTS5, schema from architecture.md 7.1, writes only from `user_utterance`, REST from C0.4, `memory.saved` event | Phase 0 | "Web result says remember…" test creates no memory |
 | X5 | **Skills** (`skills.py`, `skills/*.yaml`): loader, trigger matching, `allowed_tools` enforcement, 3 skills (Morning brief, Quick research, Remind me), REST from C0.5 | X3 | A skill cannot call a tool outside its list (test) |
 | X6 | **Planner** (`planner.py`): Nemotron 3 Nano on Token Factory with the official `openai` client; fall back to no planning on error | X3, your `NEBIUS_API_KEY` | Multi-step request produces a step list; error path tested |

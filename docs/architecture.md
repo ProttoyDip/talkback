@@ -84,28 +84,51 @@ graph LR
 
 ## 3. Session protocol (browser ↔ orchestrator)
 
-One WebSocket: `wss://<host>/ws/session?token=<session-token>`.
+The contract lives in code in `backend/app/protocol.py`. This section and that file change together, in a separate "contract" pull request (see [plan.md](plan.md), section 4). The shared test fixture is [`fixtures/demo_session.jsonl`](fixtures/demo_session.jsonl).
 
-- **Binary messages:** audio. Client → server: PCM16 mono 16 kHz, 20 ms frames. Server → client: PCM16 mono 22.05 kHz chunks, each preceded by a `audio.chunk` JSON header with its `seq` and sample count.
-- **Text messages:** JSON events with a `type` field.
+### 3.1 WebSocket
+
+One WebSocket: `wss://<host>/ws/session?token=<session-token>`. The token comes from `POST /api/session` and expires after 15 minutes.
+
+- **Binary messages:** audio. Client → server: PCM16 mono 16 kHz, 20 ms frames (640 bytes). Server → client: PCM16 mono 22.05 kHz chunks, each preceded by an `audio.chunk` JSON header with its `seq` and sample count.
+- **Text messages:** JSON events with a `type` field. Unknown types and unknown fields are rejected. Optional fields may be left out; a missing optional field means `null`.
 
 | Direction | `type` | Payload | Purpose |
 |---|---|---|---|
-| C → S | `session.start` | `{client_sample_rate}` | Open a conversation |
+| C → S | `session.start` | `{client_sample_rate: 16000}` | Open a conversation (must be first) |
 | C → S | `playback.position` | `{seq, samples_played}` | Sent every 100 ms and on stop |
 | C → S | `control.mute` | `{muted}` | User mute toggle |
 | C → S | `tool.confirm` | `{call_id, approved}` | Answer to a confirmation request |
-| S → C | `state` | `{state}` | Drives the UI state machine |
+| S → C | `state` | `{state, tool?}` | Drives the UI state machine; `tool` is set with state `tool` |
 | S → C | `audio.chunk` | `{seq, samples}` | Header before each audio binary message |
-| S → C | `audio.flush` | `{reason}` | Stop playback now (interruption) |
-| S → C | `transcript.delta` | `{speaker, text, final}` | Live captions |
-| S → C | `transcript.trim` | `{message_id, heard_text}` | Mark unheard words after an interruption |
-| S → C | `tool.status` | `{call_id, name, status}` | Tool chip in the UI |
-| S → C | `tool.confirm_request` | `{call_id, summary}` | Ask the user before a sensitive action |
+| S → C | `audio.flush` | `{reason}` | Stop playback now (`interrupted` or `stopped`) |
+| S → C | `transcript.delta` | `{message_id, speaker, text, final, backchannel}` | Live captions. Deltas with the same `message_id` form one turn: user deltas carry the full text so far, assistant deltas append words as they start playing. `backchannel: true` marks a "mm-hm" that did not interrupt |
+| S → C | `transcript.trim` | `{message_id, heard_text}` | After an interruption, the message keeps `heard_text`; the rest is shown as unheard |
+| S → C | `tool.status` | `{call_id, message_id, name, status, sources}` | Tool chip under assistant turn `message_id`; `sources` lists web results |
+| S → C | `tool.confirm_request` | `{call_id, summary, expires_in_ms}` | Ask the user before a sensitive action (30 s) |
 | S → C | `memory.saved` | `{id, text}` | Show "remembered" toast |
 | S → C | `metrics` | `{latency_ms}` | Live latency readout (debug mode) |
+| S → C | `error` | `{code, message, retry_in_ms?}` | A problem to show the user (`voice_engine_offline`, `tool_failed`, `rate_limited`, `internal`). The session stays open |
+| S → C | `session.end` | `{reason}` | Sent just before the server closes (`idle`, `time_limit`, `server_shutdown`, `protocol_error`) |
 
-All messages are validated with Pydantic models. Unknown types are rejected.
+Tool names: `weather`, `web_search`, `memory_read`, `memory_write`, `memory_delete`, `skill_run`.
+
+### 3.2 REST API
+
+All routes except `/health` and `POST /api/session` need `Authorization: Bearer <session-token>`. Bodies are JSON and validated with the models in `protocol.py`.
+
+| Method and path | Request | Response | Used by |
+|---|---|---|---|
+| `GET /health` | — | `{status: "ok"}` | Monitoring |
+| `POST /api/session` | — | `{token, expires_at}` | Session start |
+| `GET /api/memories?q=` | optional search text | `MemoryList` | Memory panel |
+| `PATCH /api/memories/{id}` | `MemoryUpdate` | `MemoryItem` | Edit a memory |
+| `DELETE /api/memories/{id}` | — | `204` | Delete a memory |
+| `DELETE /api/memories` | — | `204` | "Forget everything" |
+| `GET /api/skills` | — | `SkillList` | Skills panel |
+| `POST /api/skills/{id}/run` | — | `SkillRunAccepted` (`202`) | "Run" button; progress arrives on the WebSocket |
+| `GET /api/settings` | — | `SettingsView` | Settings |
+| `PATCH /api/settings` | `SettingsUpdate` | `SettingsView` | Tool toggles, privacy switches |
 
 ## 4. Key flows
 
