@@ -106,12 +106,15 @@ class TranscriptDelta(Message):
 
 
 class TranscriptTrim(Message):
-    """After an interruption: the assistant message keeps only heard_text.
-    The rest of that message is shown as unheard."""
+    """After an interruption: the assistant message keeps only heard_text in
+    its history. unheard_text is what it had planned to say next; the UI shows
+    it faded and struck through (design.md 5.2). It is never sent back to the
+    model."""
 
     type: Literal["transcript.trim"] = "transcript.trim"
     message_id: Id
     heard_text: str
+    unheard_text: str = ""
 
 
 class Source(Message):

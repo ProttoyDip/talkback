@@ -135,7 +135,7 @@
 {"t_ms": 18260, "event": {"type": "state", "state": "interrupted"}}
 {"t_ms": 18260, "event": {"type": "audio.flush", "reason": "interrupted"}}
 {"t_ms": 18260, "event": {"type": "transcript.delta", "message_id": "u4", "speaker": "user", "text": "No,", "final": false, "backchannel": false}}
-{"t_ms": 18340, "event": {"type": "transcript.trim", "message_id": "a2", "heard_text": "It's sunny in Lisbon right now, around 24 degrees. This evening the wind picks up from the north,"}}
+{"t_ms": 18340, "event": {"type": "transcript.trim", "message_id": "a2", "heard_text": "It's sunny in Lisbon right now, around 24 degrees. This evening the wind picks up from the north,", "unheard_text": "so take a light jacket if you're out after dinner."}}
 {"t_ms": 18410, "event": {"type": "state", "state": "listening"}}
 {"t_ms": 18560, "event": {"type": "transcript.delta", "message_id": "u4", "speaker": "user", "text": "No, tomorrow.", "final": true, "backchannel": false}}
 {"t_ms": 18660, "event": {"type": "state", "state": "assistant_speaking"}}

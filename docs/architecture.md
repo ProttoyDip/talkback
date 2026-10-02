@@ -103,7 +103,7 @@ One WebSocket: `wss://<host>/ws/session?token=<session-token>`. The token comes 
 | S → C | `audio.chunk` | `{seq, samples}` | Header before each audio binary message |
 | S → C | `audio.flush` | `{reason}` | Stop playback now (`interrupted` or `stopped`) |
 | S → C | `transcript.delta` | `{message_id, speaker, text, final, backchannel}` | Live captions. Deltas with the same `message_id` form one turn: user deltas carry the full text so far, assistant deltas append words as they start playing. `backchannel: true` marks a "mm-hm" that did not interrupt |
-| S → C | `transcript.trim` | `{message_id, heard_text}` | After an interruption, the message keeps `heard_text`; the rest is shown as unheard |
+| S → C | `transcript.trim` | `{message_id, heard_text, unheard_text}` | After an interruption, the message keeps `heard_text` in history. `unheard_text` (what it had planned to say) is only shown, faded |
 | S → C | `tool.status` | `{call_id, message_id, name, status, sources}` | Tool chip under assistant turn `message_id`; `sources` lists web results |
 | S → C | `tool.confirm_request` | `{call_id, summary, expires_in_ms}` | Ask the user before a sensitive action (30 s) |
 | S → C | `memory.saved` | `{id, text}` | Show "remembered" toast |

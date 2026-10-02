@@ -35,7 +35,8 @@ def test_fixture_references_are_consistent():
         if isinstance(e, ToolStatus):
             assert e.message_id.startswith("a"), "tool chips belong to assistant turns"
         if isinstance(e, TranscriptTrim):
-            assert assistant_text[e.message_id].startswith(e.heard_text)
+            assert assistant_text[e.message_id].strip() == e.heard_text
+            assert e.unheard_text, "the demo interruption cuts off planned words"
 
 
 def test_unknown_server_event_is_rejected():

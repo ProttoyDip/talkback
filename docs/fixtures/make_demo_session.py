@@ -121,6 +121,7 @@ emit(cut_at, {"type": "audio.flush", "reason": "interrupted"})
 emit(cut_at + 80, {
     "type": "transcript.trim", "message_id": "a2",
     "heard_text": " ".join(weather.split()[:heard_words]),
+    "unheard_text": " ".join(weather.split()[heard_words:]),
 })
 state(cut_at + 150, "listening")
 t = user_says(cut_at - 300, "u4", "No, tomorrow.")
