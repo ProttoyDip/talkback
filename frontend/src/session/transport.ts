@@ -4,6 +4,7 @@
  * fixture. Both have the same interface, so the screen does not care which.
  */
 import type { Connection } from './model'
+import { rememberSessionToken } from '../api/client'
 import { parseServerEvent, type ClientMessage, type ServerEvent } from './protocol'
 
 export interface TransportHandlers {
@@ -50,7 +51,9 @@ export class LiveTransport implements Transport {
     try {
       const response = await fetch('/api/session', { method: 'POST' })
       if (!response.ok) throw new Error(`session request failed: ${response.status}`)
-      token = ((await response.json()) as { token: string }).token
+      const body = (await response.json()) as { token: string; expires_at: number }
+      token = body.token
+      rememberSessionToken(body.token, body.expires_at)
     } catch {
       this.scheduleRetry()
       return

@@ -99,7 +99,7 @@ Each package is one or more pull requests. "Needs" lists what must be merged fir
 | F9 | **Backup notice**: a small "Backup model" label in the status bar while a backup provider answers, so the user always knows which model is in use | C1 | Shows and clears on `model.active` |
 | F8 | **Accessibility and polish pass**: keyboard, screen reader, contrast, reduced motion, 375 px, error states (design.md 5.6, 7) | F1–F7 | Checklist in design.md section 10 step 6 passes |
 
-**Status (Claude Code):** F1–F9, X12 and X13 are built. F6 and F7 run against `?mock` data until X5 (skills) and the settings routes exist in the backend; the memory routes are live.
+**Status (2 October, Codex out of budget, Claude Code took over the backend):** built: X1 (fake voice engine, `VOICE_ENGINE=fake`), X2 (barge-in, backchannels, trimming, conversation controller), X5 (skills and settings routes), X8 (`eval/`, turn-taking only), X9 (notes and one-URL serving only, no access code), X11 (search fallback). Partly: X10 (Nebius then OpenRouter, user-switchable in Settings; the other providers are not added). Not built: X6 (planner step list), X7 (VoiceChat client, needs the H100). Frontend: F1–F9, X12 and X13 are built. F6 and F7 run against `?mock` data until X5 (skills) and the settings routes exist in the backend; the memory routes are live.
 
 ### Contract change C1 (Claude Code): done
 

@@ -44,7 +44,12 @@ export default defineConfig({
       url: 'http://localhost:8001/health',
       reuseExistingServer: false,
       timeout: 60_000,
-      env: { VOICE_ENGINE: 'none', ALLOWED_ORIGINS: 'http://localhost:5174' },
+      env: {
+        VOICE_ENGINE: 'none',
+        ALLOWED_ORIGINS: 'http://localhost:5174',
+        SETTINGS_PATH: 'data/e2e-settings.json',
+        MEMORY_DB_PATH: 'data/e2e-memories.sqlite3',
+      },
     },
     {
       command: 'npm run dev -- --port 5174 --strictPort',

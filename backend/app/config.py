@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     memory_db_path: str = "data/memories.sqlite3"
     settings_path: str = "data/settings.json"
     skills_dir: str = "skills"
+    # Built frontend (frontend/dist) served by this app, for one-URL deployment.
+    frontend_dist: str = ""
     perplexity_api_key: SecretStr = SecretStr("")
 
     # Which voice engine serves sessions: "cascade" (plan B), "fake" (X1),

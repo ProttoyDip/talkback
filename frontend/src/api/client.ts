@@ -19,6 +19,11 @@ export const USE_MOCK = new URLSearchParams(window.location.search).has('mock')
 
 let cached: { token: string; expiresAt: number } | undefined
 
+/** The live conversation shares its token, so REST calls (Run a skill) act on that session. */
+export function rememberSessionToken(token: string, expiresAt: number) {
+  cached = { token, expiresAt }
+}
+
 async function token(): Promise<string> {
   if (cached && cached.expiresAt * 1000 - Date.now() > 60_000) return cached.token
   const response = await fetch('/api/session', { method: 'POST' })

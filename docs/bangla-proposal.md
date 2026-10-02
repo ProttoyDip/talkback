@@ -14,9 +14,9 @@
 | Text model, Bangla understanding | `nemotron-3-super-120b-a12b` understood a mixed Bangla–English question and answered in 6 s, but its Bangla output was **mixed with Hindi, Cyrillic and Latin words**. Not usable for spoken Bangla as is. `nemotron-3.5-lightning-30b-a3b` took 43 s (it reasons at length). One sample each: this is a smoke test, not an evaluation. |
 | Nebius Token Factory | `NEBIUS_API_KEY` is not set here, so its model list and any recognizer there were **not checked**. |
 
-## 2. Separate finding: the default planner model is retired
+## 2. Separate finding: Nemotron 3 Nano is retired on NVIDIA's own catalog
 
-The NVIDIA catalog returns `410 Gone` for `nvidia/nemotron-3-nano-30b-a3b` ("end of life on 2026-09-01"). The model name is the project default in `backend/app/config.py` (Nebius and OpenRouter entries). OpenRouter still answered with its copy, so the app works, but the plan names "Nemotron 3 Nano" as the primary planner. Current NVIDIA catalog options include `nvidia/nemotron-3-super-120b-a12b` and `nvidia/nemotron-3.5-lightning-30b-a3b`. Codex should confirm the exact IDs on Nebius Token Factory (X6, X10) before the evaluation numbers are recorded.
+The NVIDIA catalog returns `410 Gone` for `nvidia/nemotron-3-nano-30b-a3b` ("end of life on 2026-09-01"). The project does not use that endpoint: it calls Nebius, then OpenRouter. OpenRouter still lists and serves the model (first word in about 3.7 s in a test on 2 October). Nebius could not be checked (no key here), so **check that Nebius still serves `nvidia/nvidia-nemotron-3-nano-30b-a3b` before relying on it as the primary.** NVIDIA's hosted `nemotron-3-super-120b-a12b` and `nemotron-3.5-lightning-30b-a3b` were too slow or unreliable on the free catalog (up to 79 s to the first word), so they are not good replacements for a voice reply path.
 
 ## 3. What the 16-feature list needs, by layer
 

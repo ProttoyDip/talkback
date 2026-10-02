@@ -92,7 +92,7 @@ $$\text{latency} = t_{\text{first audio out}} - t_{\text{end of user speech}}$$
 ## Quick start
 
 > [!NOTE]
-> For spoken replies, add `NVIDIA_API_KEY` and `NEBIUS_API_KEY` (or `OPENROUTER_API_KEY`) to `backend/.env`. Without them the app still runs and explains what is missing. You can ask for the weather (Open-Meteo, no key needed). Interruption handling (barge-in) is not built yet.
+> For spoken replies, add `NVIDIA_API_KEY` and `NEBIUS_API_KEY` (or `OPENROUTER_API_KEY`) to `backend/.env`. Without them the app still runs and explains what is missing. You can ask for the weather (Open-Meteo, no key needed). Interruption handling is built but has only been tested with scripted audio, not yet by ear with live speech. For an offline demo without keys, set `VOICE_ENGINE=fake` in `backend/.env`: it plays a scripted conversation and reacts to interruptions.
 
 ### Prerequisites
 
@@ -232,13 +232,14 @@ The planned `eval/` folder will contain scripts for two metrics:
 - [x] FastAPI backend: `/health`, session tokens, validated WebSocket gateway
 - [ ] Audio streaming in 20 ms frames between the browser and the voice model
 - [ ] NemotronLabs VoiceChat on an NVIDIA H100 on Nebius AI Cloud
-- [ ] Interruption handling: Silero VAD, 250 ms minimum speech length, playback-position history trimming
+- [x] Interruption handling in the gateway: energy-based voice detection (Silero is not used yet), 250 ms minimum speech, backchannel rule, history trimmed at the playback position. Tested with scripted audio only
+- [x] Conversation controller: filler words ("umm") are not answered, unfinished sentences wait briefly, short reactions are read in context (English only)
 - [ ] Nemotron tool planning via Nebius Token Factory, with Tavily and Open-Meteo tools
 - [ ] Spoken filler during tool calls
 - [x] Conversation screen (React): live transcript, duplex timeline, tool chips, confirmation card
 - [x] Live audio in the frontend (microphone capture and playback)
 - [x] First-run onboarding, Memory panel, Skills panel and Settings (microphone choice, tools, privacy, models); Skills and Settings need backend routes that are not built yet, so they show an error unless you add `?mock`
-- [ ] Evaluation scripts for latency and interruption recovery
+- [x] `eval/`: 50 scripted turn-taking scenarios (decision logic only; run `backend/.venv/bin/python eval/interruptions.py`). End-to-end latency with the real speech engine is not measured yet
 - [ ] Demo video
 - [ ] More languages, including low-resource languages
 - [ ] On-device version for NVIDIA Jetson

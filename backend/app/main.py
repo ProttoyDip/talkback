@@ -36,3 +36,16 @@ def create_session(settings: Annotated[Settings, Depends(get_settings)]) -> Sess
     """Issue a 15-minute token for one WebSocket session (SECURITY.md T7)."""
     token, claims = issue_token(settings.signing_key())
     return SessionToken(token=token, expires_at=claims.expires_at)
+
+
+def mount_frontend(application: FastAPI, directory: str) -> None:
+    """Serve the built frontend. Added last, so API routes win."""
+    from pathlib import Path
+
+    from fastapi.staticfiles import StaticFiles
+
+    if directory and (Path(directory) / "index.html").is_file():
+        application.mount("/", StaticFiles(directory=directory, html=True), name="frontend")
+
+
+mount_frontend(app, get_settings().frontend_dist)
