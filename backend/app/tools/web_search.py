@@ -20,4 +20,4 @@ def web_search_tool(client: httpx.AsyncClient, api_key: SecretStr) -> Tool:
         response.raise_for_status()
         return [ToolResult(str(item["title"]), str(item["url"]), str(item["content"]))
                 for item in response.json()["results"][:arguments.max_results]]
-    return Tool("web_search", "Send the requested search query to Tavily?", SearchArguments, run)
+    return Tool("web_search", "Search the web with Tavily.", SearchArguments, run, sensitive=False)

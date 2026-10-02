@@ -31,4 +31,4 @@ def weather_tool(client: httpx.AsyncClient) -> Tool:
                    f"{daily['temperature_2m_max'][index]} Celsius; precipitation probability "
                    f"{daily['precipitation_probability_max'][index]}%.")
         return [ToolResult(str(place["name"]), "https://open-meteo.com/", snippet)]
-    return Tool("weather", "Send the requested location to Open-Meteo for a weather forecast?", WeatherArguments, run)
+    return Tool("weather", "Get a weather forecast from Open-Meteo.", WeatherArguments, run, sensitive=False)

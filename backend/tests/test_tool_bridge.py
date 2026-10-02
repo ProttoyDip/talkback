@@ -12,7 +12,7 @@ from app.tools.weather import WeatherArguments, weather_tool
 from app.tools.web_search import SearchArguments, web_search_tool
 
 
-def request(name="test", arguments=None):
+def request(name="memory_delete", arguments=None):
     return '<TOOLCALL>' + json.dumps([{"name": name, "arguments": arguments or {}}]) + '</TOOLCALL>'
 
 
@@ -23,29 +23,28 @@ def unpack(payload):
 def bridge(handler=None, sensitive=False, **kwargs):
     handler = handler or AsyncMock(return_value=[ToolResult("Title", "https://example.com", "snippet")])
     emit, filler = AsyncMock(), AsyncMock()
-    instance = ToolBridge("session", [Tool("test", "Run test?", Arguments, handler, sensitive)], emit, filler, **kwargs)
+    instance = ToolBridge("session", [Tool("memory_delete", "Run test?", Arguments, handler, sensitive)], emit, filler, **kwargs)
     return instance, handler, emit, filler
 
 
 @pytest.mark.parametrize("raw", ["oops", "{}", "[]", "[{}]", request() + 'junk', '[' * 1000, 'x' * 65537,
-    '[{"name":"test","arguments":{},"extra":true}]'], ids=['text', 'object', 'empty', 'missing', 'trailing', 'deep', 'oversize', 'extra'])
+    '[{"name":"memory_delete","arguments":{},"extra":true}]'], ids=['text', 'object', 'empty', 'missing', 'trailing', 'deep', 'oversize', 'extra'])
 def test_invalid_parser(raw):
     with pytest.raises(ValueError):
         parse_calls(raw)
 
 
 def test_parser_accepts_inner_and_wrapped():
-    assert parse_calls(request())[0].name == 'test'
-    assert parse_calls('[{"name":"test","arguments":{}}]')[0].name == 'test'
+    assert parse_calls(request())[0].name == 'memory_delete'
+    assert parse_calls('[{"name":"memory_delete","arguments":{}}]')[0].name == 'memory_delete'
 
 
 def test_validation_disabled_and_unknown_logged(monkeypatch):
-    logger = AsyncMock()
     from app import tool_bridge
     records = []
     monkeypatch.setattr(tool_bridge.log, 'warning', lambda msg, extra: records.append(extra))
     instance, handler, _, _ = bridge()
-    for name, args, expected in [('private-name', {}, 'unknown_tool'), ('test', {'extra': 1}, 'invalid_arguments')]:
+    for name, args, expected in [('private-name', {}, 'unknown_tool'), ('memory_delete', {'extra': 1}, 'invalid_arguments')]:
         assert unpack(asyncio.run(instance.execute(request(name, args), 'turn')))[0]['error'] == expected
     assert records[0] == {'session_id': 'session', 'turn_id': 'turn', 'code': 'unknown_tool'}
     instance.set_enabled(set())
@@ -147,7 +146,7 @@ def test_weather_mock_transport():
     async def scenario():
         async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
             tool = weather_tool(client)
-            assert tool.sensitive
+            assert not tool.sensitive
             assert '25 to 31' in (await tool.run(WeatherArguments(location='Dhaka', day='tomorrow')))[0].snippet
     asyncio.run(scenario())
     assert len(requests) == 2
@@ -162,8 +161,8 @@ def test_search_mock_transport():
     async def scenario():
         async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
             tool = web_search_tool(client, SecretStr('test-placeholder'))
-            assert tool.sensitive
-            assert (await tool.run(SearchArguments(query='test')))[0].snippet == 'Text'
+            assert not tool.sensitive
+            assert (await tool.run(SearchArguments(query='memory_delete')))[0].snippet == 'Text'
     asyncio.run(scenario())
 
 
@@ -225,3 +224,82 @@ def test_http_failures_do_not_follow_redirects(status):
                 await web_search_tool(client, SecretStr('test-placeholder')).run(SearchArguments(query='q'))
     asyncio.run(scenario())
     assert len(requests) == 1
+
+
+def test_statuses_use_turn_id_on_success_and_failure():
+    for handler in (AsyncMock(return_value=[]), AsyncMock(side_effect=RuntimeError('failed'))):
+        instance, _, emit, _ = bridge(handler)
+        asyncio.run(instance.execute(request(), 'assistant-turn'))
+        events = [call.args[0] for call in emit.await_args_list]
+        assert [event.message_id for event in events] == ['assistant-turn', 'assistant-turn']
+        assert events[0].status == 'running'
+        assert events[-1].status in {'done', 'failed'}
+        assert all(event.sources == [] for event in events)
+
+
+def test_search_status_sources_and_settings_consent():
+    requests = []
+    def respond(req):
+        requests.append(req)
+        return httpx.Response(200, json={'results': [
+            {'title': '<b>Source</b><script>hidden</script>', 'url': 'https://example.com/page', 'content': 'snippet'},
+            {'title': 'Unsafe', 'url': 'javascript:alert(1)', 'content': 'bad URL'},
+        ]})
+    async def scenario():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+            emit = AsyncMock()
+            instance = ToolBridge('session', [web_search_tool(client, SecretStr('test-placeholder'))], emit, AsyncMock())
+            await instance.execute(request('web_search', {'query': 'test'}), 'assistant-turn')
+            events = [call.args[0] for call in emit.await_args_list]
+            assert [event.status for event in events] == ['running', 'done']
+            assert all(event.message_id == 'assistant-turn' for event in events)
+            assert events[0].sources == []
+            assert events[1].model_dump(mode='json')['sources'] == [
+                {'title': 'Source', 'url': 'https://example.com/page'},
+            ]
+            instance.set_enabled(set())
+            await instance.execute(request('web_search', {'query': 'test'}), 'assistant-turn')
+            assert emit.await_args.args[0].status == 'failed'
+            assert emit.await_args.args[0].sources == []
+    asyncio.run(scenario())
+    assert len(requests) == 1
+
+
+def test_weather_executes_without_confirmation():
+    async def scenario():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(
+            lambda req: httpx.Response(200, json={'results': []})
+        )) as client:
+            emit = AsyncMock()
+            instance = ToolBridge('session', [weather_tool(client)], emit, AsyncMock())
+            await instance.execute(request('weather', {'location': 'Dhaka'}), 'turn')
+            assert [call.args[0].status for call in emit.await_args_list] == ['running', 'done']
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize('value', ['Dhaka', 'I prefer Celsius'])
+def test_sensitive_confirmation_includes_actual_argument(value):
+    class MemoryArguments(Arguments):
+        text: str
+    handler, emit = AsyncMock(return_value=[]), AsyncMock()
+    instance = ToolBridge('session', [Tool('memory_delete', 'Delete this memory?', MemoryArguments, handler)], emit, AsyncMock())
+    async def event(message):
+        if isinstance(message, ToolConfirmRequest):
+            assert value in message.summary
+            assert 'text' in message.summary
+            handler.assert_not_called()
+            instance.confirm(ToolConfirm(type='tool.confirm', call_id=message.call_id, approved=True))
+    emit.side_effect = event
+    asyncio.run(instance.execute(request(arguments={'text': value}), 'turn'))
+    handler.assert_awaited_once()
+
+
+def test_oversize_confirmation_is_rejected_without_truncating_action():
+    class MemoryArguments(Arguments):
+        text: str
+    handler, emit = AsyncMock(), AsyncMock()
+    instance = ToolBridge('session', [Tool('memory_delete', 'Delete this memory?', MemoryArguments, handler)], emit, AsyncMock())
+    result = unpack(asyncio.run(instance.execute(request(arguments={'text': 'x' * 301}), 'turn')))
+    assert result[0]['error'] == 'confirmation_summary_too_long'
+    assert not any(isinstance(call.args[0], ToolConfirmRequest) for call in emit.await_args_list)
+    handler.assert_not_called()
