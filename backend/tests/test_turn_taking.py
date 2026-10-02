@@ -299,3 +299,11 @@ def test_backchannel_over_speech_is_ignored_but_answered_when_idle():
 
     assert asyncio.run(run(True)) == []
     assert asyncio.run(run(False)) == ["okay"]
+
+
+def test_vad_hangover_does_not_lengthen_the_speech():
+    vad = EnergyVad()
+    run(vad, 0, 20)
+    run(vad, 5000, 22)  # a 440 ms "mm-hm"
+    longest = max(run(vad, 0, 1).speech_ms for _ in range(15))
+    assert longest <= 440  # so it stays under the 600 ms backchannel limit

@@ -42,6 +42,7 @@ class EnergyVad:
         self.floor = 100.0
         self.speech_frames = 0
         self.quiet_run = 0
+        self.active = False
 
     @staticmethod
     def rms(frame: bytes) -> float:
@@ -55,19 +56,20 @@ class EnergyVad:
         level = self.rms(frame)
         threshold = max(self.min_level, self.floor * self.floor_factor)
         if level >= threshold:
-            self.speech_frames += 1
+            # A dip inside the speech counts once the speech resumes.
+            self.speech_frames += 1 + self.quiet_run
             self.quiet_run = 0
-        elif self.speech_frames:
-            # Short dips inside a word do not end the speech.
+            self.active = True
+        elif self.active:
             self.quiet_run += 1
             if self.quiet_run > self.hangover_frames:
+                self.active = False
                 self.speech_frames = 0
                 self.quiet_run = 0
-            else:
-                self.speech_frames += 1
-        if not self.speech_frames:
+        if not self.active:
             self.floor = 0.95 * self.floor + 0.05 * level  # learn the room noise
-        return VadState(bool(self.speech_frames), self.speech_frames * FRAME_MS)
+        # Trailing quiet frames keep is_speech on but do not lengthen the speech.
+        return VadState(self.active, self.speech_frames * FRAME_MS)
 
 
 # Short sounds that mean "keep going". "yes" and "no" are not here: they can

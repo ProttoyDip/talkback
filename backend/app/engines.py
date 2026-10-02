@@ -25,6 +25,10 @@ def create_engine(settings: Settings) -> EngineChoice:
     kind = settings.voice_engine
     if kind == "none":
         return EngineChoice(None)
+    if kind == "fake":
+        from .fake_voice import FakeVoiceEngine
+
+        return EngineChoice(FakeVoiceEngine())
     if kind == "cascade":
         if not settings.nvidia_api_key.get_secret_value():
             return EngineChoice(None, "Speech isn't set up yet. Add NVIDIA_API_KEY to backend/.env and restart.")
