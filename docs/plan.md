@@ -97,7 +97,7 @@ Each package is one or more pull requests. "Needs" lists what must be merged fir
 | F9 | **Backup notice**: a small "Backup model" label in the status bar while a backup provider answers, so the user always knows which model is in use | C1 | Shows and clears on `model.active` |
 | F8 | **Accessibility and polish pass**: keyboard, screen reader, contrast, reduced motion, 375 px, error states (design.md 5.6, 7) | F1–F7 | Checklist in design.md section 10 step 6 passes |
 
-### Contract change C1 (Claude Code, after Phase 0 merges)
+### Contract change C1 (Claude Code): done
 
 | ID | Change |
 |---|---|

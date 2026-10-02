@@ -109,6 +109,7 @@ One WebSocket: `wss://<host>/ws/session?token=<session-token>`. The token comes 
 | S → C | `memory.saved` | `{id, text}` | Show "remembered" toast |
 | S → C | `metrics` | `{latency_ms}` | Live latency readout (debug mode) |
 | S → C | `error` | `{code, message, retry_in_ms?}` | A problem to show the user (`voice_engine_offline`, `tool_failed`, `rate_limited`, `internal`). The session stays open |
+| S → C | `model.active` | `{role, provider, model, backup}` | Which model serves `voice`, `planner` or `search`. Sent at session start and on every switch; `backup: true` shows the "Backup model" label (plan.md section 8) |
 | S → C | `session.end` | `{reason}` | Sent just before the server closes (`idle`, `time_limit`, `server_shutdown`, `protocol_error`) |
 
 Tool names: `weather`, `web_search`, `memory_read`, `memory_write`, `memory_delete`, `skill_run`.
@@ -127,8 +128,10 @@ All routes except `/health` and `POST /api/session` need `Authorization: Bearer 
 | `DELETE /api/memories` | — | `204` | "Forget everything" |
 | `GET /api/skills` | — | `SkillList` | Skills panel |
 | `POST /api/skills/{id}/run` | — | `SkillRunAccepted` (`202`) | "Run" button; progress arrives on the WebSocket |
-| `GET /api/settings` | — | `SettingsView` | Settings |
-| `PATCH /api/settings` | `SettingsUpdate` | `SettingsView` | Tool toggles, privacy switches |
+| `GET /api/settings` | — | `SettingsView` | Settings, including `models`: the fixed voice model, the planner allowlist and the providers in backup order |
+| `PATCH /api/settings` | `SettingsUpdate` | `SettingsView` | Tool toggles, privacy switches, planner model, backups on or off |
+
+Provider IDs: `nebius`, `openrouter`, `agentrouter`, `nararouter`, `experimentallab`, `tavily`, `perplexity`. The browser only ever sees provider IDs, display names and model names; never keys or URLs.
 
 ## 4. Key flows
 
