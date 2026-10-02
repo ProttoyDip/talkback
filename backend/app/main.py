@@ -9,6 +9,7 @@ from .config import Settings, get_settings
 from .logs import setup_logging
 from .memory_routes import router as memory_router
 from .session import router as session_router
+from .settings_routes import settings_router, skills_router
 from .tokens import issue_token
 
 setup_logging()
@@ -16,6 +17,8 @@ setup_logging()
 app = FastAPI(title="TalkBack orchestrator")
 app.include_router(session_router)
 app.include_router(memory_router)
+app.include_router(settings_router)
+app.include_router(skills_router)
 
 
 @app.get("/health")

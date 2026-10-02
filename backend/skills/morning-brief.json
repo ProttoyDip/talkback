@@ -1,0 +1,7 @@
+{
+  "id": "morning-brief",
+  "name": "Morning brief",
+  "triggers": ["morning brief", "start my day", "brief me"],
+  "allowed_tools": ["weather", "memory_read"],
+  "instructions": "Give a short morning brief. If you know the user's city from their saved memories, give today's weather for it; otherwise ask which city. Mention anything they asked you to remember about today. Keep it under 20 seconds."
+}

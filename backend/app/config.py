@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     tavily_api_key: SecretStr = SecretStr("")
     voicechat_url: str = ""
     memory_db_path: str = "data/memories.sqlite3"
+    settings_path: str = "data/settings.json"
+    skills_dir: str = "skills"
+    perplexity_api_key: SecretStr = SecretStr("")
 
     # Which voice engine serves sessions: "cascade" (plan B), "fake" (X1),
     # "voicechat" (X7), or "none" (accept audio, no replies).

@@ -87,6 +87,7 @@ class Registry:
 
     def __init__(self) -> None:
         self.sessions: set[str] = set()
+        self.live: dict[str, 'Session'] = {}  # for REST calls that act on a running session
         self.per_ip: Counter[str] = Counter()
 
     def add(self, session_id: str, ip: str) -> None:
@@ -431,6 +432,7 @@ async def session_endpoint(
     await websocket.accept()
     registry.add(claims.session_id, ip)
     session = Session(websocket, claims.session_id, settings, engine_factory)
+    registry.live[claims.session_id] = session
     log.info("session opened", extra={"session_id": claims.session_id})
     try:
         await session.run()
@@ -446,6 +448,7 @@ async def session_endpoint(
         # Free the connection slot first: closing the engine can take a moment,
         # and the limits (one per token, three per IP) must not wait for it.
         registry.remove(claims.session_id, ip)
+        registry.live.pop(claims.session_id, None)
         await session.close()
         log.info(
             "session ended",

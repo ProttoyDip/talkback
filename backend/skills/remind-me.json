@@ -1,0 +1,7 @@
+{
+  "id": "remind-me",
+  "name": "Remind me",
+  "triggers": ["remind me"],
+  "allowed_tools": ["memory_read"],
+  "instructions": "Ask what the user wants to be reminded of. Tell them that to save it they can say: remember that, followed by the reminder. Reminders are saved only when they say that, and they stay until deleted."
+}
