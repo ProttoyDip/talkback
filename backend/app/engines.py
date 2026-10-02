@@ -35,7 +35,9 @@ def create_engine(settings: Settings) -> EngineChoice:
 
         http = httpx.AsyncClient(follow_redirects=False)
         engine = CascadeEngine(
-            stt=RivaStreamingASR(settings.riva_server, settings.asr_function_id, settings.nvidia_api_key),
+            stt=RivaStreamingASR(
+                settings.riva_server, settings.asr_function_id, settings.nvidia_api_key, settings.asr_stop_history_ms
+            ),
             tts=RivaTTS(settings.riva_server, settings.tts_function_id, settings.nvidia_api_key, settings.tts_voice),
             llm=LlmClient(providers_from_settings(settings), http),
         )

@@ -348,8 +348,10 @@ async def session_endpoint(
             await session.send(SessionEnd(reason=error.end_reason))
             await websocket.close(code=error.code, reason=error.reason)
     finally:
-        await session.close()
+        # Free the connection slot first: closing the engine can take a moment,
+        # and the limits (one per token, three per IP) must not wait for it.
         registry.remove(claims.session_id, ip)
+        await session.close()
         log.info(
             "session ended",
             extra={"session_id": claims.session_id, "event": f"frames={session.frames_received}"},

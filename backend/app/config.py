@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     asr_function_id: str = "d8dd4e9b-fbf5-4fb0-9dba-8cf436c8d965"  # parakeet-ctc-0.6b-asr
     tts_function_id: str = "877104f7-e885-42b9-8de8-f6e4c6303969"  # magpie-tts-multilingual
     tts_voice: str = "Magpie-Multilingual.EN-US.Leo"
+    # Silence (ms) before the recognizer decides the user has finished.
+    # Lower is faster but may cut slow speakers off; tune with the eval set.
+    asr_stop_history_ms: int = 500
 
     # Spoken replies: Nemotron 3 Nano. Nebius first, OpenRouter as backup.
     nebius_llm_model: str = "nvidia/nvidia-nemotron-3-nano-30b-a3b"

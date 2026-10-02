@@ -34,7 +34,9 @@ SYSTEM_PROMPT = (
     "Answer in one to three short sentences, under 20 seconds of speech. "
     "Use plain words. No lists, no markdown, no emoji, no URLs. "
     "If the user corrects you, follow the correction. "
-    "If you do not know something current, such as news or weather, say so briefly."
+    "You cannot look anything up, check the weather or browse the web yet. "
+    "If asked for current information, say briefly that you can't check it right now. "
+    "Never offer to do something you cannot do."
 )
 
 CHUNK_SAMPLES = 4_410  # 200 ms at 22.05 kHz

@@ -35,8 +35,9 @@ def _auth(server: str, function_id: str, api_key: SecretStr) -> riva.client.Auth
 
 
 class RivaStreamingASR:
-    def __init__(self, server: str, function_id: str, api_key: SecretStr) -> None:
+    def __init__(self, server: str, function_id: str, api_key: SecretStr, stop_history_ms: int = 500) -> None:
         self.server = server
+        self.stop_history_ms = stop_history_ms
         self.function_id = function_id
         self.api_key = api_key
         self.frames: queue.Queue[bytes | None] = queue.Queue(maxsize=500)  # 10 s of audio
@@ -78,6 +79,16 @@ class RivaStreamingASR:
                 audio_channel_count=1,
             ),
             interim_results=True,
+        )
+        # End of turn after this much silence (the service default waits longer).
+        riva.client.add_endpoint_parameters_to_config(
+            config,
+            start_history=-1,
+            start_threshold=-1,
+            stop_history=self.stop_history_ms,
+            stop_history_eou=max(1, self.stop_history_ms // 2),
+            stop_threshold=-1,
+            stop_threshold_eou=-1,
         )
         failures = 0
         while not self.closed.is_set():
