@@ -1,0 +1,7 @@
+# Runtime dependencies. Exact pins (SECURITY.md T9). Review every update.
+fastapi==0.142.2
+uvicorn==0.54.0
+websockets==17.1
+pydantic==2.13.5
+pydantic-settings==2.15.0
+python-dotenv==1.2.4
