@@ -21,6 +21,7 @@ from .llm import LlmClient, LlmProvider, LlmUnavailable, ToolCalls
 from .protocol import ServerMessage, ToolConfirm
 from .speech import SpeechToText, TextToSpeech
 from .tool_bridge import ToolBridge
+from .turn_taking import is_backchannel, is_filler_only, looks_incomplete, strip_fillers
 from .voice_engine import (
     AssistantAudio,
     AssistantWord,
@@ -56,7 +57,14 @@ SYSTEM_PROMPT = (
     "Only state facts that are in the tool result. Never add details it does not give, "
     "such as clouds, sun or wind. "
     "For anything your tools cannot do, say briefly that you can't check it right now. "
-    "Never offer to do something you cannot do."
+    "Never offer to do something you cannot do. "
+    "The conversation is already under way: never greet again after the first reply. "
+    "People hesitate, repeat themselves and correct themselves while speaking: "
+    "when they say 'no wait' or 'I mean', use the corrected version. "
+    "A short reaction such as 'hmm', 'okay', 'right' or 'yeah' is a response to what you just said: "
+    "read it in context and carry on briefly, do not treat it as a new topic. "
+    "If part of the request is unclear or looks cut off, ask about that specific part "
+    "instead of guessing. Do not assume how the person feels or how good their English is."
 )
 
 CHUNK_SAMPLES = 4_410  # 200 ms at 22.05 kHz
@@ -81,6 +89,7 @@ class CascadeEngine:
         tts: TextToSpeech,
         llm: LlmClient,
         bridge_factory: BridgeFactory | None = None,
+        incomplete_wait_s: float = 1.2,
     ) -> None:
         self.stt = stt
         self.tts = tts
@@ -98,6 +107,13 @@ class CascadeEngine:
         self.planner_reported: str | None = None
         # message_id -> heard text, set by interrupt() (may arrive mid-reply).
         self.heard: dict[str, str] = {}
+        # Conversation controller (X2): a finished-looking turn is answered at
+        # once; an unfinished one waits briefly for the rest.
+        self.incomplete_wait_s = incomplete_wait_s
+        self.held_text = ""
+        self.hold_timer: asyncio.TimerHandle | None = None
+        # The gateway sets this: True while assistant audio is still playing.
+        self.playback_active: Callable[[], bool] = lambda: False
 
     def _emit(self, event: EngineEvent) -> None:
         self.queue.put_nowait(event)
@@ -155,6 +171,7 @@ class CascadeEngine:
             self.bridge.confirm(message)
 
     async def close(self) -> None:
+        self._cancel_hold()
         self.stt.close()
         if self.bridge is not None:
             self.bridge.close()
@@ -173,9 +190,33 @@ class CascadeEngine:
             self.user_message_id = _new_id("u")
             self._emit(StateChanged("listening"))
         self._emit(UserTranscript(self.user_message_id, text, final))
-        if final:
-            self.user_message_id = None
-            self.user_turns.put_nowait(text)
+        if not final:
+            # The user is still talking: do not answer a held, unfinished turn.
+            self._cancel_hold()
+            return
+        self.user_message_id = None
+        if is_backchannel(text) and self.playback_active():
+            return  # "mm-hm" while TalkBack speaks means "keep going"
+        cleaned = strip_fillers(text)
+        if is_filler_only(text) or not cleaned:
+            return  # "umm" alone is hesitation: keep listening
+        self._cancel_hold()
+        self.held_text = f"{self.held_text} {cleaned}".strip()
+        if looks_incomplete(self.held_text) and self.loop is not None:
+            self.hold_timer = self.loop.call_later(self.incomplete_wait_s, self._release_held)
+        else:
+            self._release_held()
+
+    def _cancel_hold(self) -> None:
+        if self.hold_timer is not None:
+            self.hold_timer.cancel()
+            self.hold_timer = None
+
+    def _release_held(self) -> None:
+        self.hold_timer = None
+        if self.held_text:
+            self.user_turns.put_nowait(self.held_text)
+            self.held_text = ""
 
     async def _serve_turns(self) -> None:
         while True:
