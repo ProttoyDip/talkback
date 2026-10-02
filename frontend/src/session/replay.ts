@@ -36,6 +36,12 @@ function tone(seq: number, samples: number): Int16Array {
 export class ReplayTransport implements Transport {
   private handlers?: TransportHandlers
   private timers: ReturnType<typeof setTimeout>[] = []
+  private readonly speed: number
+
+  /** speed > 1 plays the script faster (end-to-end tests use ?speed=). */
+  constructor(speed = 1) {
+    this.speed = speed > 0 ? speed : 1
+  }
 
   connect(handlers: TransportHandlers) {
     this.handlers = handlers
@@ -49,7 +55,7 @@ export class ReplayTransport implements Transport {
         setTimeout(() => {
           this.handlers?.onEvent(event)
           if (event.type === 'audio.chunk') this.handlers?.onAudio(event.seq, tone(event.seq, event.samples))
-        }, t_ms),
+        }, t_ms / this.speed),
       )
     }
   }
