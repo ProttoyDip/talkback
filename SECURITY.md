@@ -73,8 +73,10 @@ Prompt injection is still considered an unsolved, architectural problem for AI a
 - Optional hardening (P2): run tool execution inside an NVIDIA OpenShell sandbox with network and file-system policy.
 
 ### T5. Unconfirmed sensitive actions
-- A tool is marked `sensitive: true` if it changes data, sends data outside, or deletes something (for example: deleting memory, creating a reminder that sends a notification, any future messaging tool).
+- A tool is marked `sensitive: true` if it changes or deletes the user's data, or sends the user's private data (such as memories) outside (for example: deleting memory, creating a reminder that sends a notification, any future messaging tool).
+- Read-only lookups the user has turned on in Settings, such as weather and web search, are not sensitive: turning the tool on is the consent. Each call is still shown as a tool chip, and the user can turn the tool off at any time (T4).
 - Sensitive calls pause and send a `tool.confirm_request`. The action runs only after an explicit "yes" from the user, by voice or button, within 30 seconds.
+- The confirmation summary shows the actual action and its arguments (for example, the memory text to delete), so the user knows exactly what they approve.
 - A confirmation applies to one call only.
 
 ### T6. Secret exposure
