@@ -46,6 +46,7 @@ from .voice_engine import (
     EngineEvent,
     EngineProblem,
     ModelInUse,
+    ProtocolEvent,
     SessionContext,
     StateChanged,
     ToolCallRequested,
@@ -101,6 +102,7 @@ registry = Registry()
 
 ERROR_CODES = {"voice_engine_offline", "tool_failed", "rate_limited", "internal"}
 _FINISH = object()  # end-of-turn marker in a caption queue
+_FINISH_QUIET = object()  # end of a filler: close its captions, keep the state
 
 
 class Session:
@@ -191,21 +193,24 @@ class Session:
                 await self.send_audio_chunk(seq, pcm)
             case AssistantWord(message_id=message_id):
                 self.caption_queue(message_id).put_nowait(event)
-            case TurnEnded(message_id=message_id):
-                self.caption_queue(message_id).put_nowait(_FINISH)
+            case TurnEnded(message_id=message_id, ends_turn=ends_turn):
+                self.caption_queue(message_id).put_nowait(_FINISH if ends_turn else _FINISH_QUIET)
             case UserTranscript(message_id=message_id, text=text, final=final):
                 await self.send(TranscriptDelta(message_id=message_id, speaker="user", text=text, final=final))
-            case StateChanged(state=state):
-                if state in ("listening", "thinking"):
+            case StateChanged(state=state, tool=tool):
+                if state in ("listening", "thinking", "tool"):
                     self.turn_epoch += 1
-                await self.send(StateEvent(state=state))
+                await self.send(StateEvent(state=state, tool=tool))
+            case ProtocolEvent(message=message):
+                await self.send(message)
             case ModelInUse(role=role, provider=provider, model=model, backup=backup):
                 await self.send(ModelActive(role=role, provider=provider, model=model, backup=backup))
             case EngineProblem(code=code, message=message):
                 await self.send(ErrorEvent(code=code if code in ERROR_CODES else "internal", message=message[:300]))
             case ToolCallRequested():
-                # The tool bridge (X3) is connected to an engine in a later step.
-                log.info("tool call ignored: not connected yet", extra={"session_id": self.session_id})
+                # Engines with their own tool channel (VoiceChat, X7) emit this;
+                # the cascade engine runs tools itself.
+                log.info("tool call event not handled by this gateway", extra={"session_id": self.session_id})
 
     def caption_queue(self, message_id: str) -> asyncio.Queue:
         if message_id not in self.captions:
@@ -222,11 +227,11 @@ class Session:
             while True:
                 item = await queue.get()
                 start = self.message_start.get(message_id, loop.time())
-                if item is _FINISH:
+                if item is _FINISH or item is _FINISH_QUIET:
                     epoch = self.turn_epoch
                     await asyncio.sleep(max(0.0, self.play_until - loop.time()))
                     await self.send(TranscriptDelta(message_id=message_id, speaker="assistant", text="", final=True))
-                    if epoch == self.turn_epoch and loop.time() >= self.play_until:
+                    if item is _FINISH and epoch == self.turn_epoch and loop.time() >= self.play_until:
                         await self.send(StateEvent(state="idle"))
                     return
                 await asyncio.sleep(max(0.0, start + item.start_s - loop.time()))
@@ -273,9 +278,12 @@ class Session:
                 self.last_playback = message  # used for trimming in a later step
             case ToolConfirm():
                 self.require_started()
-                # No tool can ask for confirmation yet, so there is nothing to
-                # approve. A confirmation never applies to a future call (T5).
-                log.info("tool.confirm with no pending call", extra={"session_id": self.session_id})
+                # Only a pending request can be answered; a confirmation never
+                # applies to a future call (SECURITY.md T5).
+                if self.engine is not None:
+                    await self.engine.confirm_tool(message)
+                else:
+                    log.info("tool.confirm with no pending call", extra={"session_id": self.session_id})
 
     async def on_audio(self, data: bytes) -> None:
         self.require_started()

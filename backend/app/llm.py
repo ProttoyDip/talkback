@@ -10,6 +10,7 @@ import json
 import logging
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 from pydantic import SecretStr
@@ -64,6 +65,33 @@ class LlmUnavailable(Exception):
     """No provider could answer. The message is safe to show."""
 
 
+@dataclass(frozen=True)
+class ToolCallRequest:
+    id: str
+    name: str
+    arguments: str  # JSON text, as the model wrote it
+
+
+@dataclass(frozen=True)
+class ToolCalls:
+    """The model asked for tools instead of (or after) speaking."""
+
+    calls: list[ToolCallRequest]
+
+
+def _collect_tool_deltas(acc: dict[int, dict[str, str]], deltas: list[dict[str, Any]]) -> None:
+    # Streamed tool calls arrive in pieces, keyed by index.
+    for delta in deltas:
+        slot = acc.setdefault(int(delta.get("index", 0)), {"id": "", "name": "", "arguments": ""})
+        if delta.get("id"):
+            slot["id"] = delta["id"]
+        function = delta.get("function") or {}
+        if function.get("name"):
+            slot["name"] += function["name"]
+        if function.get("arguments"):
+            slot["arguments"] += function["arguments"]
+
+
 class LlmClient:
     def __init__(self, providers: list[LlmProvider], client: httpx.AsyncClient, timeout: float = 10.0) -> None:
         self.providers = providers
@@ -72,12 +100,14 @@ class LlmClient:
 
     async def stream(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         on_provider: Callable[[LlmProvider], None],
         max_tokens: int = 300,
-    ) -> AsyncIterator[str]:
-        """Yield reply text as it arrives. on_provider is called once, with the
-        provider that answers, before the first piece of text."""
+        tools: list[dict[str, Any]] | None = None,
+    ) -> AsyncIterator[str | ToolCalls]:
+        """Yield reply text as it arrives, and at the end a ToolCalls item if
+        the model asked for tools. on_provider is called once, with the
+        provider that answers, before anything is yielded."""
         if not self.providers:
             raise LlmUnavailable("No language model is configured. Add NEBIUS_API_KEY or OPENROUTER_API_KEY.")
         for provider in self.providers:
@@ -88,8 +118,12 @@ class LlmClient:
                 "max_tokens": max_tokens,
                 **provider.extra_body,
             }
+            if tools:
+                body["tools"] = [{"type": "function", "function": tool} for tool in tools]
+                body["tool_choice"] = "auto"
             headers = {"Authorization": f"Bearer {provider.api_key.get_secret_value()}"}
             started = False
+            tool_parts: dict[int, dict[str, str]] = {}
             try:
                 async with self.client.stream(
                     "POST", f"{provider.base_url}/chat/completions", json=body, headers=headers, timeout=self.timeout
@@ -105,12 +139,23 @@ class LlmClient:
                             choice = json.loads(line[6:])["choices"][0]
                         except (ValueError, KeyError, IndexError):
                             continue
-                        text = (choice.get("delta") or {}).get("content") or ""
+                        delta = choice.get("delta") or {}
+                        if delta.get("tool_calls"):
+                            if not started:
+                                started = True
+                                on_provider(provider)
+                            _collect_tool_deltas(tool_parts, delta["tool_calls"])
+                        text = delta.get("content") or ""
                         if text:
                             if not started:
                                 started = True
                                 on_provider(provider)
                             yield text
+                    if tool_parts:
+                        yield ToolCalls([
+                            ToolCallRequest(id=p["id"] or f"call_{i}", name=p["name"], arguments=p["arguments"] or "{}")
+                            for i, p in sorted(tool_parts.items())
+                        ])
                     if started:
                         return
                     log.warning("llm provider returned no text", extra={"event": provider.id})

@@ -72,6 +72,13 @@ function upsertTurn(
   const index = turns.findIndex((t) => t.id === id)
   if (index === -1) {
     const fresh: TurnRecord = { id, speaker, text: '', final: false, backchannels: [], tools: [] }
+    // A short line spoken while a tool runs ("Let me check that") arrives
+    // after the answer's tool chip created that turn. It was said first, so
+    // show it before the waiting answer, not after it.
+    const last = turns.at(-1)
+    if (speaker === 'assistant' && last?.speaker === 'assistant' && !last.text && last.tools.length > 0) {
+      return [...turns.slice(0, -1), update(fresh), last]
+    }
     return [...turns, update(fresh)]
   }
   const next = turns.slice()

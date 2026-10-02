@@ -62,6 +62,20 @@ describe('reducer edge cases', () => {
     expect(toTurns(model)).toEqual([{ id: 'u9', speaker: 'user', tools: undefined, segments: [{ kind: 'heard', text: 'okay' }] }])
   })
 
+  it('puts a filler said during a tool call before the answer it is waiting for', () => {
+    const events: ServerEvent[] = [
+      { type: 'transcript.delta', message_id: 'u1', speaker: 'user', text: 'Weather in Lisbon?', final: true },
+      { type: 'tool.status', call_id: 'c1', message_id: 'a1', name: 'weather', status: 'running' },
+      { type: 'transcript.delta', message_id: 'f1', speaker: 'assistant', text: 'Let me check that.', final: false },
+      { type: 'transcript.delta', message_id: 'f1', speaker: 'assistant', text: '', final: true },
+      { type: 'tool.status', call_id: 'c1', message_id: 'a1', name: 'weather', status: 'done' },
+      { type: 'transcript.delta', message_id: 'a1', speaker: 'assistant', text: 'About 21 degrees.', final: false },
+    ]
+    const model = events.reduce((m, event) => reduce(m, { kind: 'event', event, at: 0 }), initialModel)
+    expect(toTurns(model).map((t) => t.id)).toEqual(['u1', 'f1', 'a1'])
+    expect(toTurns(model)[2].tools?.[0].status).toBe('done')
+  })
+
   it('keeps the transcript but clears errors when the connection reopens', () => {
     let model = replay(3000)
     model = reduce(model, { kind: 'event', at: 0, event: { type: 'error', code: 'voice_engine_offline', message: 'x' } })

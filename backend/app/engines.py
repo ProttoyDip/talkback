@@ -32,14 +32,22 @@ def create_engine(settings: Settings) -> EngineChoice:
         from .cascade_engine import CascadeEngine
         from .llm import LlmClient, providers_from_settings
         from .speech.nvidia import RivaStreamingASR, RivaTTS
+        from .tool_bridge import ToolBridge
+        from .tools.weather import weather_tool
+        from .tools.web_search import web_search_tool
 
         http = httpx.AsyncClient(follow_redirects=False)
+        # Weather needs no key (Open-Meteo). Web search only with a Tavily key.
+        tools = [weather_tool(http)]
+        if settings.tavily_api_key.get_secret_value():
+            tools.append(web_search_tool(http, settings.tavily_api_key))
         engine = CascadeEngine(
             stt=RivaStreamingASR(
                 settings.riva_server, settings.asr_function_id, settings.nvidia_api_key, settings.asr_stop_history_ms
             ),
             tts=RivaTTS(settings.riva_server, settings.tts_function_id, settings.nvidia_api_key, settings.tts_voice),
             llm=LlmClient(providers_from_settings(settings), http),
+            bridge_factory=lambda session_id, emit, say_filler: ToolBridge(session_id, tools, emit, say_filler),
         )
         return EngineChoice(engine, http=http)
     return EngineChoice(None, f"The voice engine '{kind}' is not available in this build.")

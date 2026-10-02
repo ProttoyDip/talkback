@@ -92,7 +92,7 @@ $$\text{latency} = t_{\text{first audio out}} - t_{\text{end of user speech}}$$
 ## Quick start
 
 > [!NOTE]
-> For spoken replies, add `NVIDIA_API_KEY` and `NEBIUS_API_KEY` (or `OPENROUTER_API_KEY`) to `backend/.env`. Without them the app still runs and explains what is missing. Interruption handling (barge-in) is not built yet.
+> For spoken replies, add `NVIDIA_API_KEY` and `NEBIUS_API_KEY` (or `OPENROUTER_API_KEY`) to `backend/.env`. Without them the app still runs and explains what is missing. You can ask for the weather (Open-Meteo, no key needed). Interruption handling (barge-in) is not built yet.
 
 ### Prerequisites
 

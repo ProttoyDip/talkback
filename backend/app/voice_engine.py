@@ -12,7 +12,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Protocol
 
-from .protocol import ConversationState, ModelRole, ProviderId
+from .protocol import ConversationState, ModelRole, ProviderId, ServerMessage, ToolConfirm, ToolName
 
 
 @dataclass(frozen=True)
@@ -51,6 +51,7 @@ class UserTranscript:
 @dataclass(frozen=True)
 class StateChanged:
     state: ConversationState
+    tool: ToolName | None = None  # with state "tool": "CHECKING WEATHER"
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,17 @@ class TurnEnded:
     message_id: str
     # The full text the assistant planned to say in this turn.
     text: str
+    # False for short fillers ("Let me check that"): the turn goes on, so the
+    # gateway must not return to idle when this audio ends.
+    ends_turn: bool = True
+
+
+@dataclass(frozen=True)
+class ProtocolEvent:
+    """A protocol message produced inside the engine (tool chips,
+    confirmation requests, memory saved). The gateway sends it unchanged."""
+
+    message: ServerMessage
 
 
 @dataclass(frozen=True)
@@ -91,6 +103,7 @@ EngineEvent = (
     | TurnEnded
     | ModelInUse
     | EngineProblem
+    | ProtocolEvent
 )
 
 
@@ -108,5 +121,8 @@ class VoiceEngine(Protocol):
     async def send_tool_response(self, call_id: str, payload: str) -> None: ...
 
     async def say_filler(self, text: str) -> None: ...
+
+    async def confirm_tool(self, message: ToolConfirm) -> None:
+        """The user's answer to a tool.confirm_request."""
 
     async def close(self) -> None: ...
