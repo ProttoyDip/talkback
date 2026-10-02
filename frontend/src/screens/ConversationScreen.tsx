@@ -1,26 +1,35 @@
 import { AnimatePresence } from 'motion/react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
+import { Banner, type BannerProps } from '../components/Banner'
 import { ConfirmCard } from '../components/ConfirmCard'
 import { Drawer } from '../components/Drawer'
 import { DuplexTimeline } from '../components/DuplexTimeline'
-import { MicButton, type MicMode } from '../components/MicButton'
+import { MicButton } from '../components/MicButton'
 import { NavRail, TabBar, type Panel } from '../components/Navigation'
-import { OfflineBanner } from '../components/OfflineBanner'
 import { StatusBar } from '../components/StatusBar'
 import { TranscriptTurn } from '../components/TranscriptTurn'
-import {
-  placeholderConfirm,
-  placeholderInputLevel,
-  placeholderTimeline,
-  placeholderToolTurn,
-  placeholderTurns,
-} from '../state/placeholder'
-import type { ConversationState } from '../state/types'
+import type { ConfirmRequest, ConversationState, TimelineData, ToolName, Turn } from '../state/types'
+
+/** Everything the Conversation screen shows. Live, replay and preview all build this. */
+export interface ConversationView {
+  state: ConversationState
+  tool?: ToolName
+  turns: Turn[]
+  confirm?: ConfirmRequest
+  banner?: BannerProps
+  timeline: TimelineData
+  /** Mic input level, 0..1. */
+  inputLevel: number
+  muted: boolean
+  micDisabled: boolean
+  latencyMs?: number
+}
 
 interface ConversationScreenProps {
-  /** Preview state, from `?state=` until the session drives it. */
-  initialState: ConversationState
+  view: ConversationView
   debug: boolean
+  onToggleMute: () => void
+  onAnswerConfirm: (approved: boolean) => void
 }
 
 function isTyping(target: EventTarget | null) {
@@ -30,50 +39,32 @@ function isTyping(target: EventTarget | null) {
   )
 }
 
-export function ConversationScreen({ initialState, debug }: ConversationScreenProps) {
-  const [muted, setMuted] = useState(initialState === 'muted')
+/** Within this distance of the bottom, new captions keep the view pinned. */
+const FOLLOW_THRESHOLD_PX = 160
+
+export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm }: ConversationScreenProps) {
   const [panel, setPanel] = useState<Panel | null>(null)
-  const [confirmOpen, setConfirmOpen] = useState(initialState === 'confirm')
+  const { state, turns, confirm, micDisabled } = view
 
-  const offline = initialState === 'offline'
-  const state: ConversationState = offline
-    ? 'offline'
-    : muted
-      ? 'muted'
-      : initialState === 'muted'
-        ? 'idle'
-        : initialState === 'confirm' && !confirmOpen
-          ? 'assistant_speaking'
-          : initialState
-
-  const turns =
-    state === 'idle'
-      ? []
-      : state === 'tool' || state === 'thinking'
-        ? [...placeholderTurns, placeholderToolTurn]
-        : placeholderTurns
-
-  const micMode: MicMode = muted ? 'muted' : 'live'
-  const listening = state === 'listening' || state === 'overlap'
-  const level = listening ? placeholderInputLevel : 0
-
-  // Live captions follow the newest words, like a caption track.
+  // Live captions follow the newest words, unless the user scrolled up to read.
   const transcriptRef = useRef<HTMLElement>(null)
-  useEffect(() => {
+  const following = useRef(true)
+  useLayoutEffect(() => {
     const el = transcriptRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [turns.length, confirmOpen])
+    if (el && following.current) el.scrollTop = el.scrollHeight
+  }, [turns, confirm])
 
   const togglePanel = (next: Panel) => setPanel((cur) => (cur === next ? null : next))
 
   // Keyboard shortcuts from design.md 7: Space mute, M memory, K skills, Esc close.
+  const toggleMute = useEffectEvent(onToggleMute)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return
       const onButton = e.target instanceof HTMLElement && e.target.closest('button, a, [tabindex]')
-      if (e.code === 'Space' && !onButton && !offline) {
+      if (e.code === 'Space' && !onButton && !micDisabled) {
         e.preventDefault()
-        setMuted((m) => !m)
+        toggleMute()
       } else if (e.key === 'm' || e.key === 'M') {
         togglePanel('memory')
       } else if (e.key === 'k' || e.key === 'K') {
@@ -84,14 +75,14 @@ export function ConversationScreen({ initialState, debug }: ConversationScreenPr
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [offline])
+  }, [micDisabled])
 
   const mic = (
     <MicButton
-      mode={micMode}
-      level={level}
-      disabled={offline}
-      onToggle={() => setMuted((m) => !m)}
+      mode={view.muted ? 'muted' : 'live'}
+      level={view.inputLevel}
+      disabled={micDisabled}
+      onToggle={onToggleMute}
     />
   )
 
@@ -101,15 +92,19 @@ export function ConversationScreen({ initialState, debug }: ConversationScreenPr
 
       <main className="flex min-w-0 flex-1 justify-center">
         <div className="flex h-dvh w-full max-w-stage flex-col gap-6 px-4 pt-6 sm:px-8 lg:pt-8">
-          <StatusBar state={state} tool={state === 'tool' ? 'weather' : undefined} debug={debug} />
+          <StatusBar state={state} tool={view.tool} debug={debug} latencyMs={view.latencyMs} />
 
-          {offline && <OfflineBanner onRetry={() => {}} />}
+          {view.banner && <Banner {...view.banner} />}
 
-          <DuplexTimeline data={placeholderTimeline} state={state} />
+          <DuplexTimeline data={view.timeline} offline={state === 'offline'} muted={state === 'muted'} />
 
           <section
             ref={transcriptRef}
             aria-label="Transcript"
+            onScroll={(e) => {
+              const el = e.currentTarget
+              following.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX
+            }}
             className="-mx-4 flex-1 overflow-y-auto px-4 pb-[calc(var(--mic-size)+var(--space-12))] sm:-mx-8 sm:px-8 lg:pb-8"
           >
             {turns.length === 0 ? (
@@ -134,12 +129,8 @@ export function ConversationScreen({ initialState, debug }: ConversationScreenPr
             )}
 
             <AnimatePresence>
-              {confirmOpen && !offline && (
-                <ConfirmCard
-                  className="mt-8"
-                  request={placeholderConfirm}
-                  onAnswer={() => setConfirmOpen(false)}
-                />
+              {confirm && state !== 'offline' && (
+                <ConfirmCard key={confirm.callId} className="mt-8" request={confirm} onAnswer={onAnswerConfirm} />
               )}
             </AnimatePresence>
           </section>

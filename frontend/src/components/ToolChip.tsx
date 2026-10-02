@@ -7,15 +7,31 @@ import { Icon } from './Icon'
 const RUNNING_COPY: Record<ToolCall['name'], string> = {
   web_search: 'Searching the web…',
   weather: 'Checking the weather…',
+  memory_read: 'Checking memory…',
+  memory_write: 'Saving to memory…',
+  memory_delete: 'Deleting a memory…',
+  skill_run: 'Running a skill…',
 }
 
 const FAILED_COPY: Record<ToolCall['name'], string> = {
   web_search: "Couldn't reach web search",
   weather: "Couldn't reach weather service",
+  memory_read: "Couldn't read memory",
+  memory_write: "Couldn't save to memory",
+  memory_delete: "Couldn't delete the memory",
+  skill_run: "Couldn't finish the skill",
+}
+
+const DONE_COPY: Record<Exclude<ToolCall['name'], 'web_search'>, string> = {
+  weather: 'Weather from Open-Meteo',
+  memory_read: 'Checked memory',
+  memory_write: 'Saved to memory',
+  memory_delete: 'Memory deleted',
+  skill_run: 'Skill finished',
 }
 
 function doneCopy(call: ToolCall) {
-  if (call.name === 'weather') return 'Weather from Open-Meteo'
+  if (call.name !== 'web_search') return DONE_COPY[call.name]
   const n = call.sources?.length ?? 0
   return n === 1 ? '1 source' : `${n} sources`
 }
@@ -29,7 +45,7 @@ const buttonChip = `${chip} relative h-8 after:absolute after:inset-x-0 after:-i
 export function ToolChip({ call }: { call: ToolCall }) {
   const [open, setOpen] = useState(false)
   const listId = useId()
-  const toolIcon = call.name === 'weather' ? 'weather' : 'globe'
+  const toolIcon = call.name === 'weather' ? 'weather' : call.name === 'web_search' ? 'globe' : call.name === 'skill_run' ? 'skills' : 'memory'
 
   if (call.status === 'running') {
     return (
