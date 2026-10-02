@@ -1,0 +1,119 @@
+@import "tailwindcss";
+@import "./styles/tokens.css";
+
+/*
+ * Map tokens into Tailwind. The default palette, spacing, radius and shadow
+ * scales are cleared so only TalkBack tokens can be used (design.md 3 and 9).
+ */
+@theme inline {
+  --color-*: initial;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+  --color-voice-user: var(--voice-user);
+  --color-voice-assistant: var(--voice-assistant);
+  --color-voice-assistant-dim: var(--voice-assistant-dim);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-focus: var(--focus);
+  --color-on-accent: var(--on-accent);
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --font-*: initial;
+  --font-display: var(--font-family-display);
+  --font-body: var(--font-family-body);
+  --font-mono: var(--font-family-mono);
+
+  --text-*: initial;
+  --text-display: var(--font-size-display);
+  --text-display--line-height: var(--line-height-display);
+  --text-h1: var(--font-size-h1);
+  --text-h1--line-height: var(--line-height-h1);
+  --text-h2: var(--font-size-h2);
+  --text-h2--line-height: var(--line-height-h2);
+  --text-body: var(--font-size-body);
+  --text-body--line-height: var(--line-height-body);
+  --text-transcript: var(--font-size-transcript);
+  --text-transcript--line-height: var(--line-height-transcript);
+  --text-label: var(--font-size-label);
+  --text-label--line-height: var(--line-height-label);
+  --text-label--letter-spacing: var(--tracking-label);
+  --text-data: var(--font-size-data);
+  --text-data--line-height: var(--line-height-data);
+
+  --spacing: initial;
+  --spacing-*: initial;
+  --spacing-0: 0px;
+  --spacing-px: 1px;
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+  --spacing-4: var(--space-4);
+  --spacing-6: var(--space-6);
+  --spacing-8: var(--space-8);
+  --spacing-12: var(--space-12);
+  --spacing-16: var(--space-16);
+  --spacing-rail: var(--rail-width);
+  --spacing-drawer: var(--drawer-width);
+  --spacing-mic: var(--mic-size);
+  --spacing-target: var(--target-min);
+
+  --container-*: initial;
+  --container-stage: var(--stage-max-width);
+
+  --radius-*: initial;
+  --radius-input: var(--corner-input);
+  --radius-card: var(--corner-card);
+  --radius-panel: var(--corner-panel);
+  --radius-pill: var(--corner-pill);
+
+  --shadow-*: initial;
+  --shadow-popover: var(--elevation-popover);
+
+  --ease-*: initial;
+  --ease-enter: var(--ease-out);
+  --ease-exit: var(--ease-in);
+}
+
+@layer base {
+  html {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-family-body);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    min-height: 100dvh;
+  }
+
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  /* Thin, token-coloured scrollbars instead of the platform default. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  ::selection {
+    background: var(--voice-assistant-dim);
+    color: var(--text);
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
