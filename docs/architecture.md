@@ -63,6 +63,10 @@ graph LR
 - **Tool bridge:** parses the voice model's tool channel (`<TOOLCALL>[…]</TOOLCALL>`), checks each call against policy, runs it, and returns `<TOOL_RESPONSE>[…]</TOOL_RESPONSE>`. Multi-step requests go to the Nemotron planner first.
 - **Memory store:** SQLite table of memories with provenance. Only user utterances can create memories (see section 7).
 - **Skills runner:** loads `skills/*.yaml`, matches trigger phrases, and runs steps with only the tools that skill allows.
+- **Voice engines** (`voice_engine.py`, chosen by `VOICE_ENGINE`): the gateway only talks to this interface, so engines are interchangeable.
+  - `cascade` (plan B, `cascade_engine.py`): NVIDIA Parakeet streaming speech-to-text and NVIDIA Magpie text-to-speech on the NVIDIA API catalog (Riva gRPC, `NVIDIA_API_KEY`), with Nemotron 3 Nano writing the reply (Nebius Token Factory first, OpenRouter as backup, thinking turned off for speed). Replies stream sentence by sentence; Magpie returns word timings used for captions and trimming.
+  - `fake` (X1): replays the demo fixture. `voicechat` (X7): NemotronLabs VoiceChat on a Nebius GPU, the primary target.
+  - The gateway numbers audio chunks, sends each caption word when it starts playing, and returns to `idle` only when the queued audio has finished.
 
 ### 2.3 Voice model: NVIDIA NemotronLabs VoiceChat 11B
 - Unified full-duplex speech-to-speech model: Fast Conformer speech encoder, Nemotron Nano v2 LLM backbone (hybrid Mamba-Transformer), NVIDIA TTS decoder, plus a separate output channel for tool calls.

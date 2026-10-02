@@ -92,7 +92,7 @@ $$\text{latency} = t_{\text{first audio out}} - t_{\text{end of user speech}}$$
 ## Quick start
 
 > [!NOTE]
-> This runs the backend gateway and the conversation screen. They are not connected to each other or to the voice model yet.
+> For spoken replies, add `NVIDIA_API_KEY` and `NEBIUS_API_KEY` (or `OPENROUTER_API_KEY`) to `backend/.env`. Without them the app still runs and explains what is missing. Interruption handling (barge-in) is not built yet.
 
 ### Prerequisites
 
@@ -178,9 +178,13 @@ The backend reads `backend/.env`. Copy it from [`backend/.env.example`](backend/
 | --- | --- | --- |
 | `SESSION_SECRET` | Signs the 15-minute session tokens. At least 32 characters. If empty, a random secret is used until the server restarts. | Generate one: `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `ALLOWED_ORIGINS` | Comma-separated browser origins that may open the session WebSocket. | Your frontend URL. The default allows the Vite dev server. |
-| `NEBIUS_API_KEY` | Key for NVIDIA Nemotron on Nebius Token Factory. Not used yet. | [Nebius Token Factory](https://tokenfactory.nebius.com/) |
+| `NEBIUS_API_KEY` | Key for NVIDIA Nemotron 3 Nano on Nebius Token Factory, which writes TalkBack's replies. | [Nebius Token Factory](https://tokenfactory.nebius.com/) |
 | `TAVILY_API_KEY` | Key for Tavily web search. Not used yet. | [Tavily](https://tavily.com/) |
 | `VOICECHAT_URL` | Private-network WebSocket URL of the VoiceChat container. Not used yet. | Your Nebius AI Cloud VM |
+| `VOICE_ENGINE` | `cascade` (default: speech-to-text, Nemotron, text-to-speech) or `none` (accept audio, no replies). | Leave as `cascade` |
+| `NVIDIA_API_KEY` | NVIDIA hosted speech models: Parakeet (speech-to-text) and Magpie TTS (text-to-speech). Required for spoken replies. | [build.nvidia.com](https://build.nvidia.com) (free credits) |
+| `RIVA_SERVER`, `ASR_FUNCTION_ID`, `TTS_FUNCTION_ID`, `TTS_VOICE` | Where the speech models run and which voice speaks. Defaults are set; change only if NVIDIA updates its catalog. | NVIDIA model pages on build.nvidia.com |
+| `OPENROUTER_API_KEY` | Backup provider for Nemotron, used if Nebius fails or has no key. Optional. | [OpenRouter](https://openrouter.ai) |
 
 ## Project structure
 

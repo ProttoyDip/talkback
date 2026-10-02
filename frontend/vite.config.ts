@@ -2,7 +2,8 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, searchForWorkspaceRoot } from 'vite'
 
-const BACKEND = 'http://localhost:8000'
+// The end-to-end tests point this at their own backend (playwright.config.ts).
+const BACKEND = process.env.TALKBACK_BACKEND ?? 'http://localhost:8000'
 
 // https://vite.dev/config/
 export default defineConfig({

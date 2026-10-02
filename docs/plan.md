@@ -94,6 +94,7 @@ Each package is one or more pull requests. "Needs" lists what must be merged fir
 | F5 | **Onboarding** (design.md 5.1): welcome, mic permission with browser-specific help, privacy promise, headphones tip | none | All four steps, keyboard and 375 px checked |
 | F6 | **Memory panel, Toast** (design.md 5.3, `Toast` from 11) | C0.4 | Works against X4, and against a mock until X4 lands |
 | F7 | **Skills panel and Settings** (design.md 5.4, 5.5), including a **Models** section: the voice model (fixed), a planner model picker (allowlist only), the backup order with on/off per provider, and which provider is active now | C0.5, C0.6, C1 | Works against X5 and settings API |
+| X12 | **Plan B cascade engine** (Claude Code, by owner request): `voice_engine.py` interface, gateway wiring in `session.py`, `cascade_engine.py`, `speech/nvidia.py` (Parakeet + Magpie on the NVIDIA API catalog), minimal `llm.py` (Nebius, then OpenRouter). Codex's X1 builds on this interface; X10 extends `llm.py`; X2 adds barge-in | Phase 0, C1 | Real spoken replies with `NVIDIA_API_KEY`; offline tests with fakes |
 | F9 | **Backup notice**: a small "Backup model" label in the status bar while a backup provider answers, so the user always knows which model is in use | C1 | Shows and clears on `model.active` |
 | F8 | **Accessibility and polish pass**: keyboard, screen reader, contrast, reduced motion, 375 px, error states (design.md 5.6, 7) | F1–F7 | Checklist in design.md section 10 step 6 passes |
 
