@@ -3,6 +3,10 @@ import type { ConversationState, ToolName } from './types'
 export const TOOL_STATUS_NAME: Record<ToolName, string> = {
   weather: 'WEATHER',
   web_search: 'THE WEB',
+  memory_read: 'MEMORY',
+  memory_write: 'MEMORY',
+  memory_delete: 'MEMORY',
+  skill_run: 'SKILL',
 }
 
 /** Status labels from docs/design.md, section 6. */

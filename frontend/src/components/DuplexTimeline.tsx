@@ -1,11 +1,14 @@
 import { motion } from 'motion/react'
 import { useEffect, useRef } from 'react'
-import type { ConversationState, TimelineData } from '../state/types'
+import type { TimelineData } from '../state/types'
 import { dur } from '../styles/motion'
 
 interface DuplexTimelineProps {
   data: TimelineData
-  state: ConversationState
+  /** Lanes turn grey (design.md 6). */
+  offline: boolean
+  /** The user lane is hidden (design.md 6). */
+  muted: boolean
 }
 
 type LaneTone = 'user' | 'assistant' | 'offline'
@@ -110,23 +113,16 @@ function Lane({
   )
 }
 
-const FLAT: number[] = []
 const ROW = { 1: 'row-start-1', 2: 'row-start-2' } as const
 
 /**
  * Two lanes, YOU and TALKBACK, over the last ~10 seconds (design.md 5.2).
- * Static placeholder levels for now; real levels come from the AudioWorklet.
+ * Levels come from the mic and playback meters (or example data in preview).
  * Decorative for assistive tech: the status bar carries the text equivalent.
  */
-export function DuplexTimeline({ data, state }: DuplexTimelineProps) {
-  const offline = state === 'offline'
-  const flat = state === 'idle' || offline
-  const hideUser = state === 'muted'
-  const showInterrupts = !flat
-
-  const userLevels = flat ? FLAT : data.user
-  const assistantLevels = flat ? FLAT : data.assistant
-  const emptyLane = Array.from({ length: data.user.length }, () => 0)
+export function DuplexTimeline({ data, offline, muted }: DuplexTimelineProps) {
+  const hideUser = muted
+  const showInterrupts = !offline
 
   return (
     <section
@@ -148,14 +144,14 @@ export function DuplexTimeline({ data, state }: DuplexTimelineProps) {
             row={1}
             label="You"
             tone={offline ? 'offline' : 'user'}
-            levels={userLevels.length ? userLevels : emptyLane}
+            levels={data.user}
           />
         )}
         <Lane
           row={2}
           label="TalkBack"
           tone={offline ? 'offline' : 'assistant'}
-          levels={assistantLevels.length ? assistantLevels : emptyLane}
+          levels={data.assistant}
         />
 
         {showInterrupts && (

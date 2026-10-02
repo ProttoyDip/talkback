@@ -1,3 +1,5 @@
+import type { ToolName } from '../session/protocol'
+
 /** Conversation states from docs/design.md, section 6. */
 export type ConversationState =
   | 'idle'
@@ -26,7 +28,7 @@ export const CONVERSATION_STATES: readonly ConversationState[] = [
 
 export type Speaker = 'user' | 'assistant'
 
-export type ToolName = 'weather' | 'web_search'
+export type { ToolName }
 
 export type ToolStatus = 'running' | 'done' | 'failed'
 
