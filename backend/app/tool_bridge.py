@@ -125,10 +125,13 @@ class ToolBridge:
                 else:
                     self.calls.append(now)
             if error is None and tool.sensitive:
-                summary = f"{tool.description} Arguments: {arguments.model_dump_json()}"
+                if tool.confirmation_summary is None:
+                    error = "confirmation_summary_missing"
+                else:
+                    summary = tool.confirmation_summary(arguments)
                 # Never ask approval for an action whose full arguments cannot
                 # fit the contract's confirmation card.
-                if len(summary) > 300:
+                if error is None and (not summary.strip() or len(summary) > 300):
                     error = "confirmation_summary_too_long"
             if error is None and tool.sensitive:
                 future = asyncio.get_running_loop().create_future()
