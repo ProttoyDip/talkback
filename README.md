@@ -21,7 +21,7 @@
 
 > [!NOTE]
 > TalkBack is in early development for the Nebius x NVIDIA Global AI Hackathon 2026 (Personal AI track).
-> The backend gateway and the conversation screen layout are built. The voice model, audio streaming and tools are **planned**; see the [Roadmap](#roadmap).
+> The backend gateway, the conversation screen, live browser audio, and the onboarding, memory, skills and settings screens are built. The voice model, audio streaming and tools are **planned**; see the [Roadmap](#roadmap).
 
 ## The problem
 
@@ -235,8 +235,9 @@ The planned `eval/` folder will contain scripts for two metrics:
 - [ ] Interruption handling: Silero VAD, 250 ms minimum speech length, playback-position history trimming
 - [ ] Nemotron tool planning via Nebius Token Factory, with Tavily and Open-Meteo tools
 - [ ] Spoken filler during tool calls
-- [x] Conversation screen layout (React, static example data)
-- [ ] Live audio in the frontend (capture and playback)
+- [x] Conversation screen (React): live transcript, duplex timeline, tool chips, confirmation card
+- [x] Live audio in the frontend (microphone capture and playback)
+- [x] First-run onboarding, Memory panel, Skills panel and Settings (microphone choice, tools, privacy, models); Skills and Settings need backend routes that are not built yet, so they show an error unless you add `?mock`
 - [ ] Evaluation scripts for latency and interruption recovery
 - [ ] Demo video
 - [ ] More languages, including low-resource languages

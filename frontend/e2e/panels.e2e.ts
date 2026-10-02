@@ -70,3 +70,13 @@ for (const name of ['Memory', 'Skills', 'Settings']) {
     await expectNoHorizontalScroll(page)
   })
 }
+
+test('settings lets you pick the microphone and remembers it', async ({ page }) => {
+  await page.goto('/?state=idle&mock')
+  await page.getByRole('button', { name: 'Settings' }).first().click()
+  const select = page.getByLabel('Microphone', { exact: true })
+  await expect(select.locator('option')).not.toHaveCount(1) // default plus the fake device
+  const value = await select.locator('option').nth(1).getAttribute('value')
+  await select.selectOption(value ?? '')
+  expect(await page.evaluate(() => localStorage.getItem('talkback.micDevice'))).toBe(value)
+})

@@ -5,6 +5,7 @@ import { useResource } from '../../api/useResource'
 import type { ConversationModel } from '../../session/model'
 import { PROVIDER_NAMES, type ModelRole, type ToolName } from '../../session/protocol'
 import { SettingsToggleRow } from '../SettingsToggleRow'
+import { VoiceSection } from './VoiceSection'
 import { ResourceView, SectionTitle } from './shared'
 
 const TOOL_TITLE: Partial<Record<ToolName, string>> = {
@@ -65,6 +66,8 @@ export function SettingsPanel({ active }: { active: ConversationModel['models'] 
               onChange={(transcripts_in_logs) => void update({ transcripts_in_logs })}
             />
           </section>
+
+          <VoiceSection />
 
           <section aria-label="Models">
             <SectionTitle>Models</SectionTitle>
