@@ -21,7 +21,8 @@ def start(ws):
     return ws.receive_json()
 
 
-def assert_closed_with(ws, code):
+def assert_closed_with(ws, code, end_reason="protocol_error"):
+    assert ws.receive_json() == {"type": "session.end", "reason": end_reason}
     with pytest.raises(WebSocketDisconnect) as closed:
         ws.receive_text()
     assert closed.value.code == code
@@ -153,6 +154,15 @@ def test_wrong_frame_size_is_rejected(client, token):
         start(ws)
         ws.send_bytes(b"\x00" * (FRAME_BYTES - 2))
         assert_closed_with(ws, 1003)
+
+
+def test_idle_session_ends_with_session_end(client, token, monkeypatch):
+    import app.session
+
+    monkeypatch.setattr(app.session, "IDLE_TIMEOUT_SECONDS", 0.05)
+    with connect(client, token) as ws:
+        start(ws)
+        assert_closed_with(ws, 1000, end_reason="idle")
 
 
 def test_registry_is_cleaned_up_after_disconnect(client, token):

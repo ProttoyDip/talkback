@@ -1,0 +1,199 @@
+{"t_ms": 0, "event": {"type": "state", "state": "idle"}}
+{"t_ms": 400, "event": {"type": "state", "state": "listening"}}
+{"t_ms": 700, "event": {"type": "transcript.delta", "message_id": "u1", "speaker": "user", "text": "What", "final": false, "backchannel": false}}
+{"t_ms": 1000, "event": {"type": "transcript.delta", "message_id": "u1", "speaker": "user", "text": "What does", "final": false, "backchannel": false}}
+{"t_ms": 1300, "event": {"type": "transcript.delta", "message_id": "u1", "speaker": "user", "text": "What does full-duplex", "final": false, "backchannel": false}}
+{"t_ms": 1600, "event": {"type": "transcript.delta", "message_id": "u1", "speaker": "user", "text": "What does full-duplex mean?", "final": true, "backchannel": false}}
+{"t_ms": 1700, "event": {"type": "state", "state": "tool", "tool": "web_search"}}
+{"t_ms": 1720, "event": {"type": "tool.status", "call_id": "c1", "message_id": "a1", "name": "web_search", "status": "running"}}
+{"t_ms": 2500, "event": {"type": "tool.status", "call_id": "c1", "message_id": "a1", "name": "web_search", "status": "done", "sources": [{"title": "Duplex (telecommunications) - Wikipedia", "url": "https://en.wikipedia.org/wiki/Duplex_(telecommunications)"}, {"title": "NVIDIA NemotronLabs VoiceChat 11B - model card", "url": "https://huggingface.co/nvidia/NVIDIA-NemotronLabs-VoiceChat-11B"}, {"title": "NemotronLabs VoiceChat - paper", "url": "https://arxiv.org/html/2609.21967"}]}}
+{"t_ms": 2600, "event": {"type": "state", "state": "assistant_speaking"}}
+{"t_ms": 2600, "event": {"type": "audio.chunk", "seq": 0, "samples": 4410}}
+{"t_ms": 2600, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": "It", "final": false}}
+{"t_ms": 2800, "event": {"type": "audio.chunk", "seq": 1, "samples": 4410}}
+{"t_ms": 2860, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " means", "final": false}}
+{"t_ms": 3000, "event": {"type": "audio.chunk", "seq": 2, "samples": 4410}}
+{"t_ms": 3120, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " both", "final": false}}
+{"t_ms": 3200, "event": {"type": "audio.chunk", "seq": 3, "samples": 4410}}
+{"t_ms": 3380, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " sides", "final": false}}
+{"t_ms": 3400, "event": {"type": "audio.chunk", "seq": 4, "samples": 4410}}
+{"t_ms": 3600, "event": {"type": "audio.chunk", "seq": 5, "samples": 4410}}
+{"t_ms": 3640, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " can", "final": false}}
+{"t_ms": 3800, "event": {"type": "audio.chunk", "seq": 6, "samples": 4410}}
+{"t_ms": 3900, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " talk", "final": false}}
+{"t_ms": 4000, "event": {"type": "audio.chunk", "seq": 7, "samples": 4410}}
+{"t_ms": 4160, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " at", "final": false}}
+{"t_ms": 4200, "event": {"type": "audio.chunk", "seq": 8, "samples": 4410}}
+{"t_ms": 4400, "event": {"type": "audio.chunk", "seq": 9, "samples": 4410}}
+{"t_ms": 4420, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " the", "final": false}}
+{"t_ms": 4600, "event": {"type": "audio.chunk", "seq": 10, "samples": 4410}}
+{"t_ms": 4680, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " same", "final": false}}
+{"t_ms": 4800, "event": {"type": "audio.chunk", "seq": 11, "samples": 4410}}
+{"t_ms": 4940, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " time,", "final": false}}
+{"t_ms": 5000, "event": {"type": "audio.chunk", "seq": 12, "samples": 4410}}
+{"t_ms": 5200, "event": {"type": "audio.chunk", "seq": 13, "samples": 4410}}
+{"t_ms": 5200, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " like", "final": false}}
+{"t_ms": 5400, "event": {"type": "audio.chunk", "seq": 14, "samples": 4410}}
+{"t_ms": 5460, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " a", "final": false}}
+{"t_ms": 5600, "event": {"type": "audio.chunk", "seq": 15, "samples": 4410}}
+{"t_ms": 5720, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " phone", "final": false}}
+{"t_ms": 5800, "event": {"type": "audio.chunk", "seq": 16, "samples": 4410}}
+{"t_ms": 5980, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " call.", "final": false}}
+{"t_ms": 6000, "event": {"type": "audio.chunk", "seq": 17, "samples": 4410}}
+{"t_ms": 6200, "event": {"type": "audio.chunk", "seq": 18, "samples": 4410}}
+{"t_ms": 6240, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " I", "final": false}}
+{"t_ms": 6400, "event": {"type": "audio.chunk", "seq": 19, "samples": 4410}}
+{"t_ms": 6500, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " keep", "final": false}}
+{"t_ms": 6600, "event": {"type": "audio.chunk", "seq": 20, "samples": 4410}}
+{"t_ms": 6760, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " listening", "final": false}}
+{"t_ms": 6800, "event": {"type": "audio.chunk", "seq": 21, "samples": 4410}}
+{"t_ms": 7000, "event": {"type": "audio.chunk", "seq": 22, "samples": 4410}}
+{"t_ms": 7020, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " while", "final": false}}
+{"t_ms": 7200, "event": {"type": "audio.chunk", "seq": 23, "samples": 4410}}
+{"t_ms": 7280, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " I", "final": false}}
+{"t_ms": 7400, "event": {"type": "audio.chunk", "seq": 24, "samples": 4410}}
+{"t_ms": 7540, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " speak,", "final": false}}
+{"t_ms": 7600, "event": {"type": "audio.chunk", "seq": 25, "samples": 4410}}
+{"t_ms": 7800, "event": {"type": "audio.chunk", "seq": 26, "samples": 4410}}
+{"t_ms": 7800, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " so", "final": false}}
+{"t_ms": 8000, "event": {"type": "audio.chunk", "seq": 27, "samples": 4410}}
+{"t_ms": 8060, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " you", "final": false}}
+{"t_ms": 8200, "event": {"type": "audio.chunk", "seq": 28, "samples": 4410}}
+{"t_ms": 8320, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " can", "final": false}}
+{"t_ms": 8400, "event": {"type": "audio.chunk", "seq": 29, "samples": 4410}}
+{"t_ms": 8580, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " cut", "final": false}}
+{"t_ms": 8600, "event": {"type": "audio.chunk", "seq": 30, "samples": 4410}}
+{"t_ms": 8800, "event": {"type": "audio.chunk", "seq": 31, "samples": 4410}}
+{"t_ms": 8840, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " in", "final": false}}
+{"t_ms": 9000, "event": {"type": "audio.chunk", "seq": 32, "samples": 4410}}
+{"t_ms": 9100, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " whenever", "final": false}}
+{"t_ms": 9200, "event": {"type": "audio.chunk", "seq": 33, "samples": 4410}}
+{"t_ms": 9360, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " you", "final": false}}
+{"t_ms": 9400, "event": {"type": "audio.chunk", "seq": 34, "samples": 4410}}
+{"t_ms": 9600, "event": {"type": "audio.chunk", "seq": 35, "samples": 4410}}
+{"t_ms": 9620, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": " like.", "final": false}}
+{"t_ms": 9800, "event": {"type": "audio.chunk", "seq": 36, "samples": 1764}}
+{"t_ms": 9880, "event": {"type": "transcript.delta", "message_id": "a1", "speaker": "assistant", "text": "", "final": true}}
+{"t_ms": 9880, "event": {"type": "state", "state": "idle"}}
+{"t_ms": 11080, "event": {"type": "state", "state": "listening"}}
+{"t_ms": 11380, "event": {"type": "transcript.delta", "message_id": "u2", "speaker": "user", "text": "Good.", "final": false, "backchannel": false}}
+{"t_ms": 11680, "event": {"type": "transcript.delta", "message_id": "u2", "speaker": "user", "text": "Good. What's", "final": false, "backchannel": false}}
+{"t_ms": 11980, "event": {"type": "transcript.delta", "message_id": "u2", "speaker": "user", "text": "Good. What's the", "final": false, "backchannel": false}}
+{"t_ms": 12280, "event": {"type": "transcript.delta", "message_id": "u2", "speaker": "user", "text": "Good. What's the weather", "final": false, "backchannel": false}}
+{"t_ms": 12580, "event": {"type": "transcript.delta", "message_id": "u2", "speaker": "user", "text": "Good. What's the weather in", "final": false, "backchannel": false}}
+{"t_ms": 12880, "event": {"type": "transcript.delta", "message_id": "u2", "speaker": "user", "text": "Good. What's the weather in Lisbon?", "final": true, "backchannel": false}}
+{"t_ms": 12980, "event": {"type": "state", "state": "tool", "tool": "weather"}}
+{"t_ms": 13000, "event": {"type": "tool.status", "call_id": "c2", "message_id": "a2", "name": "weather", "status": "running"}}
+{"t_ms": 13480, "event": {"type": "tool.status", "call_id": "c2", "message_id": "a2", "name": "weather", "status": "done"}}
+{"t_ms": 13580, "event": {"type": "state", "state": "assistant_speaking"}}
+{"t_ms": 13580, "event": {"type": "audio.chunk", "seq": 37, "samples": 4410}}
+{"t_ms": 13580, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": "It's", "final": false}}
+{"t_ms": 13780, "event": {"type": "audio.chunk", "seq": 38, "samples": 4410}}
+{"t_ms": 13840, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " sunny", "final": false}}
+{"t_ms": 13980, "event": {"type": "audio.chunk", "seq": 39, "samples": 4410}}
+{"t_ms": 14100, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " in", "final": false}}
+{"t_ms": 14180, "event": {"type": "audio.chunk", "seq": 40, "samples": 4410}}
+{"t_ms": 14360, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " Lisbon", "final": false}}
+{"t_ms": 14380, "event": {"type": "audio.chunk", "seq": 41, "samples": 4410}}
+{"t_ms": 14580, "event": {"type": "audio.chunk", "seq": 42, "samples": 4410}}
+{"t_ms": 14620, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " right", "final": false}}
+{"t_ms": 14780, "event": {"type": "audio.chunk", "seq": 43, "samples": 4410}}
+{"t_ms": 14880, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " now,", "final": false}}
+{"t_ms": 14980, "event": {"type": "audio.chunk", "seq": 44, "samples": 4410}}
+{"t_ms": 15140, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " around", "final": false}}
+{"t_ms": 15180, "event": {"type": "audio.chunk", "seq": 45, "samples": 4410}}
+{"t_ms": 15380, "event": {"type": "audio.chunk", "seq": 46, "samples": 4410}}
+{"t_ms": 15400, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " 24", "final": false}}
+{"t_ms": 15580, "event": {"type": "audio.chunk", "seq": 47, "samples": 4410}}
+{"t_ms": 15660, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " degrees.", "final": false}}
+{"t_ms": 15780, "event": {"type": "audio.chunk", "seq": 48, "samples": 4410}}
+{"t_ms": 15920, "event": {"type": "state", "state": "overlap"}}
+{"t_ms": 15920, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " This", "final": false}}
+{"t_ms": 15980, "event": {"type": "audio.chunk", "seq": 49, "samples": 4410}}
+{"t_ms": 16180, "event": {"type": "audio.chunk", "seq": 50, "samples": 4410}}
+{"t_ms": 16180, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " evening", "final": false}}
+{"t_ms": 16220, "event": {"type": "transcript.delta", "message_id": "u3", "speaker": "user", "text": "mm-hm", "final": true, "backchannel": true}}
+{"t_ms": 16320, "event": {"type": "state", "state": "assistant_speaking"}}
+{"t_ms": 16380, "event": {"type": "audio.chunk", "seq": 51, "samples": 4410}}
+{"t_ms": 16440, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " the", "final": false}}
+{"t_ms": 16580, "event": {"type": "audio.chunk", "seq": 52, "samples": 4410}}
+{"t_ms": 16700, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " wind", "final": false}}
+{"t_ms": 16780, "event": {"type": "audio.chunk", "seq": 53, "samples": 4410}}
+{"t_ms": 16960, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " picks", "final": false}}
+{"t_ms": 16980, "event": {"type": "audio.chunk", "seq": 54, "samples": 4410}}
+{"t_ms": 17180, "event": {"type": "audio.chunk", "seq": 55, "samples": 4410}}
+{"t_ms": 17220, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " up", "final": false}}
+{"t_ms": 17380, "event": {"type": "audio.chunk", "seq": 56, "samples": 4410}}
+{"t_ms": 17480, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " from", "final": false}}
+{"t_ms": 17580, "event": {"type": "audio.chunk", "seq": 57, "samples": 4410}}
+{"t_ms": 17740, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " the", "final": false}}
+{"t_ms": 17780, "event": {"type": "audio.chunk", "seq": 58, "samples": 4410}}
+{"t_ms": 17960, "event": {"type": "state", "state": "overlap"}}
+{"t_ms": 17980, "event": {"type": "audio.chunk", "seq": 59, "samples": 4410}}
+{"t_ms": 18000, "event": {"type": "transcript.delta", "message_id": "a2", "speaker": "assistant", "text": " north,", "final": false}}
+{"t_ms": 18180, "event": {"type": "audio.chunk", "seq": 60, "samples": 1764}}
+{"t_ms": 18260, "event": {"type": "state", "state": "interrupted"}}
+{"t_ms": 18260, "event": {"type": "audio.flush", "reason": "interrupted"}}
+{"t_ms": 18260, "event": {"type": "transcript.delta", "message_id": "u4", "speaker": "user", "text": "No,", "final": false, "backchannel": false}}
+{"t_ms": 18340, "event": {"type": "transcript.trim", "message_id": "a2", "heard_text": "It's sunny in Lisbon right now, around 24 degrees. This evening the wind picks up from the north,", "unheard_text": "so take a light jacket if you're out after dinner."}}
+{"t_ms": 18410, "event": {"type": "state", "state": "listening"}}
+{"t_ms": 18560, "event": {"type": "transcript.delta", "message_id": "u4", "speaker": "user", "text": "No, tomorrow.", "final": true, "backchannel": false}}
+{"t_ms": 18660, "event": {"type": "state", "state": "assistant_speaking"}}
+{"t_ms": 18660, "event": {"type": "audio.chunk", "seq": 61, "samples": 4410}}
+{"t_ms": 18660, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": "Tomorrow", "final": false}}
+{"t_ms": 18860, "event": {"type": "audio.chunk", "seq": 62, "samples": 4410}}
+{"t_ms": 18920, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": " is", "final": false}}
+{"t_ms": 19060, "event": {"type": "audio.chunk", "seq": 63, "samples": 4410}}
+{"t_ms": 19180, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": " cloudier,", "final": false}}
+{"t_ms": 19260, "event": {"type": "audio.chunk", "seq": 64, "samples": 4410}}
+{"t_ms": 19440, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": " with", "final": false}}
+{"t_ms": 19460, "event": {"type": "audio.chunk", "seq": 65, "samples": 4410}}
+{"t_ms": 19660, "event": {"type": "audio.chunk", "seq": 66, "samples": 4410}}
+{"t_ms": 19700, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": " a", "final": false}}
+{"t_ms": 19860, "event": {"type": "audio.chunk", "seq": 67, "samples": 4410}}
+{"t_ms": 19960, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": " high", "final": false}}
+{"t_ms": 20060, "event": {"type": "audio.chunk", "seq": 68, "samples": 4410}}
+{"t_ms": 20220, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": " of", "final": false}}
+{"t_ms": 20260, "event": {"type": "audio.chunk", "seq": 69, "samples": 4410}}
+{"t_ms": 20460, "event": {"type": "audio.chunk", "seq": 70, "samples": 4410}}
+{"t_ms": 20480, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": " 21", "final": false}}
+{"t_ms": 20660, "event": {"type": "audio.chunk", "seq": 71, "samples": 4410}}
+{"t_ms": 20740, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": " and", "final": false}}
+{"t_ms": 20860, "event": {"type": "audio.chunk", "seq": 72, "samples": 4410}}
+{"t_ms": 21000, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": " rain", "final": false}}
+{"t_ms": 21060, "event": {"type": "audio.chunk", "seq": 73, "samples": 4410}}
+{"t_ms": 21260, "event": {"type": "audio.chunk", "seq": 74, "samples": 4410}}
+{"t_ms": 21260, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": " likely", "final": false}}
+{"t_ms": 21460, "event": {"type": "audio.chunk", "seq": 75, "samples": 4410}}
+{"t_ms": 21520, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": " after", "final": false}}
+{"t_ms": 21660, "event": {"type": "audio.chunk", "seq": 76, "samples": 4410}}
+{"t_ms": 21780, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": " 4", "final": false}}
+{"t_ms": 21860, "event": {"type": "audio.chunk", "seq": 77, "samples": 4410}}
+{"t_ms": 22040, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": " pm.", "final": false}}
+{"t_ms": 22060, "event": {"type": "audio.chunk", "seq": 78, "samples": 4410}}
+{"t_ms": 22260, "event": {"type": "audio.chunk", "seq": 79, "samples": 882}}
+{"t_ms": 22300, "event": {"type": "transcript.delta", "message_id": "a3", "speaker": "assistant", "text": "", "final": true}}
+{"t_ms": 22300, "event": {"type": "state", "state": "idle"}}
+{"t_ms": 23800, "event": {"type": "state", "state": "listening"}}
+{"t_ms": 24100, "event": {"type": "transcript.delta", "message_id": "u5", "speaker": "user", "text": "Forget", "final": false, "backchannel": false}}
+{"t_ms": 24400, "event": {"type": "transcript.delta", "message_id": "u5", "speaker": "user", "text": "Forget my", "final": false, "backchannel": false}}
+{"t_ms": 24700, "event": {"type": "transcript.delta", "message_id": "u5", "speaker": "user", "text": "Forget my home", "final": false, "backchannel": false}}
+{"t_ms": 25000, "event": {"type": "transcript.delta", "message_id": "u5", "speaker": "user", "text": "Forget my home city.", "final": true, "backchannel": false}}
+{"t_ms": 25100, "event": {"type": "state", "state": "assistant_speaking"}}
+{"t_ms": 25100, "event": {"type": "audio.chunk", "seq": 80, "samples": 4410}}
+{"t_ms": 25100, "event": {"type": "transcript.delta", "message_id": "a4", "speaker": "assistant", "text": "Okay.", "final": false}}
+{"t_ms": 25300, "event": {"type": "audio.chunk", "seq": 81, "samples": 4410}}
+{"t_ms": 25360, "event": {"type": "transcript.delta", "message_id": "a4", "speaker": "assistant", "text": " I", "final": false}}
+{"t_ms": 25500, "event": {"type": "audio.chunk", "seq": 82, "samples": 4410}}
+{"t_ms": 25620, "event": {"type": "transcript.delta", "message_id": "a4", "speaker": "assistant", "text": " need", "final": false}}
+{"t_ms": 25700, "event": {"type": "audio.chunk", "seq": 83, "samples": 4410}}
+{"t_ms": 25880, "event": {"type": "transcript.delta", "message_id": "a4", "speaker": "assistant", "text": " your", "final": false}}
+{"t_ms": 25900, "event": {"type": "audio.chunk", "seq": 84, "samples": 4410}}
+{"t_ms": 26100, "event": {"type": "audio.chunk", "seq": 85, "samples": 4410}}
+{"t_ms": 26140, "event": {"type": "transcript.delta", "message_id": "a4", "speaker": "assistant", "text": " OK", "final": false}}
+{"t_ms": 26300, "event": {"type": "audio.chunk", "seq": 86, "samples": 4410}}
+{"t_ms": 26400, "event": {"type": "transcript.delta", "message_id": "a4", "speaker": "assistant", "text": " first.", "final": false}}
+{"t_ms": 26500, "event": {"type": "audio.chunk", "seq": 87, "samples": 3528}}
+{"t_ms": 26660, "event": {"type": "transcript.delta", "message_id": "a4", "speaker": "assistant", "text": "", "final": true}}
+{"t_ms": 26710, "event": {"type": "tool.confirm_request", "call_id": "c3", "summary": "Delete the memory \u201cHome city is Lisbon\u201d?"}}
+{"t_ms": 26720, "event": {"type": "state", "state": "confirm"}}

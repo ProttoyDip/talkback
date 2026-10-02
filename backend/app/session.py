@@ -24,6 +24,7 @@ from .protocol import (
     ControlMute,
     PlaybackPosition,
     ServerMessage,
+    SessionEnd,
     SessionStart,
     StateEvent,
     ToolConfirm,
@@ -47,10 +48,12 @@ CLOSE_TRY_AGAIN_LATER = 1013
 
 
 class ProtocolError(Exception):
-    def __init__(self, code: int, reason: str) -> None:
+    def __init__(self, code: int, reason: str, end_reason: str = "protocol_error") -> None:
         super().__init__(reason)
         self.code = code
         self.reason = reason
+        # Value for the session.end event sent before closing.
+        self.end_reason = end_reason
 
 
 class Registry:
@@ -84,7 +87,8 @@ class Session:
         self.last_playback: PlaybackPosition | None = None
 
     async def send(self, message: ServerMessage) -> None:
-        await self.websocket.send_text(message.model_dump_json())
+        # Optional fields that are None are left out; clients treat missing as null.
+        await self.websocket.send_text(message.model_dump_json(exclude_none=True))
 
     def require_started(self) -> None:
         if not self.started:
@@ -131,13 +135,13 @@ class Session:
         while True:
             remaining = deadline - loop.time()
             if remaining <= 0:
-                raise ProtocolError(CLOSE_NORMAL, "session time limit reached")
+                raise ProtocolError(CLOSE_NORMAL, "session time limit reached", "time_limit")
             try:
                 event = await asyncio.wait_for(
                     self.websocket.receive(), timeout=min(IDLE_TIMEOUT_SECONDS, remaining)
                 )
             except TimeoutError:
-                raise ProtocolError(CLOSE_NORMAL, "session closed after inactivity") from None
+                raise ProtocolError(CLOSE_NORMAL, "session closed after inactivity", "idle") from None
 
             if event["type"] == "websocket.disconnect":
                 return
@@ -181,6 +185,7 @@ async def session_endpoint(
             extra={"session_id": claims.session_id, "event": error.reason, "code": error.code},
         )
         if websocket.client_state == WebSocketState.CONNECTED:
+            await session.send(SessionEnd(reason=error.end_reason))
             await websocket.close(code=error.code, reason=error.reason)
     finally:
         registry.remove(claims.session_id, ip)
