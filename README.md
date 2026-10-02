@@ -21,7 +21,7 @@
 
 > [!NOTE]
 > TalkBack is in early development for the Nebius x NVIDIA Global AI Hackathon 2026 (Personal AI track).
-> The backend gateway, the conversation screen, live browser audio, and the onboarding, memory, skills and settings screens are built. The voice model, audio streaming and tools are **planned**; see the [Roadmap](#roadmap).
+> The backend gateway, the conversation screen, live browser audio, and the onboarding, memory, skills and settings screens are built. The full-duplex voice model on an H100 and interruption handling are **planned**; see the [Roadmap](#roadmap).
 
 ## The problem
 
