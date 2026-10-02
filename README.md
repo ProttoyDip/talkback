@@ -15,7 +15,6 @@
 
 </div>
 
-<!-- TODO: add the cover image at docs/images/cover.png -->
 <p align="center">
   <img src="docs/images/cover.png" alt="TalkBack cover image" width="800">
 </p>
