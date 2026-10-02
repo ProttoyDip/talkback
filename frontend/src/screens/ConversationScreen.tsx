@@ -1,8 +1,11 @@
 import { AnimatePresence } from 'motion/react'
-import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
+import { api } from '../api/client'
 import { Banner, type BannerProps } from '../components/Banner'
 import { ConfirmCard } from '../components/ConfirmCard'
 import { Drawer } from '../components/Drawer'
+import { Toast, type ToastData } from '../components/Toast'
+import type { ConversationModel } from '../session/model'
 import { DuplexTimeline } from '../components/DuplexTimeline'
 import { MicButton, type MicMode } from '../components/MicButton'
 import { NavRail, TabBar, type Panel } from '../components/Navigation'
@@ -25,6 +28,11 @@ export interface ConversationView {
   latencyMs?: number
   /** Set while a backup model answers, e.g. "Planner: nemotron via OpenRouter". */
   backup?: string
+  /** Last memory TalkBack saved; shows the "Remembered" toast with Undo. */
+  remembered?: { id: string; text: string }
+  /** True once the session is open, so skills can run. */
+  sessionOpen?: boolean
+  activeModels?: ConversationModel['models']
 }
 
 interface ConversationScreenProps {
@@ -56,6 +64,20 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
     if (el && following.current) el.scrollTop = el.scrollHeight
   }, [turns, confirm])
 
+  // Toasts: a new memory shows "Remembered" with Undo for 4 s (design.md 11).
+  const [toast, setToast] = useState<ToastData | null>(null)
+  const dismissToast = useCallback(() => setToast(null), [])
+  const [seenMemory, setSeenMemory] = useState(view.remembered?.id)
+  if (view.remembered && view.remembered.id !== seenMemory) {
+    const { id, text } = view.remembered
+    setSeenMemory(id)
+    setToast({
+      id,
+      message: `Remembered: ${text}`,
+      action: { label: 'Undo', onClick: () => void api.deleteMemory(id).catch(() => {}) },
+    })
+  }
+
   const togglePanel = (next: Panel) => setPanel((cur) => (cur === next ? null : next))
 
   // Keyboard shortcuts from design.md 7: Space mute, M memory, K skills, Esc close.
@@ -71,6 +93,8 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
         togglePanel('memory')
       } else if (e.key === 'k' || e.key === 'K') {
         togglePanel('skills')
+      } else if (e.key === ',') {
+        togglePanel('settings')
       } else if (e.key === 'Escape') {
         setPanel(null)
       }
@@ -148,8 +172,22 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
       </main>
 
       <AnimatePresence>
-        {panel && <Drawer key={panel} panel={panel} onClose={() => setPanel(null)} />}
+        {panel && (
+          <Drawer
+            key={panel}
+            panel={panel}
+            onClose={() => setPanel(null)}
+            context={{
+              memoryVersion: view.remembered?.id,
+              sessionOpen: view.sessionOpen ?? false,
+              onSkillRan: (name) => setToast({ id: `skill-${name}-${Date.now()}`, message: `Running ${name}` }),
+              activeModels: view.activeModels ?? {},
+            }}
+          />
+        )}
       </AnimatePresence>
+
+      <AnimatePresence>{toast && <Toast key={toast.id} toast={toast} onDismiss={dismissToast} />}</AnimatePresence>
 
       <TabBar openPanel={panel} onTogglePanel={togglePanel} mic={mic} />
     </div>

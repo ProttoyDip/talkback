@@ -8,6 +8,8 @@ import { PROVIDER_NAMES } from '../session/protocol'
 import { useLevelHistory, type LevelMeters } from '../session/useLevelHistory'
 import { useSession, type SessionMode } from '../session/useSession'
 import type { ConversationState } from '../state/types'
+import { hasOnboarded } from './onboarded'
+import { Onboarding } from './Onboarding'
 import { ConversationScreen, type ConversationView } from './ConversationScreen'
 
 /** Copy from design.md 5.6: plain, specific, with a next step. */
@@ -80,6 +82,9 @@ export function LiveConversation({
   const engineRef = useRef<AudioEngine | null>(null)
   const [starting, setStarting] = useState(false)
   const [micProblem, setMicProblem] = useState<MicProblem | null>(null)
+  // First run: onboarding (design.md 5.1). The replay needs none.
+  const [onboarding, setOnboarding] = useState(() => mode === 'live' && !hasOnboarded())
+  const [tip, setTip] = useState(false)
 
   useEffect(() => () => void engineRef.current?.close(), [])
 
@@ -131,7 +136,14 @@ export function LiveConversation({
 
   const banner: BannerProps | undefined = micProblem
     ? { tone: 'danger', message: MIC_PROBLEM_COPY[micProblem], action: { label: 'Try again', onClick: () => void begin() } }
-    : bannerFor(model, reconnect)
+    : (bannerFor(model, reconnect) ??
+      (tip
+        ? {
+            tone: 'neutral' as const,
+            message: 'Use headphones for the best interruptions.',
+            action: { label: 'Got it', icon: 'check' as const, onClick: () => setTip(false) },
+          }
+        : undefined))
 
   const view: ConversationView = {
     state,
@@ -146,6 +158,21 @@ export function LiveConversation({
     micDisabled: state === 'offline' || starting,
     latencyMs: model.latencyMs,
     backup: backupLabel(model),
+    remembered: model.remembered,
+    sessionOpen: model.connection === 'open',
+    activeModels: model.models,
+  }
+
+  if (onboarding) {
+    return (
+      <Onboarding
+        onStart={() => {
+          setOnboarding(false)
+          setTip(true)
+          void begin()
+        }}
+      />
+    )
   }
 
   return (

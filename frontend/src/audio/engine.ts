@@ -2,6 +2,7 @@
  * Browser audio engine: mic capture (F2) and assistant playback (F3).
  * Must be started from a user gesture (browser autoplay rules).
  */
+import { getMicDevice } from './device'
 import captureUrl from './capture.worklet.ts?worker&url'
 import playbackUrl from './playback.worklet.ts?worker&url'
 import type { CaptureMessage } from './capture.worklet'
@@ -90,9 +91,22 @@ export class AudioEngine {
     if (!context) throw new Error('start() first')
     let stream: MediaStream
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      })
+      const deviceId = getMicDevice()
+      const audio: MediaTrackConstraints = {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: deviceId ? { ...audio, deviceId: { exact: deviceId } } : audio,
+        })
+      } catch (error) {
+        // The saved microphone was unplugged: fall back to the default one.
+        if (!deviceId || !(error instanceof DOMException) || error.name !== 'OverconstrainedError') throw error
+        stream = await navigator.mediaDevices.getUserMedia({ audio })
+      }
     } catch (error) {
       const name = error instanceof DOMException ? error.name : ''
       if (name === 'NotAllowedError' || name === 'SecurityError') throw new MicError('blocked')

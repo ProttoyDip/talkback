@@ -52,6 +52,15 @@ const paths = {
       <path d="M7 18h10a4 4 0 0 0 .6-8 5.5 5.5 0 0 0-10.6 1.5A3.3 3.3 0 0 0 7 18" />
     </>
   ),
+  edit: <path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />,
+  trash: <path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13M10 11v6M14 11v6" />,
+  play: <path d="M8 5v14l11-7z" />,
+  search: (
+    <>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m16 16 4 4" />
+    </>
+  ),
   retry: <path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" />,
 } as const
 

@@ -21,7 +21,7 @@
 
 > [!NOTE]
 > TalkBack is in early development for the Nebius x NVIDIA Global AI Hackathon 2026 (Personal AI track).
-> The backend gateway and the conversation screen layout are built. The voice model, audio streaming and tools are **planned**; see the [Roadmap](#roadmap).
+> The backend gateway, the conversation screen, live browser audio, and the onboarding, memory, skills and settings screens are built. The full-duplex voice model on an H100 and interruption handling are **planned**; see the [Roadmap](#roadmap).
 
 ## The problem
 
@@ -92,7 +92,7 @@ $$\text{latency} = t_{\text{first audio out}} - t_{\text{end of user speech}}$$
 ## Quick start
 
 > [!NOTE]
-> This runs the backend gateway and the conversation screen. They are not connected to each other or to the voice model yet.
+> For spoken replies, add `NVIDIA_API_KEY` and `NEBIUS_API_KEY` (or `OPENROUTER_API_KEY`) to `backend/.env`. Without them the app still runs and explains what is missing. You can ask for the weather (Open-Meteo, no key needed). Interruption handling (barge-in) is not built yet.
 
 ### Prerequisites
 
@@ -178,9 +178,13 @@ The backend reads `backend/.env`. Copy it from [`backend/.env.example`](backend/
 | --- | --- | --- |
 | `SESSION_SECRET` | Signs the 15-minute session tokens. At least 32 characters. If empty, a random secret is used until the server restarts. | Generate one: `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `ALLOWED_ORIGINS` | Comma-separated browser origins that may open the session WebSocket. | Your frontend URL. The default allows the Vite dev server. |
-| `NEBIUS_API_KEY` | Key for NVIDIA Nemotron on Nebius Token Factory. Not used yet. | [Nebius Token Factory](https://tokenfactory.nebius.com/) |
+| `NEBIUS_API_KEY` | Key for NVIDIA Nemotron 3 Nano on Nebius Token Factory, which writes TalkBack's replies. | [Nebius Token Factory](https://tokenfactory.nebius.com/) |
 | `TAVILY_API_KEY` | Key for Tavily web search. Not used yet. | [Tavily](https://tavily.com/) |
 | `VOICECHAT_URL` | Private-network WebSocket URL of the VoiceChat container. Not used yet. | Your Nebius AI Cloud VM |
+| `VOICE_ENGINE` | `cascade` (default: speech-to-text, Nemotron, text-to-speech) or `none` (accept audio, no replies). | Leave as `cascade` |
+| `NVIDIA_API_KEY` | NVIDIA hosted speech models: Parakeet (speech-to-text) and Magpie TTS (text-to-speech). Required for spoken replies. | [build.nvidia.com](https://build.nvidia.com) (free credits) |
+| `RIVA_SERVER`, `ASR_FUNCTION_ID`, `TTS_FUNCTION_ID`, `TTS_VOICE` | Where the speech models run and which voice speaks. Defaults are set; change only if NVIDIA updates its catalog. | NVIDIA model pages on build.nvidia.com |
+| `OPENROUTER_API_KEY` | Backup provider for Nemotron, used if Nebius fails or has no key. Optional. | [OpenRouter](https://openrouter.ai) |
 
 ## Project structure
 
@@ -231,8 +235,9 @@ The planned `eval/` folder will contain scripts for two metrics:
 - [ ] Interruption handling: Silero VAD, 250 ms minimum speech length, playback-position history trimming
 - [ ] Nemotron tool planning via Nebius Token Factory, with Tavily and Open-Meteo tools
 - [ ] Spoken filler during tool calls
-- [x] Conversation screen layout (React, static example data)
-- [ ] Live audio in the frontend (capture and playback)
+- [x] Conversation screen (React): live transcript, duplex timeline, tool chips, confirmation card
+- [x] Live audio in the frontend (microphone capture and playback)
+- [x] First-run onboarding, Memory panel, Skills panel and Settings (microphone choice, tools, privacy, models); Skills and Settings need backend routes that are not built yet, so they show an error unless you add `?mock`
 - [ ] Evaluation scripts for latency and interruption recovery
 - [ ] Demo video
 - [ ] More languages, including low-resource languages

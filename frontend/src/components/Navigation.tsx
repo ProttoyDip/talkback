@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
 
-export type Panel = 'memory' | 'skills'
+export type Panel = 'memory' | 'skills' | 'settings'
 
 interface NavProps {
   openPanel: Panel | null
@@ -9,7 +9,7 @@ interface NavProps {
 }
 
 interface Item {
-  id: 'conversation' | Panel | 'settings'
+  id: 'conversation' | Panel
   label: string
   icon: IconName
   shortcut?: string
@@ -28,30 +28,21 @@ function NavButton({
   onTogglePanel,
   compact,
 }: NavProps & { item: Item; compact: boolean }) {
-  const isPanel = item.id === 'memory' || item.id === 'skills'
+  const isPanel = item.id !== 'conversation'
   const active = isPanel ? openPanel === item.id : item.id === 'conversation' && openPanel === null
-  // Settings (design.md 5.5) is not built yet; keep it visible but honest.
-  const unavailable = item.id === 'settings'
-
   const base =
     'group relative flex items-center justify-center rounded-card transition-colors duration-(--dur-fast)'
   const size = compact ? 'min-h-target min-w-target flex-col gap-1 px-2' : 'size-12'
-  const tone = unavailable
-    ? 'cursor-not-allowed text-text-subtle'
-    : active
-      ? 'bg-surface-raised text-text'
-      : 'text-text-muted hover:bg-surface hover:text-text'
+  const tone = active ? 'bg-surface-raised text-text' : 'text-text-muted hover:bg-surface hover:text-text'
 
   return (
     <button
       type="button"
-      aria-label={unavailable ? `${item.label} (not available yet)` : item.label}
+      aria-label={item.label}
       aria-current={active && !isPanel ? 'page' : undefined}
       aria-expanded={isPanel ? openPanel === item.id : undefined}
-      aria-disabled={unavailable || undefined}
       aria-keyshortcuts={item.shortcut}
       onClick={() => {
-        if (unavailable) return
         if (isPanel) onTogglePanel(item.id as Panel)
         else if (openPanel) onTogglePanel(openPanel)
       }}
@@ -70,7 +61,6 @@ function NavButton({
         >
           {item.label}
           {item.shortcut && <span className="text-text-muted"> · {item.shortcut}</span>}
-          {unavailable && <span className="text-text-muted"> · soon</span>}
         </span>
       )}
     </button>

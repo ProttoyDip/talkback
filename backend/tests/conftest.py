@@ -10,7 +10,7 @@ SECRET = "test-secret-" + "x" * 40
 
 @pytest.fixture
 def settings() -> Settings:
-    return Settings(_env_file=None, session_secret=SECRET, allowed_origins=ORIGIN)
+    return Settings(_env_file=None, session_secret=SECRET, allowed_origins=ORIGIN, voice_engine="none")
 
 
 @pytest.fixture
