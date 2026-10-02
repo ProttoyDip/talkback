@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     nebius_api_key: SecretStr = SecretStr("")
     tavily_api_key: SecretStr = SecretStr("")
     voicechat_url: str = ""
+    memory_db_path: str = "data/memories.sqlite3"
 
     @field_validator("session_secret")
     @classmethod
