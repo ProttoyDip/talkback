@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     nebius_api_key: SecretStr = SecretStr("")
     tavily_api_key: SecretStr = SecretStr("")
     voicechat_url: str = ""
+    memory_db_path: str = "data/memories.sqlite3"
 
     # Which voice engine serves sessions: "cascade" (plan B), "fake" (X1),
     # "voicechat" (X7), or "none" (accept audio, no replies).
