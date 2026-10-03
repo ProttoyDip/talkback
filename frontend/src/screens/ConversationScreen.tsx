@@ -1,6 +1,8 @@
-import { AnimatePresence } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { type RefObject, useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
+import { Icon } from '../components/Icon'
+import { enter, exit } from '../styles/motion'
 import { Banner, type BannerProps } from '../components/Banner'
 import { ConfirmCard } from '../components/ConfirmCard'
 import { FlowBackground } from '../components/FlowBackground'
@@ -44,6 +46,8 @@ interface ConversationScreenProps {
   debug: boolean
   onToggleMute: () => void
   onAnswerConfirm: (approved: boolean) => void
+  /** Stop TalkBack talking now (Esc or the Stop button). */
+  onStop?: () => void
 }
 
 function isTyping(target: EventTarget | null) {
@@ -56,11 +60,15 @@ function isTyping(target: EventTarget | null) {
 /** Within this distance of the bottom, new captions keep the view pinned. */
 const FOLLOW_THRESHOLD_PX = 160
 
-export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm }: ConversationScreenProps) {
+/** TalkBack is answering, so Stop has something to stop. */
+const STOPPABLE = new Set(['assistant_speaking', 'overlap', 'thinking', 'tool'])
+
+export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm, onStop }: ConversationScreenProps) {
   const [panel, setPanel] = useState<Panel | null>(null)
   const { state, turns, confirm, micDisabled } = view
   // Nothing said yet: the orb holds the centre of the stage.
   const empty = turns.length === 0 && !confirm
+  const canStop = onStop !== undefined && STOPPABLE.has(state)
 
   // Live captions follow the newest words, unless the user scrolled up to read.
   const transcriptRef = useRef<HTMLElement>(null)
@@ -88,6 +96,11 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
 
   // Keyboard shortcuts from design.md 7: Space mute, M memory, K skills, Esc close.
   const toggleMute = useEffectEvent(onToggleMute)
+  // Esc closes an open panel first; otherwise it stops TalkBack (design.md 7).
+  const escape = useEffectEvent(() => {
+    if (panel) setPanel(null)
+    else if (canStop) onStop?.()
+  })
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return
@@ -102,7 +115,7 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
       } else if (e.key === ',') {
         togglePanel('settings')
       } else if (e.key === 'Escape') {
-        setPanel(null)
+        escape()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -142,7 +155,7 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
             className={
               empty
                 ? 'flex flex-1 flex-col items-center justify-center gap-8 pb-[calc(var(--mic-size)+var(--space-12))] lg:pb-0'
-                : 'flex shrink-0 justify-center'
+                : 'flex shrink-0 flex-col items-center gap-4'
             }
           >
             <PresenceOrb
@@ -151,6 +164,24 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
               compact={!empty}
               latest={{ user: view.timeline.user.at(-1) ?? 0, assistant: view.timeline.assistant.at(-1) ?? 0 }}
             />
+            <AnimatePresence>
+              {canStop && (
+                <motion.button
+                  key="stop"
+                  type="button"
+                  onClick={onStop}
+                  aria-keyshortcuts="Escape"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0, transition: enter }}
+                  exit={{ opacity: 0, transition: exit }}
+                  className="inline-flex min-h-target items-center gap-2 rounded-pill border border-field-line bg-chrome px-4 font-medium text-text transition-colors duration-(--dur-fast) hover:border-text-subtle active:scale-[0.97]"
+                >
+                  <Icon name="stop" className="size-4" />
+                  Stop
+                  <span className="font-mono text-label uppercase text-text-muted">Esc</span>
+                </motion.button>
+              )}
+            </AnimatePresence>
             {empty && (
               <div className="flex flex-col items-center gap-2 text-center">
                 <p className="font-display text-h1 font-extrabold text-text">Interrupt me any time.</p>

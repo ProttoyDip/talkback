@@ -2,7 +2,9 @@
 
 from typing import Annotated
 
-from fastapi import Depends, FastAPI
+import hmac
+
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 from .config import Settings, get_settings
@@ -32,8 +34,18 @@ class SessionToken(BaseModel):
 
 
 @app.post("/api/session")
-def create_session(settings: Annotated[Settings, Depends(get_settings)]) -> SessionToken:
-    """Issue a 15-minute token for one WebSocket session (SECURITY.md T7)."""
+def create_session(
+    settings: Annotated[Settings, Depends(get_settings)],
+    x_access_code: Annotated[str, Header(max_length=200)] = "",
+) -> SessionToken:
+    """Issue a 15-minute token for one WebSocket session (SECURITY.md T7).
+
+    With ACCESS_CODE set, the caller must send it (SECURITY.md T8). Every REST
+    route and the WebSocket need a token, so this one check gates them all.
+    """
+    expected = settings.access_code.get_secret_value()
+    if expected and not hmac.compare_digest(x_access_code.encode(), expected.encode()):
+        raise HTTPException(401, "access_code_required")
     token, claims = issue_token(settings.signing_key())
     return SessionToken(token=token, expires_at=claims.expires_at)
 

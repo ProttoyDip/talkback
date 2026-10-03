@@ -5,6 +5,7 @@
  */
 import type { Connection } from './model'
 import { rememberSessionToken } from '../api/client'
+import { AccessCodeError, requestSession } from '../api/session'
 import { parseServerEvent, type ClientMessage, type ServerEvent } from './protocol'
 
 export interface TransportHandlers {
@@ -49,13 +50,13 @@ export class LiveTransport implements Transport {
     this.handlers?.onConnection(this.attempt === 0 ? 'connecting' : 'reconnecting')
     let token: string
     try {
-      const response = await fetch('/api/session', { method: 'POST' })
-      if (!response.ok) throw new Error(`session request failed: ${response.status}`)
-      const body = (await response.json()) as { token: string; expires_at: number }
+      const body = await requestSession()
       token = body.token
       rememberSessionToken(body.token, body.expires_at)
-    } catch {
-      this.scheduleRetry()
+    } catch (error) {
+      // A missing access code will not fix itself by retrying.
+      if (error instanceof AccessCodeError) this.handlers?.onConnection('closed')
+      else this.scheduleRetry()
       return
     }
     if (this.closed) return

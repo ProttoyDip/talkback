@@ -15,6 +15,8 @@ test('memory panel searches, edits and forgets', async ({ page }) => {
   await expect(panel.getByText('Likes short answers')).toBeVisible()
   await expect(panel.getByText('Prefers Celsius')).toBeHidden()
   await panel.getByRole('searchbox').fill('')
+  // Wait for the full list to come back before acting on it.
+  await expect(panel.getByText('Prefers Celsius')).toBeVisible()
 
   await panel.getByRole('button', { name: 'Edit memory: Likes short answers' }).click()
   await panel.getByLabel('Edit memory').fill('Likes very short answers')

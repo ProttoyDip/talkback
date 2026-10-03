@@ -102,6 +102,7 @@ One WebSocket: `wss://<host>/ws/session?token=<session-token>`. The token comes 
 | C → S | `session.start` | `{client_sample_rate: 16000}` | Open a conversation (must be first) |
 | C → S | `playback.position` | `{seq, samples_played}` | Sent every 100 ms while audio plays, and right after a flush. `samples_played` counts all assistant samples (22.05 kHz) played since the session started; `seq` is the chunk playing now. The server maps this to words |
 | C → S | `control.mute` | `{muted}` | User mute toggle |
+| C → S | `control.stop` | `{}` | Stop TalkBack now (Esc or Stop button). The server flushes audio (`audio.flush` with reason `stopped`), trims the message to the heard words and returns to `idle` |
 | C → S | `tool.confirm` | `{call_id, approved}` | Answer to a confirmation request |
 | S → C | `state` | `{state, tool?}` | Drives the UI state machine; `tool` is set with state `tool` |
 | S → C | `audio.chunk` | `{seq, samples}` | Header before each audio binary message |

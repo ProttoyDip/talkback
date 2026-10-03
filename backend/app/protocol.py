@@ -71,6 +71,12 @@ class ControlMute(Message):
     muted: bool
 
 
+class ControlStop(Message):
+    """The user asks TalkBack to stop talking now (Esc or the Stop button)."""
+
+    type: Literal["control.stop"]
+
+
 class ToolConfirm(Message):
     type: Literal["tool.confirm"]
     call_id: str = Field(min_length=1, max_length=64)
@@ -78,7 +84,7 @@ class ToolConfirm(Message):
 
 
 ClientMessage = Annotated[
-    SessionStart | PlaybackPosition | ControlMute | ToolConfirm,
+    SessionStart | PlaybackPosition | ControlMute | ControlStop | ToolConfirm,
     Field(discriminator="type"),
 ]
 client_message = TypeAdapter(ClientMessage)

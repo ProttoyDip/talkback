@@ -5,6 +5,7 @@ import { useResource } from '../../api/useResource'
 import type { ConversationModel } from '../../session/model'
 import { PROVIDER_NAMES, type ModelRole, type ToolName } from '../../session/protocol'
 import { SettingsToggleRow } from '../SettingsToggleRow'
+import { setEffects, useEffectsSetting } from '../../background/effects'
 import { VoiceSection } from './VoiceSection'
 import { ResourceView, SectionTitle } from './shared'
 
@@ -14,6 +15,28 @@ const TOOL_TITLE: Partial<Record<ToolName, string>> = {
 }
 
 const ROLE_TITLE: Record<ModelRole, string> = { voice: 'Voice', planner: 'Planner', search: 'Search' }
+
+/** Kept in this browser only (src/background/effects.ts). */
+function VisualEffects() {
+  const effects = useEffectsSetting()
+  return (
+    <section aria-label="Visual effects">
+      <SectionTitle>Visual effects</SectionTitle>
+      <SettingsToggleRow
+        label="Animated background"
+        description="The moving field behind the app. Turn it off on slower laptops or to save battery."
+        checked={effects.background}
+        onChange={(background) => setEffects({ background })}
+      />
+      <SettingsToggleRow
+        label="Orb motion"
+        description="The orb pulses while you and TalkBack speak. Off: it stays still."
+        checked={effects.orbMotion}
+        onChange={(orbMotion) => setEffects({ orbMotion })}
+      />
+    </section>
+  )
+}
 
 export function SettingsPanel({ active }: { active: ConversationModel['models'] }) {
   const { state, reload, set } = useResource(() => api.getSettings(), 'settings')
@@ -68,6 +91,8 @@ export function SettingsPanel({ active }: { active: ConversationModel['models'] 
           </section>
 
           <VoiceSection />
+
+          <VisualEffects />
 
           <section aria-label="Models">
             <SectionTitle>Models</SectionTitle>

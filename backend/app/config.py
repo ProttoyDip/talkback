@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     skills_dir: str = "skills"
     # Built frontend (frontend/dist) served by this app, for one-URL deployment.
     frontend_dist: str = ""
+    # Public demo gate (SECURITY.md T8). Empty: no code needed.
+    access_code: SecretStr = SecretStr("")
     perplexity_api_key: SecretStr = SecretStr("")
 
     # Which voice engine serves sessions: "cascade" (plan B), "fake" (X1),

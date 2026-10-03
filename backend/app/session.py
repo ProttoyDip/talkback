@@ -28,6 +28,7 @@ from .protocol import (
     SERVER_SAMPLE_RATE,
     AudioChunk,
     ControlMute,
+    ControlStop,
     ErrorEvent,
     AudioFlush,
     ModelActive,
@@ -300,14 +301,20 @@ class Session:
             if playing:
                 await self.send(StateEvent(state="assistant_speaking"))
 
-    async def interrupt_assistant(self) -> None:
-        """Stop playback now and keep only the words the user heard."""
+    async def interrupt_assistant(self, reason: str = "interrupted") -> None:
+        """Stop playback now and keep only the words the user heard.
+
+        reason "interrupted": the user talked over TalkBack (barge-in).
+        reason "stopped": the user pressed Stop or Esc; the state returns to idle.
+        """
         played_total = self.last_playback.samples_played if self.last_playback else 0
         pending = [
             m for m in self.message_order
             if m not in self.dropped and self.message_base[m] + self.message_samples[m] > played_total
         ]
         if not pending:
+            if reason == "stopped":
+                await self.stop_before_audio()
             return
         current = pending[0]
         played_s = max(0, played_total - self.message_base[current]) / SERVER_SAMPLE_RATE
@@ -321,12 +328,22 @@ class Session:
         self.play_until = loop_time()
         self.overlapping = False
         self.turn_epoch += 1
-        await self.send(AudioFlush(reason="interrupted"))
-        await self.send(StateEvent(state="interrupted"))
+        await self.send(AudioFlush(reason="stopped" if reason == "stopped" else "interrupted"))
+        await self.send(StateEvent(state="idle" if reason == "stopped" else "interrupted"))
         await self.send(TranscriptDelta(message_id=current, speaker="assistant", text="", final=True))
         await self.send(TranscriptTrim(message_id=current, heard_text=heard, unheard_text=unheard))
         if self.engine is not None:
             await self.engine.interrupt(current, heard)
+
+    async def stop_before_audio(self) -> None:
+        """Stop pressed while TalkBack is still thinking: cancel the reply."""
+        reply_id = getattr(self.engine, "reply_message_id", None)
+        reply = getattr(self.engine, "reply", None)
+        if self.engine is not None and reply_id and reply is not None and not reply.done():
+            self.dropped.add(reply_id)
+            await self.engine.interrupt(reply_id, "")
+        self.turn_epoch += 1
+        await self.send(StateEvent(state="idle"))
 
     async def close(self) -> None:
         for task in list(self.tasks):
@@ -363,6 +380,9 @@ class Session:
             case PlaybackPosition():
                 self.require_started()
                 self.last_playback = message  # used for trimming in a later step
+            case ControlStop():
+                self.require_started()
+                await self.interrupt_assistant("stopped")
             case ToolConfirm():
                 self.require_started()
                 # Only a pending request can be answered; a confirmation never

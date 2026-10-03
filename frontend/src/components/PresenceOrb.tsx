@@ -2,6 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react'
 import type { OrbMood, StormOrb } from '../background/stormOrb'
 import type { LevelMeters } from '../session/useLevelHistory'
 import type { ConversationState } from '../state/types'
+import { useEffectsSetting } from '../background/effects'
 import { sceneDisabled } from './sceneSupport'
 
 /*
@@ -39,12 +40,13 @@ export function PresenceOrb({ state, levels, latest, compact = false }: Presence
   const canvas = useRef<HTMLCanvasElement>(null)
   const orb = useRef<StormOrb | null>(null)
   const mood = useRef(MOODS[state])
+  const { orbMotion } = useEffectsSetting()
 
   useEffect(() => {
     const element = canvas.current
     if (!element || sceneDisabled()) return
     let cancelled = false
-    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const still = !orbMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const level = () => {
       const meters = levels?.current
       if (!meters) return 0
@@ -69,7 +71,7 @@ export function PresenceOrb({ state, levels, latest, compact = false }: Presence
       orb.current?.dispose()
       orb.current = null
     }
-  }, [levels])
+  }, [levels, orbMotion])
 
   useEffect(() => {
     mood.current = MOODS[state]

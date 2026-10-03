@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { FlowScene } from '../background/flowScene'
 import type { ConversationState } from '../state/types'
+import { useEffectsSetting } from '../background/effects'
 import { sceneDisabled } from './sceneSupport'
 
 /**
@@ -26,10 +27,11 @@ export function FlowBackground({ state }: { state: ConversationState }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const scene = useRef<FlowScene | null>(null)
   const depth = useRef(DEPTH[state])
+  const { background } = useEffectsSetting()
 
   useEffect(() => {
     const element = canvas.current
-    if (!element || sceneDisabled()) return
+    if (!element || !background || sceneDisabled()) return
     let cancelled = false
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     // Loaded on demand: the 3D library is not needed for the first paint.
@@ -43,7 +45,7 @@ export function FlowBackground({ state }: { state: ConversationState }) {
       scene.current?.dispose()
       scene.current = null
     }
-  }, [])
+  }, [background])
 
   useEffect(() => {
     depth.current = DEPTH[state]
