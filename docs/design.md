@@ -105,7 +105,7 @@ Rules:
 ### 5.1 Onboarding (first run)
 1. **Welcome:** display headline "Talk to me like a person." with a short line: "Interrupt me any time. I'll keep up." One primary button: "Allow microphone".
 2. **Microphone permission:** explain why before the browser prompt. If denied, show how to re-enable it, with the browser name.
-3. **Privacy promise:** three short lines: memory stays on your device, no recordings are kept, you can delete everything. Button: "Start talking".
+3. **Privacy promise:** three short lines: memories are kept in your private database (Supabase), no recordings are kept, you can delete everything. Button: "Start talking".
 4. **Headphones tip:** "Use headphones for the best interruptions." Dismissible.
 
 ### 5.2 Conversation (main screen)

@@ -128,7 +128,7 @@ export function Onboarding({ onStart }: { onStart: () => void }) {
                   Your words stay yours.
                 </h1>
                 <ul className="flex flex-col gap-3 text-transcript text-text">
-                  <li>Memory stays on your device.</li>
+                  <li>Memories are kept in your private database.</li>
                   <li>No recordings are kept.</li>
                   <li>You can delete everything, any time.</li>
                 </ul>

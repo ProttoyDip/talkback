@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     tavily_api_key: SecretStr = SecretStr("")
     voicechat_url: str = ""
     memory_db_path: str = "data/memories.sqlite3"
+    # Supabase (Postgres) for memories and settings. Both set: Supabase is
+    # used; otherwise the local files above. The secret key never leaves
+    # the server.
+    supabase_url: str = ""
+    supabase_secret_key: SecretStr = SecretStr("")
     settings_path: str = "data/settings.json"
     skills_dir: str = "skills"
     # Built frontend (frontend/dist) served by this app, for one-URL deployment.

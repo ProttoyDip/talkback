@@ -42,7 +42,7 @@ from .protocol import (
     TranscriptTrim,
     client_message,
 )
-from .prefs import PrefsStore
+from .stores import prefs_store
 from .tokens import verify_token
 from .turn_taking import BargeInDecider, EnergyVad, heard_split, is_backchannel
 from .voice_engine import (
@@ -150,7 +150,7 @@ class Session:
         self.decider = BargeInDecider()
         if settings is not None:
             # The user's Interruptions setting applies when a session starts.
-            self.decider = BargeInDecider.for_sensitivity(PrefsStore(settings.settings_path).load().interrupt_sensitivity)
+            self.decider = BargeInDecider.for_sensitivity(prefs_store(settings).load().interrupt_sensitivity)
         self.interim_user_text = ""
         self.overlapping = False
         self.words: dict[str, list[tuple[str, float, float]]] = {}

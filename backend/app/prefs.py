@@ -39,9 +39,11 @@ class PrefsStore:
         self.path = Path(path)
         self.lock = threading.Lock()
 
-    def load(self) -> Prefs:
+    @staticmethod
+    def from_raw(raw: object) -> Prefs:
+        """Settings from stored JSON. Anything unexpected falls back to the private defaults."""
         try:
-            raw = json.loads(self.path.read_text(encoding="utf-8"))
+            assert isinstance(raw, dict)
             return Prefs(
                 tools={str(k): bool(v) for k, v in dict(raw.get("tools", {})).items()},
                 save_recordings=bool(raw.get("save_recordings", False)),
@@ -51,7 +53,13 @@ class PrefsStore:
                 planner_model=str(raw.get("planner_model", ""))[:100],
                 providers={str(k): bool(v) for k, v in dict(raw.get("providers", {})).items()},
             )
-        except (OSError, ValueError, TypeError, AttributeError):
+        except (AssertionError, ValueError, TypeError, AttributeError):
+            return Prefs()
+
+    def load(self) -> Prefs:
+        try:
+            return self.from_raw(json.loads(self.path.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
             return Prefs()
 
     def save(self, prefs: Prefs) -> None:

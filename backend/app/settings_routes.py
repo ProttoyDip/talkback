@@ -10,6 +10,7 @@ from .config import Settings, get_settings
 from .llm import providers_from_settings
 from .memory_routes import bearer
 from .prefs import Prefs, PrefsStore
+from .stores import prefs_store
 from .protocol import (
     Id,
     ModelOption,
@@ -109,7 +110,7 @@ def build_view(settings: Settings, prefs: Prefs) -> SettingsView:
 
 
 def get_prefs(settings: Annotated[Settings, Depends(get_settings)]) -> PrefsStore:
-    return PrefsStore(settings.settings_path)
+    return prefs_store(settings)  # Supabase when configured, else a local file
 
 
 @settings_router.get("", response_model=SettingsView)
