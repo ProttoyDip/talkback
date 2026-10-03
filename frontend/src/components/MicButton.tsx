@@ -8,6 +8,8 @@ interface MicButtonProps {
   level: number
   disabled?: boolean
   onToggle: () => void
+  /** Push-to-talk: called with true while held, false on release. */
+  onHold?: (held: boolean) => void
 }
 
 /**
@@ -15,14 +17,17 @@ interface MicButtonProps {
  * input level; it does not loop on its own. `Space` toggles mute (wired in
  * the screen so it works without focus on the button).
  */
-export function MicButton({ mode, level, disabled, onToggle }: MicButtonProps) {
+export function MicButton({ mode, level, disabled, onToggle, onHold }: MicButtonProps) {
+  const hold = onHold !== undefined && mode !== 'off'
   const muted = mode === 'muted'
   const live = mode === 'live' && !disabled
   const ringScale = 1 + Math.min(1, Math.max(0, level)) * 0.22
 
   const label = disabled
     ? 'Microphone unavailable while offline'
-    : muted
+    : hold
+      ? 'Hold to talk'
+      : muted
       ? 'Unmute microphone'
       : mode === 'off'
         ? 'Start talking'
@@ -40,9 +45,15 @@ export function MicButton({ mode, level, disabled, onToggle }: MicButtonProps) {
         )}
         <button
           type="button"
-          onClick={onToggle}
+          onClick={hold ? undefined : onToggle}
+          onPointerDown={hold ? () => onHold(true) : undefined}
+          onPointerUp={hold ? () => onHold(false) : undefined}
+          onPointerLeave={hold ? () => onHold(false) : undefined}
+          onPointerCancel={hold ? () => onHold(false) : undefined}
+          onKeyDown={hold ? (e) => (e.key === ' ' || e.key === 'Enter') && !e.repeat && onHold(true) : undefined}
+          onKeyUp={hold ? (e) => (e.key === ' ' || e.key === 'Enter') && onHold(false) : undefined}
           disabled={disabled}
-          aria-pressed={muted}
+          aria-pressed={hold ? !muted : muted}
           aria-label={label}
           className={[
             'relative grid size-mic place-items-center rounded-pill border-2 transition-[transform,background-color,border-color,color] duration-(--dur-instant) active:scale-95',
@@ -58,7 +69,17 @@ export function MicButton({ mode, level, disabled, onToggle }: MicButtonProps) {
         </button>
       </div>
       <p aria-hidden className="hidden font-mono text-label uppercase text-text-muted lg:block">
-        {disabled ? 'Offline' : muted ? 'Muted · Space to unmute' : mode === 'off' ? 'Space to start' : 'Space to mute'}
+        {disabled
+          ? 'Offline'
+          : hold
+            ? muted
+              ? 'Hold Space to talk'
+              : 'Talking'
+            : muted
+              ? 'Muted · Space to unmute'
+              : mode === 'off'
+                ? 'Space to start'
+                : 'Space to mute'}
       </p>
     </div>
   )

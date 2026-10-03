@@ -9,6 +9,7 @@ import { useLevelHistory, type LevelMeters } from '../session/useLevelHistory'
 import { useSession, type SessionMode } from '../session/useSession'
 import type { ConversationState } from '../state/types'
 import { AccessCodeError, requestSession } from '../api/session'
+import { useEffectsSetting } from '../background/effects'
 import { rememberSessionToken } from '../api/client'
 import { AccessGate } from './AccessGate'
 import { hasOnboarded } from './onboarded'
@@ -137,13 +138,34 @@ export function LiveConversation({
     setStarting(false)
   }
 
+  const setMicMuted = (next: boolean) => {
+    engineRef.current?.setMuted(next)
+    setMuted(next)
+  }
+
   const toggleMute = () => {
     if (!started) {
       void begin()
       return
     }
-    engineRef.current?.setMuted(!muted)
-    setMuted(!muted)
+    setMicMuted(!muted)
+  }
+
+  // Push-to-talk (Settings > On this device): muted until Space or the mic is held.
+  const { pushToTalk } = useEffectsSetting()
+  useEffect(() => {
+    if (started && pushToTalk) {
+      engineRef.current?.setMuted(true)
+      setMuted(true)
+    }
+  }, [started, pushToTalk, setMuted])
+  const hold = (held: boolean) => {
+    if (!started) {
+      if (held) void begin()
+      return
+    }
+    if (muted === !held) return
+    setMicMuted(!held)
   }
 
   const turns = useMemo(() => toTurns(model), [model])
@@ -202,6 +224,7 @@ export function LiveConversation({
       onToggleMute={toggleMute}
       onAnswerConfirm={answerConfirm}
       onStop={session.stop}
+      onHold={pushToTalk ? hold : undefined}
     />
   )
 }

@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { type RefObject, useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { Icon } from '../components/Icon'
+import { downloadTranscript } from '../state/exportTranscript'
 import { enter, exit } from '../styles/motion'
 import { Banner, type BannerProps } from '../components/Banner'
 import { ConfirmCard } from '../components/ConfirmCard'
@@ -48,6 +49,8 @@ interface ConversationScreenProps {
   onAnswerConfirm: (approved: boolean) => void
   /** Stop TalkBack talking now (Esc or the Stop button). */
   onStop?: () => void
+  /** Push-to-talk is on: hold Space or the mic button to talk. */
+  onHold?: (held: boolean) => void
 }
 
 function isTyping(target: EventTarget | null) {
@@ -63,7 +66,7 @@ const FOLLOW_THRESHOLD_PX = 160
 /** TalkBack is answering, so Stop has something to stop. */
 const STOPPABLE = new Set(['assistant_speaking', 'overlap', 'thinking', 'tool'])
 
-export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm, onStop }: ConversationScreenProps) {
+export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm, onStop, onHold }: ConversationScreenProps) {
   const [panel, setPanel] = useState<Panel | null>(null)
   const { state, turns, confirm, micDisabled } = view
   // Nothing said yet: the orb holds the centre of the stage.
@@ -96,6 +99,8 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
 
   // Keyboard shortcuts from design.md 7: Space mute, M memory, K skills, Esc close.
   const toggleMute = useEffectEvent(onToggleMute)
+  const holdToTalk = useEffectEvent((held: boolean) => onHold?.(held))
+  const pushToTalk = onHold !== undefined && view.micMode !== 'off'
   // Esc closes an open panel first; otherwise it stops TalkBack (design.md 7).
   const escape = useEffectEvent(() => {
     if (panel) setPanel(null)
@@ -107,7 +112,8 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
       const onButton = e.target instanceof HTMLElement && e.target.closest('button, a, [tabindex]')
       if (e.code === 'Space' && !onButton && !micDisabled) {
         e.preventDefault()
-        toggleMute()
+        if (!pushToTalk) toggleMute()
+        else if (!e.repeat) holdToTalk(true)
       } else if (e.key === 'm' || e.key === 'M') {
         togglePanel('memory')
       } else if (e.key === 'k' || e.key === 'K') {
@@ -118,9 +124,16 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
         escape()
       }
     }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (pushToTalk && e.code === 'Space' && !isTyping(e.target)) holdToTalk(false)
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [micDisabled])
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [micDisabled, pushToTalk])
 
   const mic = (
     <MicButton
@@ -128,6 +141,7 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
       level={view.inputLevel}
       disabled={micDisabled}
       onToggle={onToggleMute}
+      onHold={onHold}
     />
   )
 
@@ -144,6 +158,7 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
             debug={debug}
             latencyMs={view.latencyMs}
             backup={view.backup}
+            onSave={turns.length > 0 ? () => downloadTranscript(turns) : undefined}
           />
 
           {view.banner && <Banner {...view.banner} />}

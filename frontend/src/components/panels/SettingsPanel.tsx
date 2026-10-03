@@ -21,13 +21,19 @@ const ROLE_TITLE: Record<ModelRole, string> = { voice: 'Voice', planner: 'Planne
 function VisualEffects() {
   const effects = useEffectsSetting()
   return (
-    <section aria-label="Visual effects">
-      <SectionTitle>Visual effects</SectionTitle>
+    <section aria-label="On this device">
+      <SectionTitle>On this device</SectionTitle>
       <SettingsToggleRow
         label="Animated background"
         description="The moving field behind the app. Turn it off on slower laptops or to save battery."
         checked={effects.background}
         onChange={(background) => setEffects({ background })}
+      />
+      <SettingsToggleRow
+        label="Push to talk"
+        description="The microphone stays muted until you hold Space or the mic button. Good for noisy rooms."
+        checked={effects.pushToTalk}
+        onChange={(pushToTalk) => setEffects({ pushToTalk })}
       />
       <SettingsToggleRow
         label="Orb motion"

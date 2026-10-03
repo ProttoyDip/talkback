@@ -1,7 +1,7 @@
 /*
- * Visual effects switches (Settings > Visual effects), kept in this browser.
- * The animated background and the orb are heavy WebGL scenes; turning them
- * off helps slower laptops and saves battery.
+ * Settings kept in this browser only: the visual effects (the animated
+ * background and the orb are heavy WebGL scenes; turning them off helps
+ * slower laptops) and push-to-talk.
  */
 import { useSyncExternalStore } from 'react'
 
@@ -10,10 +10,12 @@ export interface Effects {
   background: boolean
   /** The orb moves and reacts. Off: it is drawn once and stays still. */
   orbMotion: boolean
+  /** Hold Space (or the mic button) to talk; muted otherwise. */
+  pushToTalk: boolean
 }
 
 const KEY = 'talkback.effects'
-const DEFAULTS: Effects = { background: true, orbMotion: true }
+const DEFAULTS: Effects = { background: true, orbMotion: true, pushToTalk: false }
 const listeners = new Set<() => void>()
 
 function read(): Effects {
@@ -22,6 +24,7 @@ function read(): Effects {
     return {
       background: typeof raw.background === 'boolean' ? raw.background : DEFAULTS.background,
       orbMotion: typeof raw.orbMotion === 'boolean' ? raw.orbMotion : DEFAULTS.orbMotion,
+      pushToTalk: typeof raw.pushToTalk === 'boolean' ? raw.pushToTalk : DEFAULTS.pushToTalk,
     }
   } catch {
     return DEFAULTS
