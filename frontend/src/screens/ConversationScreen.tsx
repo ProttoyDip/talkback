@@ -3,6 +3,7 @@ import { type RefObject, useCallback, useEffect, useEffectEvent, useLayoutEffect
 import { api } from '../api/client'
 import { Banner, type BannerProps } from '../components/Banner'
 import { ConfirmCard } from '../components/ConfirmCard'
+import { FlowBackground } from '../components/FlowBackground'
 import { PresenceOrb } from '../components/PresenceOrb'
 import type { LevelMeters } from '../session/useLevelHistory'
 import { Drawer } from '../components/Drawer'
@@ -119,6 +120,7 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
 
   return (
     <div className="flex min-h-dvh">
+      <FlowBackground state={state} />
       <NavRail openPanel={panel} onTogglePanel={togglePanel} />
 
       <main className="flex min-w-0 flex-1 justify-center">
@@ -165,7 +167,8 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
                 const el = e.currentTarget
                 following.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX
               }}
-              className="-mx-4 flex-1 overflow-y-auto px-4 pb-[calc(var(--mic-size)+var(--space-12))] sm:-mx-8 sm:px-8 lg:pb-8"
+              // The translucent panel keeps captions readable where the field passes behind them.
+              className="-mx-4 flex-1 overflow-y-auto rounded-panel bg-bg/80 px-4 pb-[calc(var(--mic-size)+var(--space-12))] sm:-mx-8 sm:px-8 lg:pb-8"
             >
               <ol className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-[max-content_minmax(0,1fr)] sm:gap-x-6">
                 {turns.map((turn, i) => (
