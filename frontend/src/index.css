@@ -68,6 +68,8 @@
   --spacing-mic: var(--mic-size);
   --spacing-orb: var(--orb-size);
   --spacing-orb-lg: var(--orb-size-lg);
+  --spacing-orb-compact: var(--orb-size-compact);
+  --spacing-orb-compact-lg: var(--orb-size-compact-lg);
   --spacing-target: var(--target-min);
 
   --container-*: initial;

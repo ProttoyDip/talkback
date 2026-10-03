@@ -162,7 +162,6 @@ export function LiveConversation({
     sessionOpen: model.connection === 'open',
     activeModels: model.models,
     levels: meters,
-    interruptCount: model.interrupts.length,
   }
 
   if (onboarding) {

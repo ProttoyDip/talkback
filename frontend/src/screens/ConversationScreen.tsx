@@ -3,7 +3,6 @@ import { type RefObject, useCallback, useEffect, useEffectEvent, useLayoutEffect
 import { api } from '../api/client'
 import { Banner, type BannerProps } from '../components/Banner'
 import { ConfirmCard } from '../components/ConfirmCard'
-import { FlowBackground } from '../components/FlowBackground'
 import { PresenceOrb } from '../components/PresenceOrb'
 import type { LevelMeters } from '../session/useLevelHistory'
 import { Drawer } from '../components/Drawer'
@@ -37,8 +36,6 @@ export interface ConversationView {
   activeModels?: ConversationModel['models']
   /** Live voice levels, so the presence orb can pulse with them. */
   levels?: RefObject<LevelMeters>
-  /** Interruptions so far in this session (each one makes the orb burst). */
-  interruptCount?: number
 }
 
 interface ConversationScreenProps {
@@ -61,6 +58,8 @@ const FOLLOW_THRESHOLD_PX = 160
 export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm }: ConversationScreenProps) {
   const [panel, setPanel] = useState<Panel | null>(null)
   const { state, turns, confirm, micDisabled } = view
+  // Nothing said yet: the orb holds the centre of the stage.
+  const empty = turns.length === 0 && !confirm
 
   // Live captions follow the newest words, unless the user scrolled up to read.
   const transcriptRef = useRef<HTMLElement>(null)
@@ -120,7 +119,6 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
 
   return (
     <div className="flex min-h-dvh">
-      <FlowBackground state={state} />
       <NavRail openPanel={panel} onTogglePanel={togglePanel} />
 
       <main className="flex min-w-0 flex-1 justify-center">
@@ -135,34 +133,40 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
 
           {view.banner && <Banner {...view.banner} />}
 
-          {/* TalkBack's presence: the Storm orb listens, thinks and speaks here. */}
-          <div className="flex shrink-0 justify-center">
+          {/* TalkBack's presence: a 3D orb in the middle of the stage. It reacts
+              when you speak and when TalkBack answers. Before the first words it
+              sits in the centre with the invitation under it. */}
+          <div
+            className={
+              empty
+                ? 'flex flex-1 flex-col items-center justify-center gap-8 pb-[calc(var(--mic-size)+var(--space-12))] lg:pb-0'
+                : 'flex shrink-0 justify-center'
+            }
+          >
             <PresenceOrb
               state={state}
               levels={view.levels}
-              interrupts={view.interruptCount}
+              compact={!empty}
               latest={{ user: view.timeline.user.at(-1) ?? 0, assistant: view.timeline.assistant.at(-1) ?? 0 }}
             />
-          </div>
-
-          <section
-            ref={transcriptRef}
-            aria-label="Transcript"
-            onScroll={(e) => {
-              const el = e.currentTarget
-              following.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX
-            }}
-            // The translucent panel keeps captions readable where the animated field passes behind them.
-            className="-mx-4 flex-1 overflow-y-auto rounded-panel bg-bg/80 px-4 pb-[calc(var(--mic-size)+var(--space-12))] sm:-mx-8 sm:px-8 lg:pb-8"
-          >
-            {turns.length === 0 ? (
-              <div className="flex h-full flex-col items-start justify-center gap-2 py-12">
-                <p className="font-display text-h1 font-extrabold text-text">
-                  Interrupt me any time.
-                </p>
+            {empty && (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <p className="font-display text-h1 font-extrabold text-text">Interrupt me any time.</p>
                 <p className="text-transcript text-text-muted">I'll keep up.</p>
               </div>
-            ) : (
+            )}
+          </div>
+
+          {!empty && (
+            <section
+              ref={transcriptRef}
+              aria-label="Transcript"
+              onScroll={(e) => {
+                const el = e.currentTarget
+                following.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX
+              }}
+              className="-mx-4 flex-1 overflow-y-auto px-4 pb-[calc(var(--mic-size)+var(--space-12))] sm:-mx-8 sm:px-8 lg:pb-8"
+            >
               <ol className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-[max-content_minmax(0,1fr)] sm:gap-x-6">
                 {turns.map((turn, i) => (
                   // A user turn opens a new exchange: more space before it,
@@ -174,14 +178,14 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
                   />
                 ))}
               </ol>
-            )}
 
-            <AnimatePresence>
-              {confirm && state !== 'offline' && (
-                <ConfirmCard key={confirm.callId} className="mt-8" request={confirm} onAnswer={onAnswerConfirm} />
-              )}
-            </AnimatePresence>
-          </section>
+              <AnimatePresence>
+                {confirm && state !== 'offline' && (
+                  <ConfirmCard key={confirm.callId} className="mt-8" request={confirm} onAnswer={onAnswerConfirm} />
+                )}
+              </AnimatePresence>
+            </section>
+          )}
 
           <div className="hidden justify-center pb-8 lg:flex">{mic}</div>
         </div>

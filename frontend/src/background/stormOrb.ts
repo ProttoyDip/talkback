@@ -7,10 +7,9 @@
  * indicator instead of the page:
  *  - It renders into a small square canvas. Point size scales with that
  *    canvas, so the orb keeps the look of the full-window original.
- *  - Instead of page scroll, the conversation state drives the dive (scale
- *    and swirl). Live voice levels make it pulse. An interruption gives a
- *    short blow-up pulse.
- *  - The cursor void works when the pointer is over or near the orb.
+ *  - It reacts only to the conversation: it swells and pulses with the live
+ *    voice while the user speaks and while TalkBack answers. There is no
+ *    scroll dive, cursor void or parallax.
  *  - It can render one still frame (reduced motion) and be disposed.
  */
 import * as THREE from 'three'
@@ -170,7 +169,7 @@ void main(){ vec2 p = gl_PointCoord - 0.5; float l = length(p); if (l > 0.5) dis
 
 /** How the orb behaves in a conversation state. */
 export interface OrbMood {
-  /** 0..1: the original's scroll dive. Grows the orb and speeds the swirl. */
+  /** 0..1: the original's scroll dive. Grows the orb a little. */
   dive: number
   /** 0..1: how strongly the live voice level makes it pulse. */
   pulse: number
@@ -180,8 +179,6 @@ export interface OrbMood {
 
 export interface StormOrb {
   setMood: (mood: OrbMood) => void
-  /** A short outward burst, for an interruption. */
-  burst: () => void
   dispose: () => void
 }
 
@@ -359,60 +356,14 @@ export function createStormOrb(
   finalPass.uniforms.bloomTexture.value = bloomComposer.renderTarget1.texture
   finalPass.uniforms.torusTexture.value = torusComposer.renderTarget1.texture
 
-  // Pointer, relative to the orb: the void follows the cursor over it.
-  const pointer = {
-    ndc: new THREE.Vector2(0, 0),
-    world: new THREE.Vector3(),
-    activity: 0,
-    active: false,
-    lastMove: performance.now(),
-  }
-  const onMove = (e: MouseEvent) => {
-    const rect = canvas.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1
-    const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1)
-    // Within one orb-width of its edge counts as "near".
-    pointer.active = Math.abs(x) < 2 && Math.abs(y) < 2
-    if (!pointer.active) return
-    pointer.ndc.set(clamp(x, -1, 1), clamp(y, -1, 1))
-    pointer.lastMove = performance.now()
-  }
-  const onOut = () => {
-    pointer.active = false
-  }
-  window.addEventListener('mousemove', onMove, { passive: true })
-  window.addEventListener('mouseout', onOut, { passive: true })
-
-  const ndc = new THREE.Vector3()
-  const dir = new THREE.Vector3()
-  const target = new THREE.Vector3()
-  function updatePointer() {
-    target.set(0, 0, 0)
-    if (pointer.active) {
-      ndc.set(pointer.ndc.x, pointer.ndc.y, 0.5).unproject(camera)
-      dir.copy(ndc).sub(camera.position).normalize()
-      const denom = dir.z
-      if (Math.abs(denom) > 1e-4) {
-        const t = -camera.position.z / denom
-        if (t > 0 && Number.isFinite(t)) target.copy(camera.position).addScaledVector(dir, t)
-      }
-    }
-    pointer.world.lerp(target, 0.12)
-    const idle = (performance.now() - pointer.lastMove) / 1000
-    const want = pointer.active && idle < 3 ? 1 : 0
-    pointer.activity += (want - pointer.activity) * 0.06
-  }
-
   // State
   let mood: OrbMood = { dive: 0, pulse: 0, presence: 1 }
   let diveSmooth = 0
   let diveCurrent = 0
   let presence = 1
   let voice = 0
-  let blow = 0
   // Larger points overlap more; this keeps the additive glow from blowing out.
   let opacityScale = 1
-  const mouseSmooth = { x: 0, y: 0 }
   let t0 = performance.now() / 1000
   const appearStart = performance.now()
 
@@ -423,16 +374,14 @@ export function createStormOrb(
     uniforms.uTime.value = t
 
     const scroll = diveCurrent
-    camera.position.set(mouseSmooth.x * CONFIG.parallax, mouseSmooth.y * CONFIG.parallax, CAMERA_Z - scroll * CONFIG.scrollDive)
+    camera.position.set(0, 0, CAMERA_Z - scroll * CONFIG.scrollDive)
     camera.lookAt(0, 0, 0)
-    // The voice level adds a heartbeat on top of the state's size.
-    group.scale.setScalar((1 + scroll * CONFIG.scrollGrow) * (1 + voice * 0.18 * mood.pulse))
+    // The live voice swells the orb while someone is speaking.
+    group.scale.setScalar((1 + scroll * CONFIG.scrollGrow) * (1 + voice * 0.3 * mood.pulse))
     const elapsed = performance.now() - appearStart
     const fade = still ? 1 : Math.max(0, Math.min(1, (elapsed - 300) / 1400))
     uniforms.uOpacity.value = fade * CONFIG.opacity * presence * opacityScale
-    uniforms.uBlowUp.value = CONFIG.blowUp + blow
-    uniforms.uCursor.value.copy(pointer.world)
-    uniforms.uActivity.value = pointer.activity
+    uniforms.uBlowUp.value = CONFIG.blowUp
     group.rotation.y += dt * (CONFIG.spin + scroll * CONFIG.scrollSpin)
     group.rotation.x += dt * CONFIG.spin * 0.33
 
@@ -466,7 +415,9 @@ export function createStormOrb(
     // proportional size they fall under 3 px and the soft glow turns into
     // speckle. The square root keeps them overlapping into plasma.
     const ratio = side / REFERENCE_HEIGHT
-    uniforms.uSize.value = CONFIG.pointSize * Math.sqrt(ratio)
+    // gl_PointSize is in device pixels: scale by density so the orb looks
+    // the same on a phone's high-density screen as on a desktop monitor.
+    uniforms.uSize.value = CONFIG.pointSize * Math.sqrt(ratio) * Math.min(dpr, 2)
     opacityScale = Math.sqrt(ratio)
     motes.mat.uniforms.uRes.value.set(side * dpr, side * dpr)
     if (still) draw()
@@ -481,10 +432,6 @@ export function createStormOrb(
     diveCurrent = Lerp(diveCurrent, diveSmooth, 0.06)
     presence = Lerp(presence, mood.presence, 0.08)
     voice = Lerp(voice, clamp(level(), 0, 1), 0.25)
-    blow = Lerp(blow, 0, 0.06)
-    mouseSmooth.x = Lerp(mouseSmooth.x, pointer.active ? pointer.ndc.x : 0, 0.06)
-    mouseSmooth.y = Lerp(mouseSmooth.y, pointer.active ? pointer.ndc.y : 0, 0.06)
-    updatePointer()
     draw()
     frame = requestAnimationFrame(loop)
   }
@@ -500,14 +447,9 @@ export function createStormOrb(
         draw()
       }
     },
-    burst() {
-      if (!still) blow = 0.32
-    },
     dispose() {
       cancelAnimationFrame(frame)
       observer.disconnect()
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseout', onOut)
       geometry.dispose()
       material.dispose()
       motes.geo.dispose()

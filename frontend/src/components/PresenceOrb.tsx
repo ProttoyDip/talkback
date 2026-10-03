@@ -5,35 +5,37 @@ import type { ConversationState } from '../state/types'
 import { sceneDisabled } from './sceneSupport'
 
 /*
- * What the orb does in each state. Listening and speaking pulse with the
- * live voice, thinking swirls faster, an interruption bursts, offline and
- * muted dim it. The status label next to it says the same in words.
+ * The orb reacts to two things only: the user speaking (listening) and
+ * TalkBack answering. Everything else leaves it at rest; muted and offline
+ * dim it. The status label next to the wordmark says the state in words.
  */
-const MOODS: Record<ConversationState, OrbMood & { voice: 'user' | 'assistant' | 'both' | 'none' }> = {
-  idle: { dive: 0.05, pulse: 0, presence: 0.85, voice: 'none' },
-  listening: { dive: 0.2, pulse: 1, presence: 1, voice: 'user' },
-  thinking: { dive: 0.55, pulse: 0, presence: 1, voice: 'none' },
-  tool: { dive: 0.55, pulse: 0, presence: 1, voice: 'none' },
-  assistant_speaking: { dive: 0.25, pulse: 1, presence: 1, voice: 'assistant' },
-  overlap: { dive: 0.3, pulse: 1, presence: 1, voice: 'both' },
-  interrupted: { dive: 0.1, pulse: 0, presence: 1, voice: 'none' },
-  confirm: { dive: 0.1, pulse: 0, presence: 0.9, voice: 'none' },
-  muted: { dive: 0, pulse: 0, presence: 0.45, voice: 'none' },
-  offline: { dive: 0, pulse: 0, presence: 0.2, voice: 'none' },
+type Mood = OrbMood & { voice: 'user' | 'assistant' | 'both' | 'none' }
+const REST: Mood = { dive: 0, pulse: 0, presence: 0.9, voice: 'none' }
+const MOODS: Record<ConversationState, Mood> = {
+  idle: REST,
+  thinking: REST,
+  tool: REST,
+  interrupted: REST,
+  confirm: REST,
+  listening: { dive: 0.12, pulse: 1, presence: 1, voice: 'user' },
+  assistant_speaking: { dive: 0.12, pulse: 1, presence: 1, voice: 'assistant' },
+  overlap: { dive: 0.12, pulse: 1, presence: 1, voice: 'both' },
+  muted: { ...REST, presence: 0.45 },
+  offline: { ...REST, presence: 0.2 },
 }
 
 interface PresenceOrbProps {
   state: ConversationState
   /** Live levels from mic capture and playback; missing in the design preview. */
   levels?: RefObject<LevelMeters>
-  /** Number of interruptions so far; each new one makes the orb burst. */
-  interrupts?: number
   /** Latest voice levels (0..1), exposed for tests as data attributes. */
   latest?: { user: number; assistant: number }
+  /** Smaller, once the transcript needs the room. */
+  compact?: boolean
 }
 
-/** TalkBack's presence: the Storm orb at the top of the stage reacts to the conversation. */
-export function PresenceOrb({ state, levels, interrupts = 0, latest }: PresenceOrbProps) {
+/** TalkBack's presence: a 3D orb in the middle of the stage that reacts to the voices. */
+export function PresenceOrb({ state, levels, latest, compact = false }: PresenceOrbProps) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const orb = useRef<StormOrb | null>(null)
   const mood = useRef(MOODS[state])
@@ -74,16 +76,14 @@ export function PresenceOrb({ state, levels, interrupts = 0, latest }: PresenceO
     orb.current?.setMood(MOODS[state])
   }, [state])
 
-  useEffect(() => {
-    if (interrupts > 0) orb.current?.burst()
-  }, [interrupts])
-
   return (
     <div
       aria-hidden
       data-voice-user={latest?.user.toFixed(3)}
       data-voice-assistant={latest?.assistant.toFixed(3)}
-      className="relative size-orb shrink-0 rounded-pill bg-orb-bg [mask-image:radial-gradient(circle,#000_56%,transparent_71%)] lg:size-orb-lg"
+      className={`relative shrink-0 rounded-pill bg-orb-bg [mask-image:radial-gradient(circle,#000_56%,transparent_71%)] ${
+        compact ? 'size-orb-compact lg:size-orb-compact-lg' : 'size-orb lg:size-orb-lg'
+      }`}
     >
       <canvas ref={canvas} className="block size-full rounded-pill" />
     </div>

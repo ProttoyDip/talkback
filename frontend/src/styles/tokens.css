@@ -87,8 +87,10 @@
   --drawer-width: 360px;
   --stage-max-width: 880px;
   --mic-size: 72px;
-  --orb-size: 168px; /* presence orb, phones and tablets */
-  --orb-size-lg: 216px; /* presence orb, desktop */
+  --orb-size: 224px; /* presence orb, phones and tablets */
+  --orb-size-lg: 320px; /* presence orb, desktop */
+  --orb-size-compact: 128px; /* once the conversation has started, phones */
+  --orb-size-compact-lg: 224px; /* once the conversation has started, desktop */
   --target-min: 44px;
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
