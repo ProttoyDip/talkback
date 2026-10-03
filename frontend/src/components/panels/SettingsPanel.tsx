@@ -5,6 +5,7 @@ import { useResource } from '../../api/useResource'
 import type { ConversationModel } from '../../session/model'
 import { PROVIDER_NAMES, type ModelRole, type ToolName } from '../../session/protocol'
 import { SettingsToggleRow } from '../SettingsToggleRow'
+import { ChoiceRow } from './ChoiceRow'
 import { setEffects, useEffectsSetting } from '../../background/effects'
 import { VoiceSection } from './VoiceSection'
 import { ResourceView, SectionTitle } from './shared'
@@ -88,6 +89,32 @@ export function SettingsPanel({ active }: { active: ConversationModel['models'] 
               checked={settings.transcripts_in_logs}
               onChange={(transcripts_in_logs) => void update({ transcripts_in_logs })}
             />
+          </section>
+
+          <section aria-label="Conversation">
+            <SectionTitle>Conversation</SectionTitle>
+            <ChoiceRow
+              label="Interruptions"
+              description="How quickly your voice stops TalkBack. Use Low in noisy rooms or without headphones."
+              value={settings.interrupt_sensitivity}
+              options={[
+                { value: 'low', label: 'Low' },
+                { value: 'normal', label: 'Normal' },
+                { value: 'high', label: 'High' },
+              ]}
+              onChange={(interrupt_sensitivity) => void update({ interrupt_sensitivity })}
+            />
+            <ChoiceRow
+              label="Answer length"
+              value={settings.answer_length}
+              options={[
+                { value: 'short', label: 'Short' },
+                { value: 'normal', label: 'Normal' },
+                { value: 'detailed', label: 'Detailed' },
+              ]}
+              onChange={(answer_length) => void update({ answer_length })}
+            />
+            <p className="mt-1 text-data text-text-muted">Changes apply to the next conversation.</p>
           </section>
 
           <VoiceSection />

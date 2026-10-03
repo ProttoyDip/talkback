@@ -90,3 +90,28 @@ def test_a_skill_cannot_call_a_tool_outside_its_list():
     assert "weather" in sent and "web_search" not in sent  # the bridge never saw the blocked call
     contents = {m["tool_call_id"]: m["content"] for m in messages if m["role"] == "tool"}
     assert contents["1"] == "RESULT" and "not_allowed" in contents["2"]
+
+
+def test_conversation_settings_are_saved_and_validated(client, authed):
+    view = client.get("/api/settings", headers=authed).json()
+    assert view["interrupt_sensitivity"] == "normal" and view["answer_length"] == "normal"
+    view = client.patch(
+        "/api/settings", headers=authed, json={"interrupt_sensitivity": "low", "answer_length": "short"}
+    ).json()
+    assert view["interrupt_sensitivity"] == "low" and view["answer_length"] == "short"
+    assert client.patch("/api/settings", headers=authed, json={"answer_length": "huge"}).status_code == 422
+
+
+def test_sensitivity_changes_the_interrupt_thresholds():
+    from app.turn_taking import BargeInDecider
+
+    low, high = BargeInDecider.for_sensitivity("low"), BargeInDecider.for_sensitivity("high")
+    assert low.update(300, "wait") == "none"  # a noisy room needs longer speech
+    assert high.update(200, "wait") == "interrupt"
+    assert BargeInDecider.for_sensitivity("nonsense").min_speech_ms == 250
+
+
+def test_answer_length_reaches_the_prompt():
+    from app.cascade_engine import ANSWER_LENGTH
+
+    assert "one short sentence" in ANSWER_LENGTH["short"] and ANSWER_LENGTH["normal"] == ""

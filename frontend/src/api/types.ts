@@ -4,6 +4,9 @@
  */
 import type { ModelRole, ProviderId, ToolName } from '../session/protocol'
 
+export type InterruptSensitivity = 'low' | 'normal' | 'high'
+export type AnswerLength = 'short' | 'normal' | 'detailed'
+
 export type MemoryKind = 'preference' | 'fact' | 'reminder'
 
 export interface MemoryItem {
@@ -61,6 +64,8 @@ export interface SettingsView {
   tools: Partial<Record<ToolName, ToolSetting>>
   save_recordings: boolean
   transcripts_in_logs: boolean
+  interrupt_sensitivity: InterruptSensitivity
+  answer_length: AnswerLength
   models: ModelsView
 }
 
@@ -68,6 +73,8 @@ export interface SettingsUpdate {
   tools?: Partial<Record<ToolName, boolean>>
   save_recordings?: boolean
   transcripts_in_logs?: boolean
+  interrupt_sensitivity?: InterruptSensitivity
+  answer_length?: AnswerLength
   planner_model?: string
   providers?: Partial<Record<ProviderId, boolean>>
 }

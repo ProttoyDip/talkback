@@ -92,6 +92,8 @@ def build_view(settings: Settings, prefs: Prefs) -> SettingsView:
         tools=tools,
         save_recordings=prefs.save_recordings,
         transcripts_in_logs=prefs.transcripts_in_logs,
+        interrupt_sensitivity=prefs.interrupt_sensitivity,
+        answer_length=prefs.answer_length,
         models=ModelsView(
             voice_model=VOICE_MODEL, planner_model=selected, planner_options=options, providers=providers
         ),
@@ -122,6 +124,10 @@ def update_settings(
         prefs.save_recordings = update.save_recordings
     if update.transcripts_in_logs is not None:
         prefs.transcripts_in_logs = update.transcripts_in_logs
+    if update.interrupt_sensitivity is not None:
+        prefs.interrupt_sensitivity = update.interrupt_sensitivity
+    if update.answer_length is not None:
+        prefs.answer_length = update.answer_length
     for name, enabled in (update.providers or {}).items():
         prefs.providers[name] = enabled
     if update.planner_model is not None:

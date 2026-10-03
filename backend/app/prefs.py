@@ -18,6 +18,8 @@ class Prefs:
     tools: dict[str, bool] = field(default_factory=dict)  # missing means on
     save_recordings: bool = False
     transcripts_in_logs: bool = False
+    interrupt_sensitivity: str = "normal"  # low, normal or high
+    answer_length: str = "normal"  # short, normal or detailed
     planner_model: str = ""  # a ModelOption id; empty means the default order
     providers: dict[str, bool] = field(default_factory=dict)  # missing means on
 
@@ -26,6 +28,10 @@ class Prefs:
 
     def provider_enabled(self, provider_id: str) -> bool:
         return self.providers.get(provider_id, True)
+
+
+def _choice(value: object, allowed: tuple[str, ...]) -> str:
+    return value if isinstance(value, str) and value in allowed else "normal"
 
 
 class PrefsStore:
@@ -40,6 +46,8 @@ class PrefsStore:
                 tools={str(k): bool(v) for k, v in dict(raw.get("tools", {})).items()},
                 save_recordings=bool(raw.get("save_recordings", False)),
                 transcripts_in_logs=bool(raw.get("transcripts_in_logs", False)),
+                interrupt_sensitivity=_choice(raw.get("interrupt_sensitivity"), ("low", "normal", "high")),
+                answer_length=_choice(raw.get("answer_length"), ("short", "normal", "detailed")),
                 planner_model=str(raw.get("planner_model", ""))[:100],
                 providers={str(k): bool(v) for k, v in dict(raw.get("providers", {})).items()},
             )

@@ -70,6 +70,13 @@ SYSTEM_PROMPT = (
     "instead of guessing. Do not assume how the person feels or how good their English is."
 )
 
+# Settings > Conversation > Answer length.
+ANSWER_LENGTH = {
+    "short": " Keep every answer to one short sentence unless the user asks for more.",
+    "normal": "",
+    "detailed": " When a question needs it, you may use up to five sentences; offer to stop if it gets long.",
+}
+
 CHUNK_SAMPLES = 4_410  # 200 ms at 22.05 kHz
 MAX_HISTORY_TURNS = 20
 # Split spoken text at sentence ends, or at a comma once a clause is long.
@@ -95,6 +102,7 @@ class CascadeEngine:
         incomplete_wait_s: float = 1.2,
         memory_store: MemoryStore | None = None,
         skills: list[Skill] | None = None,
+        answer_length: str = "normal",
     ) -> None:
         self.stt = stt
         self.tts = tts
@@ -117,6 +125,7 @@ class CascadeEngine:
         self.incomplete_wait_s = incomplete_wait_s
         self.memory_store = memory_store
         self.skills = skills or []
+        self.answer_length = answer_length
         # Set for the next reply when a skill starts (by voice or from the panel).
         self.skill_next: Skill | None = None
         self.skill_active: Skill | None = None
@@ -343,7 +352,7 @@ class CascadeEngine:
         self._emit(StateChanged("thinking"))
         self.skill_active, self.skill_next = self.skill_next or match_trigger(user_text, self.skills), None
         saved = await self._save_memory(user_text)
-        prompt = SYSTEM_PROMPT + await self._memory_prompt()
+        prompt = SYSTEM_PROMPT + ANSWER_LENGTH.get(self.answer_length, "") + await self._memory_prompt()
         if saved:
             prompt += f" The user just asked you to remember: {saved}. Confirm in a few words, and say it stays until they delete it."
         if self.skill_active:

@@ -66,6 +66,7 @@ def create_engine(settings: Settings) -> EngineChoice:
                 ToolBridge(session_id, tools, emit, say_filler), tools_on),
             memory_store=memory,
             skills=load_skills(settings.skills_dir),
+            answer_length=prefs.answer_length,
         )
         return EngineChoice(engine, http=http)
     return EngineChoice(None, f"The voice engine '{kind}' is not available in this build.")

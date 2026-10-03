@@ -94,12 +94,24 @@ def is_backchannel(text: str) -> bool:
     return " ".join(words) in BACKCHANNELS or all(w in BACKCHANNELS for w in words)
 
 
+# Settings > Interruptions: (minimum speech ms, backchannel limit ms).
+SENSITIVITY = {
+    "low": (400, 800),  # noisy rooms: needs longer speech to stop TalkBack
+    "normal": (MIN_SPEECH_MS, BACKCHANNEL_MAX_MS),
+    "high": (180, 450),  # quiet rooms: stops sooner
+}
+
+
 class BargeInDecider:
     """Decides while the assistant speaks. Call update() on every frame."""
 
     def __init__(self, min_speech_ms: int = MIN_SPEECH_MS, backchannel_max_ms: int = BACKCHANNEL_MAX_MS) -> None:
         self.min_speech_ms = min_speech_ms
         self.backchannel_max_ms = backchannel_max_ms
+
+    @classmethod
+    def for_sensitivity(cls, level: str) -> "BargeInDecider":
+        return cls(*SENSITIVITY.get(level, SENSITIVITY["normal"]))
 
     def update(self, speech_ms: int, interim_text: str) -> str:
         """Returns "none", "overlap" (user talks, undecided) or "interrupt"."""

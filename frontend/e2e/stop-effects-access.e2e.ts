@@ -43,3 +43,16 @@ test('a demo with an access code asks for it first', async ({ page }) => {
   await page.getByRole('button', { name: 'Continue' }).click()
   await expect(page.getByRole('heading', { name: 'Talk to me like a person.' })).toBeVisible()
 })
+
+test('interruption sensitivity and answer length can be chosen', async ({ page }) => {
+  await page.goto('/?state=idle&mock')
+  await page.getByRole('button', { name: 'Settings' }).first().click()
+  const panel = page.getByRole('complementary', { name: 'Settings' })
+  const interruptions = panel.getByRole('group', { name: 'Interruptions' })
+  await expect(interruptions.getByRole('radio', { name: 'Normal' })).toBeChecked()
+  await interruptions.getByText('Low', { exact: true }).click()
+  await expect(interruptions.getByRole('radio', { name: 'Low' })).toBeChecked()
+  const length = panel.getByRole('group', { name: 'Answer length' })
+  await length.getByText('Short', { exact: true }).click()
+  await expect(length.getByRole('radio', { name: 'Short' })).toBeChecked()
+})
