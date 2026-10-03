@@ -93,7 +93,8 @@
 
   body {
     margin: 0;
-    background: var(--bg);
+    /* No body background: the page colour is on html, so the animated
+       background canvas (z-index -10) shows through. */
     min-height: 100dvh;
   }
 
