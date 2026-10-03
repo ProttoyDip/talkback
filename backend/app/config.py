@@ -49,6 +49,17 @@ class Settings(BaseSettings):
     nebius_llm_model: str = "nvidia/nvidia-nemotron-3-nano-30b-a3b"
     openrouter_api_key: SecretStr = SecretStr("")
     openrouter_llm_model: str = "nvidia/nemotron-3-nano-30b-a3b"
+    # Further backups (plan.md 8.1), checked on 4 October 2026.
+    # Nararouter: free NVIDIA Nemotron, but it sometimes sends empty replies;
+    # the client then moves on to the next provider.
+    nararouter_api_key: SecretStr = SecretStr("")
+    nararouter_base_url: str = "https://router.bynara.id/v1"
+    nararouter_llm_model: str = "nemotron-3-super-free"
+    # Experiential Labs: its Nemotron needs a paid plan, so the last resort is
+    # Qwen (reliable text and tool calls).
+    experimentallab_api_key: SecretStr = SecretStr("")
+    experimentallab_base_url: str = "https://api.experientiallabs.ai/v1"
+    experimentallab_llm_model: str = "qwen3.8-27b"
 
     @field_validator("session_secret")
     @classmethod

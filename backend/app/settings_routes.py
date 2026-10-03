@@ -51,14 +51,20 @@ skills_router = APIRouter(prefix="/api/skills", dependencies=[Depends(claims)])
 def build_view(settings: Settings, prefs: Prefs) -> SettingsView:
     configured = {p.id for p in providers_from_settings(settings)}
     options = []
-    for provider_id, model in (("nebius", settings.nebius_llm_model), ("openrouter", settings.openrouter_llm_model)):
+    planner_models = (
+        ("nebius", settings.nebius_llm_model),
+        ("openrouter", settings.openrouter_llm_model),
+        ("nararouter", settings.nararouter_llm_model),
+        ("experimentallab", settings.experimentallab_llm_model),
+    )
+    for provider_id, model in planner_models:
         enabled = provider_id == "nebius" or prefs.provider_enabled(provider_id)
         options.append(
             ModelOption(
                 id=f"{provider_id}:{model}",
                 provider=provider_id,
                 model=model,
-                nvidia=model.startswith("nvidia/"),
+                nvidia=model.startswith("nvidia/") or "nemotron" in model.lower(),
                 available=provider_id in configured and enabled,
             )
         )
@@ -81,6 +87,8 @@ def build_view(settings: Settings, prefs: Prefs) -> SettingsView:
     providers = [
         provider("nebius", "Nebius Token Factory", "planner", True, settings.nebius_api_key),
         provider("openrouter", "OpenRouter", "planner", False, settings.openrouter_api_key),
+        provider("nararouter", "Nararouter", "planner", False, settings.nararouter_api_key),
+        provider("experimentallab", "Experiential Labs", "planner", False, settings.experimentallab_api_key),
         provider("tavily", "Tavily", "search", True, settings.tavily_api_key),
         provider("perplexity", "Perplexity", "search", False, settings.perplexity_api_key),
     ]

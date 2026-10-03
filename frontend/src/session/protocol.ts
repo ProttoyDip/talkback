@@ -49,7 +49,7 @@ export const PROVIDER_NAMES: Record<ProviderId, string> = {
   openrouter: 'OpenRouter',
   agentrouter: 'AgentRouter',
   nararouter: 'Nararouter',
-  experimentallab: 'ExperimentalLab',
+  experimentallab: 'Experiential Labs',
   tavily: 'Tavily',
   perplexity: 'Perplexity',
 }
