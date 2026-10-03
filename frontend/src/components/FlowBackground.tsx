@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { FlowScene } from '../background/flowScene'
 import type { ConversationState } from '../state/types'
+import { sceneDisabled } from './sceneSupport'
 
 /**
  * How far the camera dives into the field for each conversation state
@@ -19,16 +20,6 @@ const DEPTH: Record<ConversationState, number> = {
   overlap: 0.45,
 }
 
-/**
- * Automated browsers (end-to-end tests) skip the scene: drawing 120,000
- * particles three times per frame on a software renderer would make every
- * test slow. Add ?bg to the URL to turn it on there.
- */
-function disabled(): boolean {
-  const params = new URLSearchParams(window.location.search)
-  if (params.has('nobg')) return true
-  return navigator.webdriver === true && !params.has('bg')
-}
 
 /** The animated "Flow Wave" background (src/background/flowScene.ts). */
 export function FlowBackground({ state }: { state: ConversationState }) {
@@ -38,7 +29,7 @@ export function FlowBackground({ state }: { state: ConversationState }) {
 
   useEffect(() => {
     const element = canvas.current
-    if (!element || disabled()) return
+    if (!element || sceneDisabled()) return
     let cancelled = false
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     // Loaded on demand: the 3D library is not needed for the first paint.

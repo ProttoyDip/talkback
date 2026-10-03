@@ -17,8 +17,8 @@ test('replay plays the full demo conversation', async ({ page }) => {
   await expect(page.getByText('Weather from Open-Meteo')).toBeVisible()
   await expect(page.getByText('· kept going')).toBeVisible()
 
-  // TalkBack's lane follows the audio it actually plays.
-  await expect.poll(() => laneInk(page, 1), { timeout: 10_000 }).toBeGreaterThan(quietInk * 3)
+  // TalkBack's level follows the audio it actually plays.
+  await expect.poll(() => laneInk(page, 1), { timeout: 10_000 }).toBeGreaterThan(Math.max(0.05, quietInk * 3))
 
   // The interruption: unheard words stay, struck through.
   const unheard = page.locator('[aria-describedby]', { hasText: "so take a light jacket if you're out after dinner." })

@@ -28,6 +28,8 @@ This is the design source of truth for TalkBack. Claude Code must read it before
 
 This continues the look of the cover image and gallery images in `docs/images/`.
 
+**Update (3 October 2026, owner request):** the stage now sits on an animated emerald particle field ("Flow Wave", `src/background/flowScene.ts`), and TalkBack's presence is a crimson-to-gold particle orb ("Storm", `src/background/stormOrb.ts`) at the top of the stage. The orb replaces the two-lane duplex timeline: it pulses with the live voice, swirls faster while thinking and bursts on an interruption. These two scenes are deliberate exceptions to "no glows" below. Neutrals are tinted toward the field, and the rail and tab bar use the translucent `--chrome` surface with a `--field-glow` active state. Both scenes load on demand, draw one still frame with reduced motion, and are off in automated test browsers unless the URL has `?bg`.
+
 ## 3. Design tokens
 
 Define these once in `frontend/src/styles/tokens.css` as CSS custom properties and map them into the Tailwind theme. Never hard-code a color, size or duration in a component.

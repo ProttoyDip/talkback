@@ -15,14 +15,11 @@ export async function expectNoHorizontalScroll(page: Page) {
   expect(scroll).toBeLessThanOrEqual(inner)
 }
 
-/** Share of pixels drawn in a timeline lane canvas (0 = TALKBACK lane is index 1). */
+/** Newest voice level (0..1) for YOU (0) or TALKBACK (1). */
 export async function laneInk(page: Page, lane: 0 | 1): Promise<number> {
-  return page.locator('section[aria-hidden] canvas').nth(lane).evaluate((canvas: HTMLCanvasElement) => {
-    const ctx = canvas.getContext('2d')
-    if (!ctx || canvas.width === 0) return 0
-    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    let drawn = 0
-    for (let i = 3; i < data.length; i += 4) if (data[i] > 0) drawn++
-    return drawn / (canvas.width * canvas.height)
-  })
+  // The presence orb carries the newest level of each voice (0 = YOU, 1 = TALKBACK).
+  const value = await page
+    .locator('[data-voice-user]')
+    .getAttribute(lane === 0 ? 'data-voice-user' : 'data-voice-assistant')
+  return Number(value ?? 0)
 }

@@ -21,7 +21,7 @@ export function StatusBar({ state, tool, debug, latencyMs, backup }: StatusBarPr
         <span className="text-voice-assistant">Back</span>
       </p>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
         {backup && (
           <p
             className="flex h-8 items-center rounded-pill border border-warning px-3 font-mono text-label font-medium uppercase text-warning"
@@ -41,7 +41,7 @@ export function StatusBar({ state, tool, debug, latencyMs, backup }: StatusBarPr
         )}
 
         <div
-          className="flex h-8 items-center gap-2 rounded-pill border border-border px-3"
+          className="flex h-8 items-center gap-2 rounded-pill border border-field-line bg-chrome px-3"
           role="status"
           aria-live="polite"
         >

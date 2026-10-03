@@ -9,10 +9,11 @@
   color-scheme: dark;
 
   /* 3.1 Color (dark, default) */
-  --bg: #0d1014;
-  --surface: #14181d;
-  --surface-raised: #1b2027;
-  --border: #2a3038;
+  /* Neutrals carry a trace of the emerald field so panels sit in it. */
+  --bg: #07110d;
+  --surface: #0c1813;
+  --surface-raised: #122019;
+  --border: #1f3329;
   --text: #f3f1ec;
   --text-muted: #a7adb5;
   --text-subtle: #7d848d; /* 14 px and larger only */
@@ -23,6 +24,14 @@
   --warning: #f2c94c;
   --focus: #f3f1ec;
   --on-accent: var(--bg); /* text on teal fills: never white */
+
+  /* The field (animated background) and app chrome laid over it */
+  --field: #02160c;
+  --field-glow: #34e89a;
+  --field-line: rgb(52 232 154 / 0.16);
+  --chrome: rgb(4 18 11 / 0.82);
+  /* The presence orb's ground (Storm scene background) */
+  --orb-bg: #1a0418;
 
   /* 3.2 Typography */
   --font-family-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
@@ -78,6 +87,8 @@
   --drawer-width: 360px;
   --stage-max-width: 880px;
   --mic-size: 72px;
+  --orb-size: 168px; /* presence orb, phones and tablets */
+  --orb-size-lg: 216px; /* presence orb, desktop */
   --target-min: 44px;
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;

@@ -1,13 +1,14 @@
 import { AnimatePresence } from 'motion/react'
-import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
+import { type RefObject, useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { Banner, type BannerProps } from '../components/Banner'
 import { ConfirmCard } from '../components/ConfirmCard'
 import { FlowBackground } from '../components/FlowBackground'
+import { PresenceOrb } from '../components/PresenceOrb'
+import type { LevelMeters } from '../session/useLevelHistory'
 import { Drawer } from '../components/Drawer'
 import { Toast, type ToastData } from '../components/Toast'
 import type { ConversationModel } from '../session/model'
-import { DuplexTimeline } from '../components/DuplexTimeline'
 import { MicButton, type MicMode } from '../components/MicButton'
 import { NavRail, TabBar, type Panel } from '../components/Navigation'
 import { StatusBar } from '../components/StatusBar'
@@ -34,6 +35,10 @@ export interface ConversationView {
   /** True once the session is open, so skills can run. */
   sessionOpen?: boolean
   activeModels?: ConversationModel['models']
+  /** Live voice levels, so the presence orb can pulse with them. */
+  levels?: RefObject<LevelMeters>
+  /** Interruptions so far in this session (each one makes the orb burst). */
+  interruptCount?: number
 }
 
 interface ConversationScreenProps {
@@ -130,7 +135,15 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
 
           {view.banner && <Banner {...view.banner} />}
 
-          <DuplexTimeline data={view.timeline} offline={state === 'offline'} muted={state === 'muted'} />
+          {/* TalkBack's presence: the Storm orb listens, thinks and speaks here. */}
+          <div className="flex shrink-0 justify-center">
+            <PresenceOrb
+              state={state}
+              levels={view.levels}
+              interrupts={view.interruptCount}
+              latest={{ user: view.timeline.user.at(-1) ?? 0, assistant: view.timeline.assistant.at(-1) ?? 0 }}
+            />
+          </div>
 
           <section
             ref={transcriptRef}
