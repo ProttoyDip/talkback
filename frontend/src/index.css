@@ -21,6 +21,11 @@
   --color-warning: var(--warning);
   --color-focus: var(--focus);
   --color-on-accent: var(--on-accent);
+  --color-field: var(--field);
+  --color-field-glow: var(--field-glow);
+  --color-field-line: var(--field-line);
+  --color-chrome: var(--chrome);
+  --color-orb-bg: var(--orb-bg);
   --color-transparent: transparent;
   --color-current: currentColor;
 
@@ -61,6 +66,10 @@
   --spacing-rail: var(--rail-width);
   --spacing-drawer: var(--drawer-width);
   --spacing-mic: var(--mic-size);
+  --spacing-orb: var(--orb-size);
+  --spacing-orb-lg: var(--orb-size-lg);
+  --spacing-orb-compact: var(--orb-size-compact);
+  --spacing-orb-compact-lg: var(--orb-size-compact-lg);
   --spacing-target: var(--target-min);
 
   --container-*: initial;
@@ -93,7 +102,8 @@
 
   body {
     margin: 0;
-    background: var(--bg);
+    /* No body background: the page colour is on html, so the animated
+       background canvas (z-index -10) shows through. */
     min-height: 100dvh;
   }
 

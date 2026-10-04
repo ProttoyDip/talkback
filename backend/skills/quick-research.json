@@ -1,0 +1,7 @@
+{
+  "id": "quick-research",
+  "name": "Quick research",
+  "triggers": ["quick research", "research this", "look into"],
+  "allowed_tools": ["web_search"],
+  "instructions": "Ask what the user wants researched if they have not said. Search the web once, then answer in two or three short sentences using only what the results say, and say which source you used."
+}

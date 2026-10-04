@@ -55,6 +55,8 @@ const paths = {
   edit: <path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />,
   trash: <path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13M10 11v6M14 11v6" />,
   play: <path d="M8 5v14l11-7z" />,
+  download: <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
+  stop: <rect x="6" y="6" width="12" height="12" rx="2" />,
   search: (
     <>
       <circle cx="11" cy="11" r="6.5" />

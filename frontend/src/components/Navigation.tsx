@@ -31,9 +31,12 @@ function NavButton({
   const isPanel = item.id !== 'conversation'
   const active = isPanel ? openPanel === item.id : item.id === 'conversation' && openPanel === null
   const base =
-    'group relative flex items-center justify-center rounded-card transition-colors duration-(--dur-fast)'
+    'group relative flex items-center justify-center rounded-card transition-[color,background-color,transform] duration-(--dur-fast) ease-enter'
   const size = compact ? 'min-h-target min-w-target flex-col gap-1 px-2' : 'size-12'
-  const tone = active ? 'bg-surface-raised text-text' : 'text-text-muted hover:bg-surface hover:text-text'
+  // Chrome over the field: the active item takes the field's glow, not a voice colour.
+  const tone = active
+    ? 'bg-field-line text-field-glow'
+    : 'text-text-muted hover:bg-field-line hover:text-text active:scale-[0.96]'
 
   return (
     <button
@@ -49,7 +52,7 @@ function NavButton({
       className={`${base} ${size} ${tone}`}
     >
       {active && !compact && (
-        <span aria-hidden className="absolute inset-y-3 -left-2 w-px bg-voice-assistant" />
+        <span aria-hidden className="absolute inset-y-3 -left-2 w-px rounded-pill bg-field-glow" />
       )}
       <Icon name={item.icon} className="size-6" />
       {compact ? (
@@ -72,7 +75,7 @@ export function NavRail(props: NavProps) {
   return (
     <nav
       aria-label="Main"
-      className="sticky top-0 hidden h-dvh w-rail shrink-0 flex-col items-center gap-2 border-r border-border py-4 lg:flex"
+      className="sticky top-0 z-20 hidden h-dvh w-rail shrink-0 flex-col items-center gap-2 border-r border-field-line bg-chrome py-4 lg:flex"
     >
       <span aria-hidden className="mb-4 flex h-8 items-center gap-1">
         <span className="h-4 w-1 rounded-pill bg-voice-user" />
@@ -95,7 +98,7 @@ export function TabBar({ mic, ...props }: NavProps & { mic: ReactNode }) {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-bg px-2 pb-[max(var(--space-2),env(safe-area-inset-bottom))] pt-2 lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-field-line bg-chrome px-2 pb-[max(var(--space-2),env(safe-area-inset-bottom))] pt-2 lg:hidden"
     >
       <div className="mx-auto grid max-w-stage grid-cols-[1fr_auto_1fr] items-end gap-2">
         <div className="flex justify-around">

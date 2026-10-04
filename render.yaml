@@ -1,0 +1,43 @@
+# Render Blueprint: Dashboard > New > Blueprint > pick this repository.
+# Secrets marked "sync: false" are asked for once in the Render dashboard;
+# they are never stored in git.
+services:
+  - type: web
+    name: talkback-voice # address: https://talkback-voice.onrender.com
+    runtime: docker
+    plan: free # sleeps after 15 min idle; "starter" stays awake for demos
+    region: singapore
+    # Change to "main" once this branch is merged.
+    branch: claude/render
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: VOICE_ENGINE
+        value: cascade
+      # The site's own address is allowed automatically (RENDER_EXTERNAL_URL).
+      - key: ALLOWED_ORIGINS
+        value: ""
+      - key: ACCESS_CODE
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: NEBIUS_API_KEY
+        sync: false
+      - key: NARAROUTER_API_KEY
+        sync: false
+      - key: EXPERIMENTALLAB_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: PERPLEXITY_API_KEY
+        sync: false
+      # Memories and settings: Render's disk is wiped on every deploy,
+      # so they live in Supabase.
+      - key: SUPABASE_URL
+        value: https://tkcxgytklxbhayjwkvyf.supabase.co
+      - key: SUPABASE_SECRET_KEY
+        sync: false

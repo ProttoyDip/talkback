@@ -61,6 +61,7 @@ export function PreviewConversation({ state: requested, debug }: { state: Conver
       debug={debug}
       onToggleMute={() => setMuted((m) => !m)}
       onAnswerConfirm={() => setConfirmOpen(false)}
+      onStop={() => {}}
     />
   )
 }

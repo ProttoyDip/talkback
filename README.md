@@ -92,7 +92,7 @@ $$\text{latency} = t_{\text{first audio out}} - t_{\text{end of user speech}}$$
 ## Quick start
 
 > [!NOTE]
-> For spoken replies, add `NVIDIA_API_KEY` and `NEBIUS_API_KEY` (or `OPENROUTER_API_KEY`) to `backend/.env`. Without them the app still runs and explains what is missing. You can ask for the weather (Open-Meteo, no key needed). Interruption handling (barge-in) is not built yet.
+> For spoken replies, add `NVIDIA_API_KEY` and `NEBIUS_API_KEY` (or `OPENROUTER_API_KEY`) to `backend/.env`. Without them the app still runs and explains what is missing. You can ask for the weather (Open-Meteo, no key needed). Interruption handling is built but has only been tested with scripted audio, not yet by ear with live speech. For an offline demo without keys, set `VOICE_ENGINE=fake` in `backend/.env`: it plays a scripted conversation and reacts to interruptions.
 
 ### Prerequisites
 
@@ -170,6 +170,19 @@ npm run e2e     # end-to-end tests (Playwright)
 
 The end-to-end tests use the installed Microsoft Edge with a fake microphone, and start the backend and the dev server if they are not running. The backend virtual environment from "Run the backend" must exist.
 
+## Deploy to Render
+
+One Docker web service serves the website and the voice backend (`Dockerfile`, `render.yaml`).
+
+1. Push the repository to GitHub.
+2. On [render.com](https://render.com): **New > Blueprint**, pick the repository. Render reads `render.yaml`.
+3. Fill in the secrets it asks for: `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, `SUPABASE_SECRET_KEY`, `ACCESS_CODE` (and any optional provider keys). They stay in Render, never in git.
+4. Deploy. The site's own address is allowed automatically, so the voice connection works on `https://<service>.onrender.com`.
+
+Notes: memories and settings need Supabase, because Render's disk is wiped on every deploy. The free plan sleeps after 15 minutes without visitors (about a minute to wake); use a paid plan for live demos. Every visitor uses your API credits, so keep `ACCESS_CODE` set.
+
+Test the same image locally: `docker build -t talkback .` then `docker run -p 10000:10000 -e PORT=10000 --env-file backend/.env -e FRONTEND_DIST=/app/frontend/dist talkback`.
+
 ## Configuration
 
 The backend reads `backend/.env`. Copy it from [`backend/.env.example`](backend/.env.example). Never commit `backend/.env`.
@@ -232,13 +245,14 @@ The planned `eval/` folder will contain scripts for two metrics:
 - [x] FastAPI backend: `/health`, session tokens, validated WebSocket gateway
 - [ ] Audio streaming in 20 ms frames between the browser and the voice model
 - [ ] NemotronLabs VoiceChat on an NVIDIA H100 on Nebius AI Cloud
-- [ ] Interruption handling: Silero VAD, 250 ms minimum speech length, playback-position history trimming
+- [x] Interruption handling in the gateway: energy-based voice detection (Silero is not used yet), 250 ms minimum speech, backchannel rule, history trimmed at the playback position. Tested with scripted audio only
+- [x] Conversation controller: filler words ("umm") are not answered, unfinished sentences wait briefly, short reactions are read in context (English only)
 - [ ] Nemotron tool planning via Nebius Token Factory, with Tavily and Open-Meteo tools
 - [ ] Spoken filler during tool calls
 - [x] Conversation screen (React): live transcript, duplex timeline, tool chips, confirmation card
 - [x] Live audio in the frontend (microphone capture and playback)
 - [x] First-run onboarding, Memory panel, Skills panel and Settings (microphone choice, tools, privacy, models); Skills and Settings need backend routes that are not built yet, so they show an error unless you add `?mock`
-- [ ] Evaluation scripts for latency and interruption recovery
+- [x] `eval/`: 50 scripted turn-taking scenarios (decision logic only; run `backend/.venv/bin/python eval/interruptions.py`). End-to-end latency with the real speech engine is not measured yet
 - [ ] Demo video
 - [ ] More languages, including low-resource languages
 - [ ] On-device version for NVIDIA Jetson

@@ -45,7 +45,7 @@ The track asks for an always-on, private assistant that works for the user while
 | Reusable skills | Skills defined as small YAML files (e.g. "morning brief") | P0 |
 | Access to user-selected tools and information | User turns each tool on or off in Settings | P0 |
 | Task execution across daily workflows | Skills chain tools: weather + search + reminders | P1 |
-| Data under the user's control | Memory stored locally, no audio stored by default, one-click "forget everything" | P0 |
+| Data under the user's control | Memory in the owner's private database (Supabase, or local SQLite), no audio stored by default, one-click "forget everything" | P0 |
 | Suggested tools (NemoClaw, OpenShell, Hermes Agent, Nebius Serverless) | Optional: run tool execution inside an OpenShell sandbox; voice model can run as a Nebius Serverless endpoint | P2 |
 
 ### 3.3 Judging criteria
@@ -113,7 +113,7 @@ The track asks for an always-on, private assistant that works for the user while
 - **FR-10** Send multi-step or complex requests to Nemotron on Token Factory for planning.
 
 ### 7.3 Memory (P0)
-- **FR-11** Store memories locally (SQLite) with a source, time and confidence for each item.
+- **FR-11** Store memories with a source, time and confidence for each item: in Supabase (Postgres) when it is configured, otherwise locally (SQLite). Owner decision, 4 October 2026.
 - **FR-12** Only the user's own words can create a memory. Web results and tool outputs never write memory directly.
 - **FR-13** Memory panel: list, search, edit, delete, and "forget everything".
 - **FR-14** Say out loud when something new is remembered ("I'll remember you prefer Celsius").

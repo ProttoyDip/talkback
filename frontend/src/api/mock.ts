@@ -34,6 +34,8 @@ let settings: SettingsView = {
   },
   save_recordings: false,
   transcripts_in_logs: false,
+  interrupt_sensitivity: 'normal',
+  answer_length: 'normal',
   models: {
     voice_model: 'NVIDIA NemotronLabs VoiceChat',
     planner_model: 'nebius:nemotron-3-nano',
@@ -55,6 +57,8 @@ interface SettingsPatch {
   tools?: Record<string, boolean>
   save_recordings?: boolean
   transcripts_in_logs?: boolean
+  interrupt_sensitivity?: SettingsView['interrupt_sensitivity']
+  answer_length?: SettingsView['answer_length']
   planner_model?: string
   providers?: Record<string, boolean>
 }
@@ -94,6 +98,8 @@ export async function mockRequest<T>(method: string, path: string, body?: unknow
         tools,
         save_recordings: update.save_recordings ?? settings.save_recordings,
         transcripts_in_logs: update.transcripts_in_logs ?? settings.transcripts_in_logs,
+        interrupt_sensitivity: update.interrupt_sensitivity ?? settings.interrupt_sensitivity,
+        answer_length: update.answer_length ?? settings.answer_length,
         models: {
           ...settings.models,
           planner_model: update.planner_model ?? settings.models.planner_model,

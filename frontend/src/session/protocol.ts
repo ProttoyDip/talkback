@@ -23,6 +23,7 @@ export type ClientMessage =
   | { type: 'session.start'; client_sample_rate: typeof CLIENT_SAMPLE_RATE }
   | { type: 'playback.position'; seq: number; samples_played: number }
   | { type: 'control.mute'; muted: boolean }
+  | { type: 'control.stop' }
   | { type: 'tool.confirm'; call_id: string; approved: boolean }
 
 // Server -> client. Optional fields may be missing (missing means null).
@@ -48,7 +49,7 @@ export const PROVIDER_NAMES: Record<ProviderId, string> = {
   openrouter: 'OpenRouter',
   agentrouter: 'AgentRouter',
   nararouter: 'Nararouter',
-  experimentallab: 'ExperimentalLab',
+  experimentallab: 'Experiential Labs',
   tavily: 'Tavily',
   perplexity: 'Perplexity',
 }

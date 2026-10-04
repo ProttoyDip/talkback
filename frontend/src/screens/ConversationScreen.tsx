@@ -1,12 +1,17 @@
-import { AnimatePresence } from 'motion/react'
-import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import { type RefObject, useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
+import { Icon } from '../components/Icon'
+import { downloadTranscript } from '../state/exportTranscript'
+import { enter, exit } from '../styles/motion'
 import { Banner, type BannerProps } from '../components/Banner'
 import { ConfirmCard } from '../components/ConfirmCard'
+import { FlowBackground } from '../components/FlowBackground'
+import { PresenceOrb } from '../components/PresenceOrb'
+import type { LevelMeters } from '../session/useLevelHistory'
 import { Drawer } from '../components/Drawer'
 import { Toast, type ToastData } from '../components/Toast'
 import type { ConversationModel } from '../session/model'
-import { DuplexTimeline } from '../components/DuplexTimeline'
 import { MicButton, type MicMode } from '../components/MicButton'
 import { NavRail, TabBar, type Panel } from '../components/Navigation'
 import { StatusBar } from '../components/StatusBar'
@@ -33,6 +38,8 @@ export interface ConversationView {
   /** True once the session is open, so skills can run. */
   sessionOpen?: boolean
   activeModels?: ConversationModel['models']
+  /** Live voice levels, so the presence orb can pulse with them. */
+  levels?: RefObject<LevelMeters>
 }
 
 interface ConversationScreenProps {
@@ -40,6 +47,10 @@ interface ConversationScreenProps {
   debug: boolean
   onToggleMute: () => void
   onAnswerConfirm: (approved: boolean) => void
+  /** Stop TalkBack talking now (Esc or the Stop button). */
+  onStop?: () => void
+  /** Push-to-talk is on: hold Space or the mic button to talk. */
+  onHold?: (held: boolean) => void
 }
 
 function isTyping(target: EventTarget | null) {
@@ -52,9 +63,15 @@ function isTyping(target: EventTarget | null) {
 /** Within this distance of the bottom, new captions keep the view pinned. */
 const FOLLOW_THRESHOLD_PX = 160
 
-export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm }: ConversationScreenProps) {
+/** TalkBack is answering, so Stop has something to stop. */
+const STOPPABLE = new Set(['assistant_speaking', 'overlap', 'thinking', 'tool'])
+
+export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm, onStop, onHold }: ConversationScreenProps) {
   const [panel, setPanel] = useState<Panel | null>(null)
   const { state, turns, confirm, micDisabled } = view
+  // Nothing said yet: the orb holds the centre of the stage.
+  const empty = turns.length === 0 && !confirm
+  const canStop = onStop !== undefined && STOPPABLE.has(state)
 
   // Live captions follow the newest words, unless the user scrolled up to read.
   const transcriptRef = useRef<HTMLElement>(null)
@@ -82,13 +99,21 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
 
   // Keyboard shortcuts from design.md 7: Space mute, M memory, K skills, Esc close.
   const toggleMute = useEffectEvent(onToggleMute)
+  const holdToTalk = useEffectEvent((held: boolean) => onHold?.(held))
+  const pushToTalk = onHold !== undefined && view.micMode !== 'off'
+  // Esc closes an open panel first; otherwise it stops TalkBack (design.md 7).
+  const escape = useEffectEvent(() => {
+    if (panel) setPanel(null)
+    else if (canStop) onStop?.()
+  })
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return
       const onButton = e.target instanceof HTMLElement && e.target.closest('button, a, [tabindex]')
       if (e.code === 'Space' && !onButton && !micDisabled) {
         e.preventDefault()
-        toggleMute()
+        if (!pushToTalk) toggleMute()
+        else if (!e.repeat) holdToTalk(true)
       } else if (e.key === 'm' || e.key === 'M') {
         togglePanel('memory')
       } else if (e.key === 'k' || e.key === 'K') {
@@ -96,12 +121,19 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
       } else if (e.key === ',') {
         togglePanel('settings')
       } else if (e.key === 'Escape') {
-        setPanel(null)
+        escape()
       }
     }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (pushToTalk && e.code === 'Space' && !isTyping(e.target)) holdToTalk(false)
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [micDisabled])
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [micDisabled, pushToTalk])
 
   const mic = (
     <MicButton
@@ -109,11 +141,13 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
       level={view.inputLevel}
       disabled={micDisabled}
       onToggle={onToggleMute}
+      onHold={onHold}
     />
   )
 
   return (
     <div className="flex min-h-dvh">
+      <FlowBackground state={state} />
       <NavRail openPanel={panel} onTogglePanel={togglePanel} />
 
       <main className="flex min-w-0 flex-1 justify-center">
@@ -124,29 +158,64 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
             debug={debug}
             latencyMs={view.latencyMs}
             backup={view.backup}
+            onSave={turns.length > 0 ? () => downloadTranscript(turns) : undefined}
           />
 
           {view.banner && <Banner {...view.banner} />}
 
-          <DuplexTimeline data={view.timeline} offline={state === 'offline'} muted={state === 'muted'} />
-
-          <section
-            ref={transcriptRef}
-            aria-label="Transcript"
-            onScroll={(e) => {
-              const el = e.currentTarget
-              following.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX
-            }}
-            className="-mx-4 flex-1 overflow-y-auto px-4 pb-[calc(var(--mic-size)+var(--space-12))] sm:-mx-8 sm:px-8 lg:pb-8"
+          {/* TalkBack's presence: a 3D orb in the middle of the stage. It reacts
+              when you speak and when TalkBack answers. Before the first words it
+              sits in the centre with the invitation under it. */}
+          <div
+            className={
+              empty
+                ? 'flex flex-1 flex-col items-center justify-center gap-8 pb-[calc(var(--mic-size)+var(--space-12))] lg:pb-0'
+                : 'flex shrink-0 flex-col items-center gap-4'
+            }
           >
-            {turns.length === 0 ? (
-              <div className="flex h-full flex-col items-start justify-center gap-2 py-12">
-                <p className="font-display text-h1 font-extrabold text-text">
-                  Interrupt me any time.
-                </p>
+            <PresenceOrb
+              state={state}
+              levels={view.levels}
+              compact={!empty}
+              latest={{ user: view.timeline.user.at(-1) ?? 0, assistant: view.timeline.assistant.at(-1) ?? 0 }}
+            />
+            <AnimatePresence>
+              {canStop && (
+                <motion.button
+                  key="stop"
+                  type="button"
+                  onClick={onStop}
+                  aria-keyshortcuts="Escape"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0, transition: enter }}
+                  exit={{ opacity: 0, transition: exit }}
+                  className="inline-flex min-h-target items-center gap-2 rounded-pill border border-field-line bg-chrome px-4 font-medium text-text transition-colors duration-(--dur-fast) hover:border-text-subtle active:scale-[0.97]"
+                >
+                  <Icon name="stop" className="size-4" />
+                  Stop
+                  <span className="font-mono text-label uppercase text-text-muted">Esc</span>
+                </motion.button>
+              )}
+            </AnimatePresence>
+            {empty && (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <p className="font-display text-h1 font-extrabold text-text">Interrupt me any time.</p>
                 <p className="text-transcript text-text-muted">I'll keep up.</p>
               </div>
-            ) : (
+            )}
+          </div>
+
+          {!empty && (
+            <section
+              ref={transcriptRef}
+              aria-label="Transcript"
+              onScroll={(e) => {
+                const el = e.currentTarget
+                following.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX
+              }}
+              // The translucent panel keeps captions readable where the field passes behind them.
+              className="-mx-4 flex-1 overflow-y-auto rounded-panel bg-bg/80 px-4 pb-[calc(var(--mic-size)+var(--space-12))] sm:-mx-8 sm:px-8 lg:pb-8"
+            >
               <ol className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-[max-content_minmax(0,1fr)] sm:gap-x-6">
                 {turns.map((turn, i) => (
                   // A user turn opens a new exchange: more space before it,
@@ -158,14 +227,14 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm 
                   />
                 ))}
               </ol>
-            )}
 
-            <AnimatePresence>
-              {confirm && state !== 'offline' && (
-                <ConfirmCard key={confirm.callId} className="mt-8" request={confirm} onAnswer={onAnswerConfirm} />
-              )}
-            </AnimatePresence>
-          </section>
+              <AnimatePresence>
+                {confirm && state !== 'offline' && (
+                  <ConfirmCard key={confirm.callId} className="mt-8" request={confirm} onAnswer={onAnswerConfirm} />
+                )}
+              </AnimatePresence>
+            </section>
+          )}
 
           <div className="hidden justify-center pb-8 lg:flex">{mic}</div>
         </div>

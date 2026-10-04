@@ -1,4 +1,5 @@
 import { statusDescription, statusLabel } from '../state/status'
+import { Icon } from './Icon'
 import type { ConversationState, ToolName } from '../state/types'
 
 interface StatusBarProps {
@@ -9,9 +10,11 @@ interface StatusBarProps {
   latencyMs?: number
   /** Set while a backup provider answers (plan.md 8.2): "Planner: model via provider". */
   backup?: string
+  /** Saves the transcript as a Markdown file; missing until there is one. */
+  onSave?: () => void
 }
 
-export function StatusBar({ state, tool, debug, latencyMs, backup }: StatusBarProps) {
+export function StatusBar({ state, tool, debug, latencyMs, backup, onSave }: StatusBarProps) {
   const offline = state === 'offline'
 
   return (
@@ -21,7 +24,7 @@ export function StatusBar({ state, tool, debug, latencyMs, backup }: StatusBarPr
         <span className="text-voice-assistant">Back</span>
       </p>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
         {backup && (
           <p
             className="flex h-8 items-center rounded-pill border border-warning px-3 font-mono text-label font-medium uppercase text-warning"
@@ -40,8 +43,19 @@ export function StatusBar({ state, tool, debug, latencyMs, backup }: StatusBarPr
           </p>
         )}
 
+        {onSave && (
+          <button
+            type="button"
+            onClick={onSave}
+            aria-label="Save transcript"
+            title="Save transcript"
+            className="grid size-target place-items-center rounded-pill border border-field-line bg-chrome text-text-muted transition-colors duration-(--dur-fast) hover:text-text active:scale-[0.96]"
+          >
+            <Icon name="download" className="size-4" />
+          </button>
+        )}
         <div
-          className="flex h-8 items-center gap-2 rounded-pill border border-border px-3"
+          className="flex h-8 items-center gap-2 rounded-pill border border-field-line bg-chrome px-3"
           role="status"
           aria-live="polite"
         >

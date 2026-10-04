@@ -28,6 +28,8 @@ This is the design source of truth for TalkBack. Claude Code must read it before
 
 This continues the look of the cover image and gallery images in `docs/images/`.
 
+**Update (3 October 2026, owner request):** TalkBack's presence is a 3D particle orb (crimson core, magenta, gold rim; `src/background/stormOrb.ts`) in the middle of the stage. It replaces the two-lane duplex timeline and reacts only to voices: it swells and pulses with the live level while the user speaks and while TalkBack answers, rests otherwise, and dims when muted or offline. Before the first words it holds the centre with the invitation under it; once the conversation starts it shrinks above the transcript. The orb is a deliberate exception to "no glows" below. The animated emerald particle field ("Flow Wave", `src/background/flowScene.ts`) stays behind the stage; its camera dive follows the conversation state. Neutrals carry a slight emerald tint; the rail and tab bar use `--chrome` with a `--field-glow` active state. The orb loads on demand, draws one still frame with reduced motion, and is off in automated test browsers unless the URL has `?bg`.
+
 ## 3. Design tokens
 
 Define these once in `frontend/src/styles/tokens.css` as CSS custom properties and map them into the Tailwind theme. Never hard-code a color, size or duration in a component.
@@ -103,7 +105,7 @@ Rules:
 ### 5.1 Onboarding (first run)
 1. **Welcome:** display headline "Talk to me like a person." with a short line: "Interrupt me any time. I'll keep up." One primary button: "Allow microphone".
 2. **Microphone permission:** explain why before the browser prompt. If denied, show how to re-enable it, with the browser name.
-3. **Privacy promise:** three short lines: memory stays on your device, no recordings are kept, you can delete everything. Button: "Start talking".
+3. **Privacy promise:** three short lines: memories are kept in your private database (Supabase), no recordings are kept, you can delete everything. Button: "Start talking".
 4. **Headphones tip:** "Use headphones for the best interruptions." Dismissible.
 
 ### 5.2 Conversation (main screen)

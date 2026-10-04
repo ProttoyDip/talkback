@@ -266,3 +266,26 @@ def test_gateway_streams_a_full_answer(client, settings):
     # The turn ends only after its last caption.
     assert types.index("transcript.delta") < len(types) - 1
     assert received[-1] == {"type": "state", "state": "idle"}
+
+
+def test_more_backups_follow_openrouter_in_plan_order():
+    settings = Settings(
+        _env_file=None, nebius_api_key="n", openrouter_api_key="o", nararouter_api_key="r", experimentallab_api_key="e"
+    )
+    providers = providers_from_settings(settings)
+    assert [p.id for p in providers] == ["nebius", "openrouter", "nararouter", "experimentallab"]
+    assert providers[2].model == "nemotron-3-super-free" and providers[3].model == "qwen3.8-27b"
+    assert not any(p.primary for p in providers[1:])
+
+
+def test_an_empty_reply_moves_on_to_the_next_backup():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "nararouter.test":
+            return httpx.Response(200, content=b"data: [DONE]\n\n")  # answered, but said nothing
+        return httpx.Response(200, content=sse("Hi."))
+
+    async def run():
+        async with mock_client(handler) as http:
+            return await collect(LlmClient([provider("nararouter", False), provider("experimentallab", False)], http))
+
+    assert asyncio.run(run()) == ("Hi.", ["experimentallab"])

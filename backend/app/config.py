@@ -21,6 +21,18 @@ class Settings(BaseSettings):
     tavily_api_key: SecretStr = SecretStr("")
     voicechat_url: str = ""
     memory_db_path: str = "data/memories.sqlite3"
+    # Supabase (Postgres) for memories and settings. Both set: Supabase is
+    # used; otherwise the local files above. The secret key never leaves
+    # the server.
+    supabase_url: str = ""
+    supabase_secret_key: SecretStr = SecretStr("")
+    settings_path: str = "data/settings.json"
+    skills_dir: str = "skills"
+    # Built frontend (frontend/dist) served by this app, for one-URL deployment.
+    frontend_dist: str = ""
+    # Public demo gate (SECURITY.md T8). Empty: no code needed.
+    access_code: SecretStr = SecretStr("")
+    perplexity_api_key: SecretStr = SecretStr("")
 
     # Which voice engine serves sessions: "cascade" (plan B), "fake" (X1),
     # "voicechat" (X7), or "none" (accept audio, no replies).
@@ -42,6 +54,17 @@ class Settings(BaseSettings):
     nebius_llm_model: str = "nvidia/nvidia-nemotron-3-nano-30b-a3b"
     openrouter_api_key: SecretStr = SecretStr("")
     openrouter_llm_model: str = "nvidia/nemotron-3-nano-30b-a3b"
+    # Further backups (plan.md 8.1), checked on 4 October 2026.
+    # Nararouter: free NVIDIA Nemotron, but it sometimes sends empty replies;
+    # the client then moves on to the next provider.
+    nararouter_api_key: SecretStr = SecretStr("")
+    nararouter_base_url: str = "https://router.bynara.id/v1"
+    nararouter_llm_model: str = "nemotron-3-super-free"
+    # Experiential Labs: its Nemotron needs a paid plan, so the last resort is
+    # Qwen (reliable text and tool calls).
+    experimentallab_api_key: SecretStr = SecretStr("")
+    experimentallab_base_url: str = "https://api.experientiallabs.ai/v1"
+    experimentallab_llm_model: str = "qwen3.8-27b"
 
     @field_validator("session_secret")
     @classmethod
@@ -51,9 +74,16 @@ class Settings(BaseSettings):
             raise ValueError(f"SESSION_SECRET must be at least {MIN_SECRET_LENGTH} characters")
         return value
 
+    # Set by Render to the service's public address (render.yaml); allowed
+    # automatically so the deployed site can open its own voice WebSocket.
+    render_external_url: str = ""
+
     @property
     def origins(self) -> frozenset[str]:
-        return frozenset(o.strip() for o in self.allowed_origins.split(",") if o.strip())
+        listed = {o.strip() for o in self.allowed_origins.split(",") if o.strip()}
+        if self.render_external_url:
+            listed.add(self.render_external_url.rstrip("/"))
+        return frozenset(listed)
 
     def signing_key(self) -> bytes:
         return self.session_secret.get_secret_value().encode()

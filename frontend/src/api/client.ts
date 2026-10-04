@@ -5,6 +5,7 @@
  * while a backend route does not exist yet (mock.ts).
  */
 import { mockRequest } from './mock'
+import { requestSession } from './session'
 import type { MemoryItem, MemoryUpdate, SettingsUpdate, SettingsView, SkillItem } from './types'
 
 export class ApiError extends Error {
@@ -19,11 +20,19 @@ export const USE_MOCK = new URLSearchParams(window.location.search).has('mock')
 
 let cached: { token: string; expiresAt: number } | undefined
 
+/** The live conversation shares its token, so REST calls (Run a skill) act on that session. */
+export function rememberSessionToken(token: string, expiresAt: number) {
+  cached = { token, expiresAt }
+}
+
 async function token(): Promise<string> {
   if (cached && cached.expiresAt * 1000 - Date.now() > 60_000) return cached.token
-  const response = await fetch('/api/session', { method: 'POST' })
-  if (!response.ok) throw new ApiError(response.status, 'Could not reach the server.')
-  const body = (await response.json()) as { token: string; expires_at: number }
+  let body: { token: string; expires_at: number }
+  try {
+    body = await requestSession()
+  } catch {
+    throw new ApiError(0, 'Could not reach the server.')
+  }
   cached = { token: body.token, expiresAt: body.expires_at }
   return body.token
 }

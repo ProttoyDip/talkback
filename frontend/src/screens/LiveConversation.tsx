@@ -8,6 +8,10 @@ import { PROVIDER_NAMES } from '../session/protocol'
 import { useLevelHistory, type LevelMeters } from '../session/useLevelHistory'
 import { useSession, type SessionMode } from '../session/useSession'
 import type { ConversationState } from '../state/types'
+import { AccessCodeError, requestSession } from '../api/session'
+import { useEffectsSetting } from '../background/effects'
+import { rememberSessionToken } from '../api/client'
+import { AccessGate } from './AccessGate'
 import { hasOnboarded } from './onboarded'
 import { Onboarding } from './Onboarding'
 import { ConversationScreen, type ConversationView } from './ConversationScreen'
@@ -85,6 +89,19 @@ export function LiveConversation({
   // First run: onboarding (design.md 5.1). The replay needs none.
   const [onboarding, setOnboarding] = useState(() => mode === 'live' && !hasOnboarded())
   const [tip, setTip] = useState(false)
+  // Public demo gate (SECURITY.md T8): ask once whether this browser may start a session.
+  const [access, setAccess] = useState<'checking' | 'open' | 'locked'>(mode === 'live' ? 'checking' : 'open')
+  useEffect(() => {
+    if (access !== 'checking') return
+    requestSession().then(
+      (body) => {
+        rememberSessionToken(body.token, body.expires_at)
+        setAccess('open')
+      },
+      // Any other failure is shown by the connection banner later.
+      (error: unknown) => setAccess(error instanceof AccessCodeError ? 'locked' : 'open'),
+    )
+  }, [access])
 
   useEffect(() => () => void engineRef.current?.close(), [])
 
@@ -121,13 +138,34 @@ export function LiveConversation({
     setStarting(false)
   }
 
+  const setMicMuted = (next: boolean) => {
+    engineRef.current?.setMuted(next)
+    setMuted(next)
+  }
+
   const toggleMute = () => {
     if (!started) {
       void begin()
       return
     }
-    engineRef.current?.setMuted(!muted)
-    setMuted(!muted)
+    setMicMuted(!muted)
+  }
+
+  // Push-to-talk (Settings > On this device): muted until Space or the mic is held.
+  const { pushToTalk } = useEffectsSetting()
+  useEffect(() => {
+    if (started && pushToTalk) {
+      engineRef.current?.setMuted(true)
+      setMuted(true)
+    }
+  }, [started, pushToTalk, setMuted])
+  const hold = (held: boolean) => {
+    if (!started) {
+      if (held) void begin()
+      return
+    }
+    if (muted === !held) return
+    setMicMuted(!held)
   }
 
   const turns = useMemo(() => toTurns(model), [model])
@@ -161,7 +199,11 @@ export function LiveConversation({
     remembered: model.remembered,
     sessionOpen: model.connection === 'open',
     activeModels: model.models,
+    levels: meters,
   }
+
+  if (access === 'locked') return <AccessGate onPass={() => setAccess('open')} />
+  if (access === 'checking') return null
 
   if (onboarding) {
     return (
@@ -176,6 +218,13 @@ export function LiveConversation({
   }
 
   return (
-    <ConversationScreen view={view} debug={debug} onToggleMute={toggleMute} onAnswerConfirm={answerConfirm} />
+    <ConversationScreen
+      view={view}
+      debug={debug}
+      onToggleMute={toggleMute}
+      onAnswerConfirm={answerConfirm}
+      onStop={session.stop}
+      onHold={pushToTalk ? hold : undefined}
+    />
   )
 }

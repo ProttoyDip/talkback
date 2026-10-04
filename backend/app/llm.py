@@ -57,6 +57,22 @@ def providers_from_settings(settings: Settings) -> list[LlmProvider]:
             primary=False,
             extra_body={"reasoning": {"enabled": False}},
         ),
+        # Nararouter's free Nemotron answers with no extra flags; thinking
+        # switches made it return empty replies more often in tests.
+        LlmProvider(
+            id="nararouter",
+            base_url=settings.nararouter_base_url,
+            model=settings.nararouter_llm_model,
+            api_key=settings.nararouter_api_key,
+            primary=False,
+        ),
+        LlmProvider(
+            id="experimentallab",
+            base_url=settings.experimentallab_base_url,
+            model=settings.experimentallab_llm_model,
+            api_key=settings.experimentallab_api_key,
+            primary=False,
+        ),
     ]
     return [p for p in candidates if p.api_key.get_secret_value()]
 

@@ -71,6 +71,12 @@ class ControlMute(Message):
     muted: bool
 
 
+class ControlStop(Message):
+    """The user asks TalkBack to stop talking now (Esc or the Stop button)."""
+
+    type: Literal["control.stop"]
+
+
 class ToolConfirm(Message):
     type: Literal["tool.confirm"]
     call_id: str = Field(min_length=1, max_length=64)
@@ -78,7 +84,7 @@ class ToolConfirm(Message):
 
 
 ClientMessage = Annotated[
-    SessionStart | PlaybackPosition | ControlMute | ToolConfirm,
+    SessionStart | PlaybackPosition | ControlMute | ControlStop | ToolConfirm,
     Field(discriminator="type"),
 ]
 client_message = TypeAdapter(ClientMessage)
@@ -293,10 +299,18 @@ class ToolSetting(Rest):
     description: str  # what the tool can access, shown in Settings
 
 
+InterruptSensitivity = Literal["low", "normal", "high"]
+AnswerLength = Literal["short", "normal", "detailed"]
+
+
 class SettingsView(Rest):
     tools: dict[ToolName, ToolSetting]
     save_recordings: bool  # off by default (FR-18)
     transcripts_in_logs: bool  # off by default
+    # How quickly speech over TalkBack counts as an interruption.
+    interrupt_sensitivity: InterruptSensitivity = "normal"
+    # How long spoken answers are.
+    answer_length: AnswerLength = "normal"
     models: ModelsView
 
 
@@ -304,5 +318,7 @@ class SettingsUpdate(Rest):
     tools: dict[ToolName, bool] | None = None
     save_recordings: bool | None = None
     transcripts_in_logs: bool | None = None
+    interrupt_sensitivity: InterruptSensitivity | None = None
+    answer_length: AnswerLength | None = None
     planner_model: Id | None = None  # must be an available ModelOption id
     providers: dict[ProviderId, bool] | None = None  # turn backups on or off

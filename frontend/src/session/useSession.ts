@@ -61,6 +61,9 @@ export function useSession(mode: SessionMode, replaySpeed = 1) {
 
   const reconnect = useCallback(() => transportRef.current?.reconnect(), [])
 
+  /** Stop TalkBack talking now (Esc or the Stop button). */
+  const stop = useCallback(() => transportRef.current?.send({ type: 'control.stop' }), [])
+
   /** Connect the audio layer: where assistant audio goes, and event side effects. */
   const attachAudio = useCallback((sink: AudioSink, onEvent: (event: ServerEvent) => void) => {
     audioSinkRef.current = sink
@@ -75,6 +78,7 @@ export function useSession(mode: SessionMode, replaySpeed = 1) {
     setMuted,
     answerConfirm,
     reconnect,
+    stop,
     send,
     sendAudio,
     attachAudio,

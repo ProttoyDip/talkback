@@ -5,6 +5,8 @@ import { useResource } from '../../api/useResource'
 import type { ConversationModel } from '../../session/model'
 import { PROVIDER_NAMES, type ModelRole, type ToolName } from '../../session/protocol'
 import { SettingsToggleRow } from '../SettingsToggleRow'
+import { ChoiceRow } from './ChoiceRow'
+import { setEffects, useEffectsSetting } from '../../background/effects'
 import { VoiceSection } from './VoiceSection'
 import { ResourceView, SectionTitle } from './shared'
 
@@ -14,6 +16,34 @@ const TOOL_TITLE: Partial<Record<ToolName, string>> = {
 }
 
 const ROLE_TITLE: Record<ModelRole, string> = { voice: 'Voice', planner: 'Planner', search: 'Search' }
+
+/** Kept in this browser only (src/background/effects.ts). */
+function VisualEffects() {
+  const effects = useEffectsSetting()
+  return (
+    <section aria-label="On this device">
+      <SectionTitle>On this device</SectionTitle>
+      <SettingsToggleRow
+        label="Animated background"
+        description="The moving field behind the app. Turn it off on slower laptops or to save battery."
+        checked={effects.background}
+        onChange={(background) => setEffects({ background })}
+      />
+      <SettingsToggleRow
+        label="Push to talk"
+        description="The microphone stays muted until you hold Space or the mic button. Good for noisy rooms."
+        checked={effects.pushToTalk}
+        onChange={(pushToTalk) => setEffects({ pushToTalk })}
+      />
+      <SettingsToggleRow
+        label="Orb motion"
+        description="The orb pulses while you and TalkBack speak. Off: it stays still."
+        checked={effects.orbMotion}
+        onChange={(orbMotion) => setEffects({ orbMotion })}
+      />
+    </section>
+  )
+}
 
 export function SettingsPanel({ active }: { active: ConversationModel['models'] }) {
   const { state, reload, set } = useResource(() => api.getSettings(), 'settings')
@@ -67,7 +97,35 @@ export function SettingsPanel({ active }: { active: ConversationModel['models'] 
             />
           </section>
 
+          <section aria-label="Conversation">
+            <SectionTitle>Conversation</SectionTitle>
+            <ChoiceRow
+              label="Interruptions"
+              description="How quickly your voice stops TalkBack. Use Low in noisy rooms or without headphones."
+              value={settings.interrupt_sensitivity}
+              options={[
+                { value: 'low', label: 'Low' },
+                { value: 'normal', label: 'Normal' },
+                { value: 'high', label: 'High' },
+              ]}
+              onChange={(interrupt_sensitivity) => void update({ interrupt_sensitivity })}
+            />
+            <ChoiceRow
+              label="Answer length"
+              value={settings.answer_length}
+              options={[
+                { value: 'short', label: 'Short' },
+                { value: 'normal', label: 'Normal' },
+                { value: 'detailed', label: 'Detailed' },
+              ]}
+              onChange={(answer_length) => void update({ answer_length })}
+            />
+            <p className="mt-1 text-data text-text-muted">Changes apply to the next conversation.</p>
+          </section>
+
           <VoiceSection />
+
+          <VisualEffects />
 
           <section aria-label="Models">
             <SectionTitle>Models</SectionTitle>

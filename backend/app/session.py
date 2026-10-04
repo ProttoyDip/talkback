@@ -28,7 +28,9 @@ from .protocol import (
     SERVER_SAMPLE_RATE,
     AudioChunk,
     ControlMute,
+    ControlStop,
     ErrorEvent,
+    AudioFlush,
     ModelActive,
     PlaybackPosition,
     ServerMessage,
@@ -37,9 +39,12 @@ from .protocol import (
     StateEvent,
     ToolConfirm,
     TranscriptDelta,
+    TranscriptTrim,
     client_message,
 )
+from .stores import prefs_store
 from .tokens import verify_token
+from .turn_taking import BargeInDecider, EnergyVad, heard_split, is_backchannel
 from .voice_engine import (
     AssistantAudio,
     AssistantWord,
@@ -84,6 +89,7 @@ class Registry:
 
     def __init__(self) -> None:
         self.sessions: set[str] = set()
+        self.live: dict[str, 'Session'] = {}  # for REST calls that act on a running session
         self.per_ip: Counter[str] = Counter()
 
     def add(self, session_id: str, ip: str) -> None:
@@ -98,6 +104,10 @@ class Registry:
 
 
 registry = Registry()
+
+
+def loop_time() -> float:
+    return asyncio.get_running_loop().time()
 
 
 ERROR_CODES = {"voice_engine_offline", "tool_failed", "rate_limited", "internal"}
@@ -135,6 +145,21 @@ class Session:
         self.captions: dict[str, asyncio.Queue] = {}
         # Bumped when a new turn starts, so a finished turn does not reset the state.
         self.turn_epoch = 0
+        # Turn-taking (X2): barge-in and trimming at the playback position.
+        self.vad = EnergyVad()
+        self.decider = BargeInDecider()
+        if settings is not None:
+            # The user's Interruptions setting applies when a session starts.
+            self.decider = BargeInDecider.for_sensitivity(prefs_store(settings).load().interrupt_sensitivity)
+        self.interim_user_text = ""
+        self.overlapping = False
+        self.words: dict[str, list[tuple[str, float, float]]] = {}
+        self.message_order: list[str] = []
+        self.message_base: dict[str, int] = {}  # played-sample position where a message starts
+        self.total_sent_samples = 0
+        self.dropped_samples = 0  # sent but never played, because of interruptions
+        self.dropped: set[str] = set()
+        self.caption_tasks: dict[str, asyncio.Task] = {}
 
     async def send(self, message: ServerMessage) -> None:
         # Optional fields that are None are left out; clients treat missing as null.
@@ -166,6 +191,8 @@ class Session:
         if choice.engine is None:
             return
         self.engine = choice.engine
+        # Lets the engine ignore "mm-hm" while TalkBack is still speaking.
+        self.engine.playback_active = lambda: loop_time() < self.play_until  # type: ignore[attr-defined]
         await self.engine.start(SessionContext(self.session_id))
         self.spawn(self.pump_engine())
 
@@ -181,22 +208,37 @@ class Session:
         now = asyncio.get_running_loop().time()
         match event:
             case AssistantAudio(message_id=message_id, pcm=pcm):
+                if message_id in self.dropped:
+                    return  # the user interrupted this message
                 if message_id not in self.message_start:
                     self.message_start[message_id] = max(now, self.play_until)
                     self.message_samples[message_id] = 0
+                    self.message_order.append(message_id)
+                    self.message_base[message_id] = self.total_sent_samples - self.dropped_samples
                 seq = self.audio_seq
                 self.audio_seq += 1
                 self.chunks[seq] = (message_id, self.message_samples[message_id])
                 samples = len(pcm) // 2
                 self.message_samples[message_id] += samples
+                self.total_sent_samples += samples
                 self.play_until = max(now, self.play_until) + samples / SERVER_SAMPLE_RATE
                 await self.send_audio_chunk(seq, pcm)
-            case AssistantWord(message_id=message_id):
+            case AssistantWord(message_id=message_id, word=word, start_s=start_s, end_s=end_s):
+                if message_id in self.dropped:
+                    return
+                self.words.setdefault(message_id, []).append((word, start_s, end_s))
                 self.caption_queue(message_id).put_nowait(event)
             case TurnEnded(message_id=message_id, ends_turn=ends_turn):
+                if message_id in self.dropped:
+                    return
                 self.caption_queue(message_id).put_nowait(_FINISH if ends_turn else _FINISH_QUIET)
             case UserTranscript(message_id=message_id, text=text, final=final):
-                await self.send(TranscriptDelta(message_id=message_id, speaker="user", text=text, final=final))
+                self.interim_user_text = "" if final else text
+                # A short sound over TalkBack that did not interrupt it.
+                reaction = final and is_backchannel(text) and loop_time() < self.play_until
+                await self.send(
+                    TranscriptDelta(message_id=message_id, speaker="user", text=text, final=final, backchannel=reaction)
+                )
             case StateChanged(state=state, tool=tool):
                 if state in ("listening", "thinking", "tool"):
                     self.turn_epoch += 1
@@ -215,7 +257,10 @@ class Session:
     def caption_queue(self, message_id: str) -> asyncio.Queue:
         if message_id not in self.captions:
             self.captions[message_id] = asyncio.Queue()
-            self.spawn(self.send_captions(message_id))
+            task = asyncio.create_task(self.send_captions(message_id))
+            self.tasks.add(task)
+            task.add_done_callback(self.tasks.discard)
+            self.caption_tasks[message_id] = task
         return self.captions[message_id]
 
     async def send_captions(self, message_id: str) -> None:
@@ -240,6 +285,69 @@ class Session:
                 await self.send(TranscriptDelta(message_id=message_id, speaker="assistant", text=text, final=False))
         finally:
             self.captions.pop(message_id, None)
+
+    # Turn-taking (X2)
+
+    async def watch_for_barge_in(self, frame: bytes) -> None:
+        """Runs on every microphone frame: speech over TalkBack is either a
+        backchannel (ignored) or an interruption (architecture.md 4)."""
+        state = self.vad.process(frame)
+        playing = loop_time() < self.play_until
+        if state.is_speech and playing:
+            verdict = self.decider.update(state.speech_ms, self.interim_user_text)
+            if verdict == "interrupt":
+                await self.interrupt_assistant()
+            elif verdict == "overlap" and not self.overlapping:
+                self.overlapping = True
+                await self.send(StateEvent(state="overlap"))
+        elif self.overlapping and not state.is_speech:
+            self.overlapping = False
+            if playing:
+                await self.send(StateEvent(state="assistant_speaking"))
+
+    async def interrupt_assistant(self, reason: str = "interrupted") -> None:
+        """Stop playback now and keep only the words the user heard.
+
+        reason "interrupted": the user talked over TalkBack (barge-in).
+        reason "stopped": the user pressed Stop or Esc; the state returns to idle.
+        """
+        played_total = self.last_playback.samples_played if self.last_playback else 0
+        pending = [
+            m for m in self.message_order
+            if m not in self.dropped and self.message_base[m] + self.message_samples[m] > played_total
+        ]
+        if not pending:
+            if reason == "stopped":
+                await self.stop_before_audio()
+            return
+        current = pending[0]
+        played_s = max(0, played_total - self.message_base[current]) / SERVER_SAMPLE_RATE
+        heard, unheard = heard_split(self.words.get(current, []), played_s)
+        for message_id in pending:
+            self.dropped.add(message_id)
+            if task := self.caption_tasks.pop(message_id, None):
+                task.cancel()
+            self.captions.pop(message_id, None)
+        self.dropped_samples += max(0, self.total_sent_samples - played_total)
+        self.play_until = loop_time()
+        self.overlapping = False
+        self.turn_epoch += 1
+        await self.send(AudioFlush(reason="stopped" if reason == "stopped" else "interrupted"))
+        await self.send(StateEvent(state="idle" if reason == "stopped" else "interrupted"))
+        await self.send(TranscriptDelta(message_id=current, speaker="assistant", text="", final=True))
+        await self.send(TranscriptTrim(message_id=current, heard_text=heard, unheard_text=unheard))
+        if self.engine is not None:
+            await self.engine.interrupt(current, heard)
+
+    async def stop_before_audio(self) -> None:
+        """Stop pressed while TalkBack is still thinking: cancel the reply."""
+        reply_id = getattr(self.engine, "reply_message_id", None)
+        reply = getattr(self.engine, "reply", None)
+        if self.engine is not None and reply_id and reply is not None and not reply.done():
+            self.dropped.add(reply_id)
+            await self.engine.interrupt(reply_id, "")
+        self.turn_epoch += 1
+        await self.send(StateEvent(state="idle"))
 
     async def close(self) -> None:
         for task in list(self.tasks):
@@ -276,6 +384,9 @@ class Session:
             case PlaybackPosition():
                 self.require_started()
                 self.last_playback = message  # used for trimming in a later step
+            case ControlStop():
+                self.require_started()
+                await self.interrupt_assistant("stopped")
             case ToolConfirm():
                 self.require_started()
                 # Only a pending request can be answered; a confirmation never
@@ -293,6 +404,7 @@ class Session:
             return  # muted audio is dropped, never processed
         self.frames_received += 1
         if self.engine is not None:
+            await self.watch_for_barge_in(data)
             await self.engine.send_audio(data)
 
     async def run(self) -> None:
@@ -344,6 +456,7 @@ async def session_endpoint(
     await websocket.accept()
     registry.add(claims.session_id, ip)
     session = Session(websocket, claims.session_id, settings, engine_factory)
+    registry.live[claims.session_id] = session
     log.info("session opened", extra={"session_id": claims.session_id})
     try:
         await session.run()
@@ -359,6 +472,7 @@ async def session_endpoint(
         # Free the connection slot first: closing the engine can take a moment,
         # and the limits (one per token, three per IP) must not wait for it.
         registry.remove(claims.session_id, ip)
+        registry.live.pop(claims.session_id, None)
         await session.close()
         log.info(
             "session ended",

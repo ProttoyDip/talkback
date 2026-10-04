@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .config import Settings, get_settings
 from .memory import MemoryStore
+from .stores import memory_store
 from .protocol import Id, MemoryItem, MemoryList, MemoryUpdate
 from .tokens import verify_token
 
@@ -25,7 +26,7 @@ router = APIRouter(prefix="/api/memories", dependencies=[Depends(require_session
 
 
 def get_memory_store(settings: Annotated[Settings, Depends(get_settings)]) -> MemoryStore:
-    return MemoryStore(settings.memory_db_path)
+    return memory_store(settings)  # Supabase when configured, else local SQLite
 
 
 Store = Annotated[MemoryStore, Depends(get_memory_store)]
