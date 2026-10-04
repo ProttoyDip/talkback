@@ -3,7 +3,7 @@
 # they are never stored in git.
 services:
   - type: web
-    name: talkback
+    name: talkback-voice # address: https://talkback-voice.onrender.com
     runtime: docker
     plan: free # sleeps after 15 min idle; "starter" stays awake for demos
     region: singapore
