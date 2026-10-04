@@ -1,9 +1,13 @@
 # Runtime dependencies. Exact pins (SECURITY.md T9). Review every update.
 fastapi==0.142.2
 uvicorn==0.54.0
-websockets==17.1
+websockets==15.0.1  # nvidia-riva-client needs <16
 pydantic==2.13.5
 pydantic-settings==2.15.0
 python-dotenv==1.2.4
 httpx==0.28.1
 nvidia-riva-client==2.27.0
+# Pulled in by nvidia-riva-client; pinned to the tested versions.
+grpcio==1.84.0
+grpcio-tools==1.81.1
+protobuf==6.33.5

@@ -170,6 +170,19 @@ npm run e2e     # end-to-end tests (Playwright)
 
 The end-to-end tests use the installed Microsoft Edge with a fake microphone, and start the backend and the dev server if they are not running. The backend virtual environment from "Run the backend" must exist.
 
+## Deploy to Render
+
+One Docker web service serves the website and the voice backend (`Dockerfile`, `render.yaml`).
+
+1. Push the repository to GitHub.
+2. On [render.com](https://render.com): **New > Blueprint**, pick the repository. Render reads `render.yaml`.
+3. Fill in the secrets it asks for: `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, `SUPABASE_SECRET_KEY`, `ACCESS_CODE` (and any optional provider keys). They stay in Render, never in git.
+4. Deploy. The site's own address is allowed automatically, so the voice connection works on `https://<service>.onrender.com`.
+
+Notes: memories and settings need Supabase, because Render's disk is wiped on every deploy. The free plan sleeps after 15 minutes without visitors (about a minute to wake); use a paid plan for live demos. Every visitor uses your API credits, so keep `ACCESS_CODE` set.
+
+Test the same image locally: `docker build -t talkback .` then `docker run -p 10000:10000 -e PORT=10000 --env-file backend/.env -e FRONTEND_DIST=/app/frontend/dist talkback`.
+
 ## Configuration
 
 The backend reads `backend/.env`. Copy it from [`backend/.env.example`](backend/.env.example). Never commit `backend/.env`.

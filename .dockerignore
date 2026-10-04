@@ -1,0 +1,16 @@
+# Never send secrets, local data or build output into the image.
+**/.env
+**/.env.*
+!backend/.env.example
+backend/.venv
+backend/data
+backend/.pytest_tmp
+backend/.pytest_cache
+**/__pycache__
+frontend/node_modules
+frontend/dist
+frontend/test-results
+frontend/playwright-report
+*.log
+.git
+.puku

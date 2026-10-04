@@ -74,9 +74,16 @@ class Settings(BaseSettings):
             raise ValueError(f"SESSION_SECRET must be at least {MIN_SECRET_LENGTH} characters")
         return value
 
+    # Set by Render to the service's public address (render.yaml); allowed
+    # automatically so the deployed site can open its own voice WebSocket.
+    render_external_url: str = ""
+
     @property
     def origins(self) -> frozenset[str]:
-        return frozenset(o.strip() for o in self.allowed_origins.split(",") if o.strip())
+        listed = {o.strip() for o in self.allowed_origins.split(",") if o.strip()}
+        if self.render_external_url:
+            listed.add(self.render_external_url.rstrip("/"))
+        return frozenset(listed)
 
     def signing_key(self) -> bytes:
         return self.session_secret.get_secret_value().encode()
