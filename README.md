@@ -31,7 +31,10 @@
 | Interrupting TalkBack | Working: barge-in detection stops it and keeps only the words you heard | Simulated |
 | Full-duplex voice (listens while talking) | Planned: NVIDIA VoiceChat on an H100 | — |
 | Weather and web search tools | Working | Simulated |
-| Memory: save by saying "remember that…", view, edit, delete | Working (delete asks first) | Sample data |
+| Memory: save by saying "remember that…", view, edit, delete | Working (delete asks first); each memory shows where it came from | Sample data |
+| Corrections: "Actually, I live in Rome now" replaces the old memory | Working; replaced memories stay as history | — |
+| Suggested memories that wait for your OK | Working | Sample data |
+| Activity history with Undo (24 hours for deletions) | Working | Sample data |
 | Skills: Morning brief, Quick research, Remind me | Working; "Remind me" keeps a note, it does not send alerts yet | Shown, but run only in a live conversation |
 | Settings: tools, privacy, interruptions, answer length, models | Working | Sample data |
 | Opt-in recording of your own voice | Working, kept in your browser only | — |
