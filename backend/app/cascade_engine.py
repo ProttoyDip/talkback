@@ -139,7 +139,8 @@ class CascadeEngine:
         self.incomplete_wait_s = incomplete_wait_s
         self.memory_store = memory_store
         self.ledger = ledger  # the user's action history: saves can be undone
-        self.typed_turns: set[str] = set()  # user turns that were typed, not said
+        self.next_typed = False  # the input being handled was typed, not said
+        self.held_typed = False  # the held (unfinished) turn includes typed words
         self.skills = skills or []
         self.answer_length = answer_length
         # Set for the next reply when a skill starts (by voice or from the panel).
@@ -227,7 +228,7 @@ class CascadeEngine:
             return False
         self.skill_next = skill
         self._emit(UserTranscript(_new_id("u"), f"Run {skill.name}", True))
-        self.user_turns.put_nowait(skill.instructions)
+        self.user_turns.put_nowait((skill.instructions, False))
         return True
 
     async def close(self) -> None:
@@ -264,8 +265,11 @@ class CascadeEngine:
         """A typed turn (text.input). The gateway shows it; it is handled like speech."""
         text = text.strip()
         if text:
-            self.typed_turns.add(text)
-            self._on_final_input(text)
+            self.next_typed = True
+            try:
+                self._on_final_input(text)
+            finally:
+                self.next_typed = False
 
     def _on_final_input(self, text: str) -> None:
         pending = self.bridge.pending_call() if self.bridge else None
@@ -298,6 +302,7 @@ class CascadeEngine:
             self._cancel_reply("superseded")
         self._cancel_hold()
         self.held_text = f"{self.held_text} {cleaned}".strip()
+        self.held_typed = self.held_typed or self.next_typed
         if looks_incomplete(self.held_text) and self.loop is not None:
             self.hold_timer = self.loop.call_later(self.incomplete_wait_s, self._release_held)
         else:
@@ -322,6 +327,7 @@ class CascadeEngine:
     def _drop_queued(self) -> None:
         self._cancel_hold()
         self.held_text = ""
+        self.held_typed = False
         while not self.user_turns.empty():
             self.user_turns.get_nowait()
 
@@ -350,13 +356,14 @@ class CascadeEngine:
     def _release_held(self) -> None:
         self.hold_timer = None
         if self.held_text:
-            self.user_turns.put_nowait(self.held_text)
+            self.user_turns.put_nowait((self.held_text, self.held_typed))
             self.held_text = ""
+            self.held_typed = False
 
     async def _serve_turns(self) -> None:
         while True:
-            text = await self.user_turns.get()
-            self.reply = asyncio.create_task(self._answer(text))
+            text, typed = await self.user_turns.get()
+            self.reply = asyncio.create_task(self._answer(text, typed))
             try:
                 await self.reply
             except asyncio.CancelledError:
@@ -408,13 +415,13 @@ class CascadeEngine:
             refused = '{"error": "tool_not_allowed_for_this_skill"}'
             messages.append({"role": "tool", "tool_call_id": call.id, "content": refused if call in blocked else result})
 
-    async def _save_memory(self, user_text: str) -> str | None:
+    async def _save_memory(self, user_text: str, typed: bool = False) -> str | None:
         """Saves a memory only when the user's own words ask for one (SECURITY.md T1)."""
         if self.memory_store is None:
             return None
-        source = "user_text" if user_text in self.typed_turns else "user_utterance"
-        self.typed_turns.discard(user_text)
+        source = "user_text" if typed else "user_utterance"
         found = extract_memory(user_text)
+        correcting = found is None
         if found is not None:
             text, kind = found
             slot = slot_of(text)
@@ -425,15 +432,15 @@ class CascadeEngine:
             if correction is None:
                 return None
             text, kind, slot = correction
-            if await asyncio.to_thread(self.memory_store.find_slot, slot) is None:
-                return None
         try:
-            await remember(
+            saved = await remember(
                 self.memory_store,
                 MemoryWrite(text=text, kind=kind, source=source, utterance=user_text[:1000], confidence=0.9),
                 lambda saved: self._emit_protocol(saved),
-                slot=slot, ledger=self.ledger,
+                slot=slot, ledger=self.ledger, only_if_replacing=correcting,
             )
+            if saved is None:
+                return None
             await self._emit_protocol(DataChanged(kinds=["memories", "actions"]))
         except Exception:
             log.exception("memory save failed")
@@ -465,7 +472,7 @@ class CascadeEngine:
         for word, start_s, end_s in words:
             self._emit(AssistantWord(message_id, word, offset_s + start_s, offset_s + end_s))
 
-    async def _answer(self, user_text: str) -> None:
+    async def _answer(self, user_text: str, typed: bool = False) -> None:
         generation = self.generation
         self.current_request = user_text
         self.reply_speaking = False
@@ -475,7 +482,7 @@ class CascadeEngine:
         self.reply_message_id = message_id
         self._emit(StateChanged("thinking"))
         self.skill_active, self.skill_next = self.skill_next or match_trigger(user_text, self.skills), None
-        saved = await self._save_memory(user_text)
+        saved = await self._save_memory(user_text, typed)
         prompt = SYSTEM_PROMPT + ANSWER_LENGTH.get(self.answer_length, "") + await self._memory_prompt()
         if saved:
             prompt += f" The user just asked you to remember: {saved}. Confirm in a few words, and say it stays until they delete it."

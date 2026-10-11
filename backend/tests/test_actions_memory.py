@@ -262,3 +262,65 @@ def test_the_supabase_store_corrects_and_suggests_the_same_way():
     store.restore(row)
     assert store.get(new.id).text == "I live in Rome"
     assert all(r.url.params.get("user_id") == "eq.u1" for r in fake.seen if r.method != "POST")
+
+
+# Review fixes
+
+
+def test_undoing_an_edit_keeps_search_right(stores):
+    from app.protocol import MemoryUpdate
+
+    ledger = stores.ledger()
+    item = stores.memory.create(said("Home city is Lisbon"))
+    before = stores.memory.row(item.id)
+    stores.memory.update(item.id, MemoryUpdate(text="Home city is Rome"))
+    after = stores.memory.row(item.id)
+    action = ledger.record("memory_write", "done", "Edited", undo={
+        "op": "memory.revert", "id": item.id, "after_updated_at": after["updated_at"],
+        "before": {k: before[k] for k in ("text", "kind", "status", "updated_at")},
+    })
+    ledger.undo(action["id"])
+    assert [m.text for m in stores.memory.list("Lisbon")] == ["Home city is Lisbon"]
+    assert stores.memory.list("Rome") == []  # no stale full-text entry
+
+
+def test_undoing_an_older_correction_waits_for_the_newer_one(stores):
+    emit, ledger = AsyncMock(), stores.ledger()
+    asyncio.run(remember(stores.memory, said("I live in Lisbon"), emit, slot="home", ledger=ledger))
+    asyncio.run(remember(stores.memory, said("I live in Rome"), emit, slot="home", ledger=ledger))
+    to_rome = emit.await_args.args[0].action_id
+    asyncio.run(remember(stores.memory, said("I live in Paris"), emit, slot="home", ledger=ledger))
+    with pytest.raises(UndoConflict):
+        ledger.undo(to_rome)
+    assert [m.text for m in stores.memory.in_use()] == ["I live in Paris"]
+
+
+def test_undoing_a_suggestion_after_keeping_it_is_refused(stores):
+    from app.protocol import MemoryUpdate
+
+    tools = memory_tools(stores.memory, stores.ledger())
+    emit = AsyncMock()
+    bridge = ToolBridge("s", tools, emit, AsyncMock())
+    bridge.ledger, bridge.user_id = stores.ledger(), "u1"
+    asyncio.run(bridge.execute('[{"name":"memory_suggest","arguments":{"text":"Likes jazz"}}]', "turn"))
+    from app.protocol import MemorySaved
+    [saved] = [c.args[0] for c in emit.await_args_list if isinstance(c.args[0], MemorySaved)]
+    assert saved.status == "suggested" and saved.action_id  # the toast offers Keep
+    stores.memory.update(saved.id, MemoryUpdate(status="confirmed"))
+    with pytest.raises(UndoConflict):
+        stores.ledger().undo(saved.action_id)
+    assert stores.memory.get(saved.id).status == "confirmed"
+
+
+def test_a_typed_memory_is_marked_typed_even_with_fillers(stores):
+    async def scenario():
+        # Not started: no worker takes the turn, so the test reads the queue itself.
+        engine = CascadeEngine(FakeSTT(), FakeTTS(), QuietLLM(), memory_store=stores.memory)  # type: ignore[arg-type]
+        engine.submit_text("Um, remember that I like tea.")
+        text, typed = engine.user_turns.get_nowait()
+        assert (text, typed) == ("remember that I like tea.", True)
+        await engine._answer(text, typed)
+
+    asyncio.run(scenario())
+    [item] = stores.memory.list()
+    assert item.source == "user_text"

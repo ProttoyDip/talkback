@@ -30,6 +30,8 @@ class ToolOutcome:
     results: list[ToolResult]
     action_id: str | None = None
     undoable: bool = False
+    # Messages for the browser after the status (e.g. memory.saved for a suggestion).
+    events: tuple = ()
 
 
 @dataclass(frozen=True)

@@ -235,7 +235,7 @@ def controller(playing: bool = False, wait: float = 0.05) -> CascadeEngine:
 def turns(engine: CascadeEngine) -> list[str]:
     out = []
     while not engine.user_turns.empty():
-        out.append(engine.user_turns.get_nowait())
+        out.append(engine.user_turns.get_nowait()[0])  # (text, typed)
     return out
 
 

@@ -160,11 +160,19 @@ class MemoryStore:
         """Put a memory back exactly as it was (undo)."""
         values = [row.get(key) for key in COLUMNS]
         with self.connect() as db:
-            db.execute(
-                f"INSERT OR REPLACE INTO memories ({', '.join(COLUMNS)}, user_id)"
-                f" VALUES ({', '.join('?' * len(COLUMNS))}, ?)",
-                (*values, self.user_id),
-            )
+            if self._one(db, row["id"]) is not None:
+                # UPDATE, not INSERT OR REPLACE: REPLACE skips the delete
+                # trigger and would leave a stale full-text entry.
+                rest = [key for key in COLUMNS if key != "id"]
+                db.execute(
+                    f"UPDATE memories SET {', '.join(f'{key} = ?' for key in rest)} WHERE id = ? AND user_id = ?",
+                    (*[row.get(key) for key in rest], row["id"], self.user_id),
+                )
+            else:
+                db.execute(
+                    f"INSERT INTO memories ({', '.join(COLUMNS)}, user_id) VALUES ({', '.join('?' * len(COLUMNS))}, ?)",
+                    (*values, self.user_id),
+                )
             return self.item(self._one(db, row["id"]))
 
     def all_rows(self) -> list[dict]:
@@ -193,14 +201,16 @@ class MemoryStore:
 async def remember(
     store: MemoryStore, write: MemoryWrite,
     emit: Callable[[MemorySaved], Awaitable[None]],
-    *, slot: str | None = None, ledger: "ActionLedger | None" = None,
-) -> MemoryItem:
+    *, slot: str | None = None, ledger: "ActionLedger | None" = None, only_if_replacing: bool = False,
+) -> MemoryItem | None:
     """Called with provenance from trusted transcription, never a tool result.
 
     With a slot, a newer memory about the same thing replaces the older one
     (kept as history). The change is recorded, so it can be undone.
     """
     old = await asyncio.to_thread(store.find_slot, slot) if slot else None
+    if only_if_replacing and old is None:
+        return None  # "actually, ..." with nothing saved about it: not a memory
     item = await asyncio.to_thread(store.create, write, slot=slot)
     if old is not None:
         await asyncio.to_thread(store.supersede, old.id, item.id)
@@ -209,7 +219,7 @@ async def remember(
         undo = (
             {"op": "memory.unsupersede", "old_id": old.id, "new_id": item.id, "text": item.text}
             if old is not None
-            else {"op": "memory.delete", "id": item.id, "text": item.text}
+            else {"op": "memory.delete", "id": item.id, "text": item.text, "status": "confirmed"}
         )
         summary = f"Remembered “{item.text}”" + (f" instead of “{old.text}”" if old else "")
         action = await asyncio.to_thread(

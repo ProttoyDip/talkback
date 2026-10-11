@@ -76,6 +76,6 @@ def forget_everything(store: Store, ledger: Ledger) -> Response:
     if rows:
         ledger.record(
             "memory_delete", "done", f"Forgot all {len(rows)} memories", target_kind="memory",
-            undo={"op": "memory.restore", "rows": rows[:500]},
+            undo={"op": "memory.restore", "rows": rows},
         )
     return Response(status_code=204)

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { type RefObject, useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
-import { api } from '../api/client'
+import { DATA_CHANGED, api } from '../api/client'
 import { Icon } from '../components/Icon'
 import { downloadTranscript } from '../state/exportTranscript'
 import { enter, exit } from '../styles/motion'
@@ -95,6 +95,13 @@ export function ConversationScreen({
   onSendText,
 }: ConversationScreenProps) {
   const [panel, setPanel] = useState<Panel | null>(null)
+  // Undo from a chip or toast changes data without data.changed: reload panels.
+  const [localVersion, setLocalVersion] = useState(0)
+  useEffect(() => {
+    const bump = () => setLocalVersion((v) => v + 1)
+    window.addEventListener(DATA_CHANGED, bump)
+    return () => window.removeEventListener(DATA_CHANGED, bump)
+  }, [])
   const [example, setExample] = useState<string>()
   const { state, turns, confirm, micDisabled } = view
   // Nothing said yet: the orb holds the centre of the stage.
@@ -343,7 +350,7 @@ export function ConversationScreen({
             panel={panel}
             onClose={() => setPanel(null)}
             context={{
-              memoryVersion: `${view.remembered?.id ?? ''}|${view.dataVersion ?? 0}`,
+              memoryVersion: `${view.remembered?.id ?? ''}|${view.dataVersion ?? 0}|${localVersion}`,
               sessionOpen: view.sessionOpen ?? false,
               replay: view.replay ?? false,
               onSkillRan: (name) => setToast({ id: `skill-${name}-${Date.now()}`, message: `Running ${name}` }),

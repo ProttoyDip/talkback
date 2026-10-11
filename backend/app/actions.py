@@ -39,11 +39,15 @@ def idempotency_key(user_id: str, turn_id: str, tool: str, arguments: dict) -> s
 def _undo_memory(memory, undo: dict) -> None:
     op = undo["op"]
     if op == "memory.delete":  # undo a save or a suggestion
-        if not memory.delete(undo["id"], undo["text"]):
-            raise UndoConflict("memory changed or already gone")
+        current = memory.get(undo["id"])
+        if current is None or current.text != undo["text"] or current.status != undo.get("status", current.status):
+            raise UndoConflict("memory changed since (edited, kept or replaced)")
+        memory.delete(undo["id"], undo["text"])
     elif op == "memory.unsupersede":  # undo a correction
-        if not memory.delete(undo["new_id"], undo["text"]):
-            raise UndoConflict("the new memory changed or is gone")
+        current = memory.get(undo["new_id"])
+        if current is None or current.text != undo["text"] or current.status != "confirmed":
+            raise UndoConflict("a later correction replaced it; undo that one first")
+        memory.delete(undo["new_id"], undo["text"])
         memory.unsupersede(undo["old_id"])
     elif op == "memory.restore":  # undo a delete
         for row in undo["rows"]:

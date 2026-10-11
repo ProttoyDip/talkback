@@ -7,7 +7,7 @@ from pydantic import Field, model_validator
 from typing import TYPE_CHECKING
 
 from ..memory import MemoryStore, MemoryWrite
-from ..protocol import MemoryKind
+from ..protocol import MemoryKind, MemorySaved
 from . import Arguments, Tool, ToolOutcome, ToolResult, current_action_key
 
 if TYPE_CHECKING:
@@ -40,10 +40,10 @@ class SuggestArguments(Arguments):
 
 def memory_tools(store: MemoryStore, ledger: "ActionLedger | None" = None) -> list[Tool]:
     async def read(args: ReadArguments) -> list[ToolResult]:
-        items = await asyncio.to_thread(store.in_use)
         if args.query.strip():
-            items = await asyncio.to_thread(store.list, args.query)
-            items = [item for item in items if item.status == "confirmed"]
+            items = [item for item in await asyncio.to_thread(store.list, args.query) if item.status == "confirmed"]
+        else:
+            items = await asyncio.to_thread(store.in_use)
         return [ToolResult(item.id, "", item.text) for item in items[:10]]
 
     async def delete(args: DeleteArguments) -> ToolOutcome:
@@ -58,7 +58,7 @@ def memory_tools(store: MemoryStore, ledger: "ActionLedger | None" = None) -> li
             action = await asyncio.to_thread(
                 ledger.record, "memory_delete", "done", summary,
                 target_kind="memory", target_id=None if args.all else args.id,
-                undo={"op": "memory.restore", "rows": rows[:500]}, key=current_action_key.get(),
+                undo={"op": "memory.restore", "rows": rows}, key=current_action_key.get(),
             )
             action_id = action["id"]
         results = [ToolResult("Memory", "", "Memories deleted." if args.all else "Memory deleted.")]
@@ -78,10 +78,12 @@ def memory_tools(store: MemoryStore, ledger: "ActionLedger | None" = None) -> li
             action = await asyncio.to_thread(
                 ledger.record, "memory_suggest", "done", f"Suggested “{item.text}”",
                 target_kind="memory", target_id=item.id,
-                undo={"op": "memory.delete", "id": item.id, "text": item.text}, key=current_action_key.get(),
+                undo={"op": "memory.delete", "id": item.id, "text": item.text, "status": "suggested"},
+                key=current_action_key.get(),
             )
             action_id = action["id"]
-        return ToolOutcome([ToolResult("Memory", "", "Suggested; waiting for the user's OK.")], action_id, True)
+        saved = MemorySaved(id=item.id, text=item.text, status="suggested", action_id=action_id)
+        return ToolOutcome([ToolResult("Memory", "", "Suggested; waiting for the user's OK.")], action_id, True, (saved,))
 
     def summary(args: DeleteArguments) -> str:
         return "Delete all your memories?" if args.all else f'Delete the memory "{args.text}"?'

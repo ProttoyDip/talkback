@@ -179,7 +179,7 @@ class ToolBridge:
         """One call: validate, confirm if sensitive, run, report its final status."""
         error = None
         cause = None
-        action_id, undoable = None, False
+        action_id, undoable, follow_up = None, False, ()
         sources: list[Source] = []
         if tool is None:
             error = "unknown_tool"
@@ -255,7 +255,7 @@ class ToolBridge:
             try:
                 output = await asyncio.wait_for(asyncio.shield(task) if tool.sensitive else task, self.tool_timeout)
                 if isinstance(output, ToolOutcome):
-                    action_id, undoable = output.action_id, output.undoable
+                    action_id, undoable, follow_up = output.action_id, output.undoable, output.events
                     output = output.results
                 if tool.name == "web_search":
                     self.tainted.add(turn_id)
@@ -292,6 +292,8 @@ class ToolBridge:
                 sources=sources if not error else [], action_id=action_id, undoable=undoable and not error,
             ))
             if action_id is not None and not error:
+                for message in follow_up:
+                    await self.emit(message)
                 await self.emit(DataChanged(kinds=["memories", "actions"]))
         return {"call_id": call_id, "error": error} if error else {
             "call_id": call_id, "untrusted": True,
