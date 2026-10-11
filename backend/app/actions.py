@@ -72,7 +72,7 @@ def _undo_memory(memory, undo: dict) -> None:
         raise NotUndoable(op)
 
 
-ROW_TABLES = {"tasks", "events", "reminders"}
+ROW_TABLES = {"tasks", "events", "reminders", "project_notes"}
 
 
 def _undo_row(tables, undo: dict) -> None:

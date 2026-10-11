@@ -46,7 +46,8 @@
 | Accounts: email sign-in link or guest, private memories and settings | Built; turned on with `AUTH_MODE` and Supabase Auth (see `backend/.env.example`) | — |
 | "Prepare my day": focus blocks for urgent tasks in your free time | Working; you accept all or some of the plan, and one Undo removes it | — |
 | Continue where you left off (goal, what was done, what is open; 24 hours) | Working; no transcript unless you opt in | — |
-| Documents, research projects | Planned | — |
+| Documents: add PDF, TXT or Markdown and ask about them; answers show the passages used | Working (NVIDIA embeddings; words alone if they are unavailable) | Sample data |
+| Research projects: notes saved by voice, with links only from that conversation's web results | Working; saving asks first and can be undone | Sample data |
 
 ## The problem
 

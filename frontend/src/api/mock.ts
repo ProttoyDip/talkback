@@ -3,7 +3,18 @@
  * panels can be shown without a backend session. Never used otherwise.
  * It mirrors what the real backend returns (backend/skills, settings_routes).
  */
-import type { ActionItem, EventItem, MemoryItem, ReminderItem, SettingsView, SkillItem, TaskItem } from './types'
+import type {
+  ActionItem,
+  DocumentItem,
+  EventItem,
+  MemoryItem,
+  ProjectDetail,
+  ProjectItem,
+  ReminderItem,
+  SettingsView,
+  SkillItem,
+  TaskItem,
+} from './types'
 
 /** Local "YYYY-MM-DDTHH:MM" for today at a given hour (sample data stays current). */
 function today(hour: number, minute = 0, days = 0) {
@@ -26,6 +37,19 @@ let events: EventItem[] = [
 let reminders: ReminderItem[] = [
   // Always three hours ahead, so sample pages never show it as due or missed.
   { id: 'r1', text: 'Call mom', due_at: new Date(Date.now() + 3 * 3600_000).toISOString(), status: 'scheduled', snooze_count: 0, created_at: '2026-10-10T09:00:00Z' },
+]
+let documents: DocumentItem[] = [
+  { id: 'd1', title: 'Apartment lease', filename: 'Apartment lease.pdf', kind: 'pdf', size_bytes: 412_000, pages: 9, chunks: 31, status: 'ready', created_at: '2026-10-09T18:00:00Z' },
+  { id: 'd2', title: 'Router manual', filename: 'Router manual.md', kind: 'md', size_bytes: 18_400, chunks: 6, status: 'ready', created_at: '2026-10-10T08:00:00Z' },
+]
+let projects: ProjectDetail[] = [
+  {
+    project: { id: 'p1', name: 'Heat pumps', notes: 2, created_at: '2026-10-08T10:00:00Z', updated_at: '2026-10-10T19:00:00Z' },
+    notes: [
+      { id: 'n1', text: 'Air-source heat pumps keep working down to about -20 °C, with lower efficiency in deep cold.', sources: [{ title: 'Energy Saving Trust: air source heat pumps', url: 'https://energysavingtrust.org.uk/advice/air-source-heat-pumps/' }], created_at: '2026-10-10T19:00:00Z' },
+      { id: 'n2', text: 'Ask installers for a heat-loss survey before choosing the size.', sources: [], created_at: '2026-10-08T10:00:00Z' },
+    ],
+  },
 ]
 let mockId = 100
 
@@ -182,6 +206,33 @@ export async function mockRequest<T>(method: string, path: string, body?: unknow
       const status = action === 'ack' ? 'acknowledged' : action === 'delivered' ? 'delivered' : 'scheduled'
       reminders = reminders.map((r) => (r.id === id ? { ...r, status } : r))
       result = reminders.find((r) => r.id === id)
+    }
+  } else if (route.startsWith('/api/documents')) {
+    if (method === 'GET') {
+      result = { items: documents }
+    } else if (method === 'POST') {
+      const file = body as { name: string; size: number }
+      const kind = file.name.toLowerCase().endsWith('.pdf') ? 'pdf' : file.name.toLowerCase().endsWith('.txt') ? 'txt' : 'md'
+      const doc: DocumentItem = { id: `d${mockId++}`, title: file.name.replace(/\.[^.]+$/, ''), filename: file.name, kind, size_bytes: file.size, chunks: 1, status: 'ready', created_at: new Date().toISOString() }
+      documents = [doc, ...documents]
+      result = doc
+    } else {
+      documents = documents.filter((d) => d.id !== id)
+    }
+  } else if (route.startsWith('/api/projects')) {
+    const noteId = route.split('/')[5]
+    if (method === 'GET' && id) {
+      result = projects.find((p) => p.project.id === id)
+    } else if (method === 'GET') {
+      result = { items: projects.map((p) => ({ ...p.project, notes: p.notes.length }) satisfies ProjectItem) }
+    } else if (method === 'POST') {
+      const project: ProjectItem = { id: `p${mockId++}`, name: (body as { name: string }).name, notes: 0, created_at: new Date().toISOString() }
+      projects = [{ project, notes: [] }, ...projects]
+      result = project
+    } else if (noteId) {
+      projects = projects.map((p) => (p.project.id === id ? { ...p, notes: p.notes.filter((n) => n.id !== noteId) } : p))
+    } else {
+      projects = projects.filter((p) => p.project.id !== id)
     }
   } else if (route === '/api/actions') {
     result = { items: actions }

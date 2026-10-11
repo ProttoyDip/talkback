@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     # Silence (ms) before the recognizer decides the user has finished.
     # Lower is faster but may cut slow speakers off; tune with the eval set.
     asr_stop_history_ms: int = 500
+    # Document and project-note search (plan P8). nv-embedqa-e5-v5 was
+    # retired on 25 August 2026; this one returns 2048 dimensions.
+    embed_model: str = "nvidia/nemotron-3-embed-1b"
 
     # Spoken replies: Nemotron 3 Nano. Nebius first, OpenRouter as backup.
     nebius_llm_model: str = "nvidia/nvidia-nemotron-3-nano-30b-a3b"

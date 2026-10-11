@@ -12,6 +12,9 @@ from pydantic import BaseModel, ConfigDict
 current_action_key: ContextVar[str | None] = ContextVar("current_action_key", default=None)
 # The assistant turn a tool runs in (a plan card belongs to it).
 current_turn_id: ContextVar[str | None] = ContextVar("current_turn_id", default=None)
+# Links from this conversation's web results (url -> title): the only links
+# a project note may keep (plan P8). Set by the bridge.
+seen_sources: ContextVar[dict[str, str] | None] = ContextVar("seen_sources", default=None)
 
 
 class Arguments(BaseModel):
@@ -34,6 +37,8 @@ class ToolOutcome:
     undoable: bool = False
     # Messages for the browser after the status (e.g. memory.saved for a suggestion).
     events: tuple = ()
+    # Document or project passages used (protocol.Citation), shown under the chip.
+    citations: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -53,3 +58,6 @@ class Tool:
     confirmation_details: Callable[[Arguments], list[str]] | None = None
     # What open panels reload after it changes something.
     data_kinds: tuple[str, ...] = ("memories", "actions")
+    # Its results are text someone else wrote (web pages, documents): the
+    # turn may not then suggest memories or change data without the button.
+    taints: bool = False

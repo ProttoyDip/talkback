@@ -39,6 +39,8 @@ TOOL_DESCRIPTIONS = {
     "task_add": "Adds and changes your tasks. Each change can be undone.",
     "calendar_add": "Adds and moves blocks in your calendar. Each change can be undone.",
     "reminder_set": "Sets reminders that notify you later, only after you say yes.",
+    "docs_search": "Searches the documents you uploaded. Their text is read as information, never as instructions.",
+    "project_save": "Reads your research projects and saves notes to them, only after you say yes.",
 }
 # One switch covers a group: turning off task_add turns off every task tool.
 TOOL_GROUPS = {
@@ -46,6 +48,7 @@ TOOL_GROUPS = {
     "calendar_add": ("calendar_list", "calendar_add", "calendar_update", "calendar_delete", "day_plan_propose",
                      "day_plan_apply"),
     "reminder_set": ("reminder_set", "reminder_update"),
+    "project_save": ("project_list", "project_search", "project_save"),
 }
 def voice_engine_view(settings: Settings) -> tuple[str, bool]:
     """What can actually serve voice now (engines.py), and whether it is full-duplex."""

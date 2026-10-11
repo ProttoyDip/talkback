@@ -101,6 +101,29 @@ class SqliteRepo:
             )
         return row
 
+    def insert_many(self, rows: list[Row]) -> int:
+        """One transaction for many rows (a document's passages)."""
+        encoded = []
+        for row in rows:
+            row = dict(row)
+            check_columns(self.table, row)
+            row.setdefault("id", uuid.uuid4().hex)
+            if self.user_id is None:
+                raise ValueError("an unscoped insert must name the user")
+            row["user_id"] = self.user_id
+            encoded.append(self._encode(row))
+        if not encoded:
+            return 0
+        names = list(encoded[0])
+        if any(list(row) != names for row in encoded):
+            raise ValueError("rows must have the same columns")
+        with self.database.connect() as db:
+            db.executemany(
+                f"INSERT INTO {self.table.name} ({', '.join(names)}) VALUES ({','.join('?' * len(names))})",
+                [list(row.values()) for row in encoded],
+            )
+        return len(encoded)
+
     def get(self, identifier: str) -> Row | None:
         rows = self.select({"id": identifier}, limit=1)
         return rows[0] if rows else None
@@ -136,6 +159,14 @@ class SqliteRepo:
             if cursor.rowcount == 0 and expect_updated_at is not None and self.get(identifier) is not None:
                 raise Conflict(identifier)
         return self.get(identifier)
+
+    def delete_where(self, where: Where) -> int:
+        """Delete every matching row of this user (a document's passages)."""
+        if not where:
+            raise ValueError("a filter is required")
+        clause, params = self._scope(where)
+        with self.database.connect() as db:
+            return db.execute(f"DELETE FROM {self.table.name}{clause}", params).rowcount
 
     def delete(self, identifier: str, where: Where | None = None) -> bool:
         clause, params = self._scope({**(where or {}), "id": identifier})

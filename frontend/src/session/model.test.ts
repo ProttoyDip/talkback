@@ -124,6 +124,14 @@ describe('memory changes by voice (plan P4)', () => {
     })
   })
 
+  it('keeps the passages a document answer used', () => {
+    const citation = { kind: 'document' as const, id: 'd1', title: 'Lease', locator: 'page 4', quote: 'No pets.' }
+    const next = step(initialModel, {
+      type: 'tool.status', call_id: 'c1', message_id: 'a9', name: 'docs_search', status: 'done', citations: [citation],
+    })
+    expect(next.turns.find((t) => t.id === 'a9')?.tools?.[0].citations).toEqual([citation])
+  })
+
   it('counts data.changed so open panels reload', () => {
     const once = step(initialModel, { type: 'data.changed', kinds: ['memories', 'actions'] })
     expect(step(once, { type: 'data.changed', kinds: ['actions'] }).dataVersion).toBe(2)

@@ -97,6 +97,11 @@ function outcomeCopy(call: ToolCall) {
 }
 
 function doneCopy(call: ToolCall) {
+  if (call.name === 'docs_search' || call.name === 'project_search') {
+    const n = call.citations?.length ?? 0
+    if (n === 0) return call.name === 'docs_search' ? 'Nothing found in your documents' : 'Nothing found in your notes'
+    return n === 1 ? '1 passage' : `${n} passages`
+  }
   if (call.name !== 'web_search') return DONE_COPY[call.name]
   const n = call.sources?.length ?? 0
   return n === 1 ? '1 source' : `${n} sources`
@@ -183,10 +188,11 @@ export function ToolChip({ call }: { call: ToolCall }) {
   }
 
   const sources = call.sources ?? []
+  const citations = call.citations ?? []
   if (call.status === 'done' && call.undoable && call.actionId) {
     return <UndoableChip call={call} label={doneCopy(call)} icon={toolIcon} />
   }
-  if (sources.length === 0) {
+  if (sources.length === 0 && citations.length === 0) {
     return (
       <span className={`${staticChip} border-border text-text-muted`}>
         <Icon name={toolIcon} className="size-4 text-voice-assistant" />
@@ -222,6 +228,19 @@ export function ToolChip({ call }: { call: ToolCall }) {
             exit={{ opacity: 0, y: -4, transition: exit }}
             transition={enter}
           >
+            {citations.map((c, i) => (
+              // Quoted from the user's own files: shown as text, never as a link or markup.
+              <li key={`${c.id}-${i}`} className="flex flex-col gap-1 px-2 py-1">
+                <span className="flex items-baseline gap-3 text-body text-text">
+                  <span className="tabular font-mono text-label text-text-subtle">{String(i + 1).padStart(2, '0')}</span>
+                  <span>
+                    {c.title}
+                    {c.locator && <span className="text-text-muted"> · {c.locator}</span>}
+                  </span>
+                </span>
+                <blockquote className="border-l-2 border-border pl-3 text-data text-text-muted">{c.quote}</blockquote>
+              </li>
+            ))}
             {sources.map((s, i) => (
               <li key={s.url}>
                 <a

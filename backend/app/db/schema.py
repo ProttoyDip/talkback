@@ -49,6 +49,25 @@ TABLES: dict[str, Table] = {
         }),
         frozenset({"decisions", "pending", "tools_used", "recent_turns"}),
     ),
+    # Documents and research projects (plan P8). Document and note text is
+    # untrusted data: searched and quoted, never followed (SECURITY.md T1).
+    "documents": Table("documents", frozenset({
+        "title", "filename", "kind", "size_bytes", "pages", "chunks", "status", "error", "created_at", "updated_at",
+    })),
+    "projects": Table("projects", frozenset({"name", "description", "created_at", "updated_at"})),
+    "project_notes": Table(
+        "project_notes",
+        frozenset({"project_id", "text", "sources", "deleted_at", "created_at", "updated_at"}),
+        frozenset({"sources"}),
+    ),
+    # Passages of documents and project notes, with their embeddings. On
+    # Supabase they are searched through match_chunks (never read back whole).
+    "knowledge_chunks": Table(
+        "knowledge_chunks",
+        # embedding: a pgvector on Supabase; locally, packed float32 in base64.
+        frozenset({"kind", "source_id", "note_id", "ord", "locator", "text", "embedding", "created_at"}),
+        timestamps=False,
+    ),
     "user_skills": Table(
         "user_skills",
         frozenset({"name", "triggers", "allowed_tools", "instructions", "summary", "enabled", "created_at", "updated_at"}),
@@ -179,5 +198,34 @@ SQLITE_MIGRATIONS: list[str] = [
         closed_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
     CREATE INDEX conversation_states_user ON conversation_states (user_id, status, updated_at);
+    """,
+    # 7: documents and research projects (plan P8). Locally, search is a
+    # scan of the user's passages (cosine and keywords); see knowledge.py.
+    """
+    CREATE TABLE documents (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, title TEXT NOT NULL, filename TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK(kind IN ('pdf', 'txt', 'md')), size_bytes INTEGER NOT NULL,
+        pages INTEGER, chunks INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'processing' CHECK(status IN ('processing', 'ready', 'failed')),
+        error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE INDEX documents_user ON documents (user_id, created_at);
+    CREATE TABLE projects (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL, description TEXT,
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE INDEX projects_user ON projects (user_id, name);
+    CREATE TABLE project_notes (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, project_id TEXT NOT NULL, text TEXT NOT NULL,
+        sources TEXT, deleted_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE INDEX project_notes_project ON project_notes (user_id, project_id, created_at);
+    CREATE TABLE knowledge_chunks (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK(kind IN ('document', 'project_note')),
+        source_id TEXT NOT NULL, note_id TEXT, ord INTEGER NOT NULL, locator TEXT,
+        text TEXT NOT NULL, embedding TEXT, created_at TEXT
+    );
+    CREATE INDEX knowledge_chunks_user ON knowledge_chunks (user_id, kind, source_id);
     """,
 ]
