@@ -52,6 +52,13 @@ class LiveSession:
     async def __aenter__(self) -> "LiveSession":
         headers = {"X-Access-Code": self.access_code} if self.access_code else {}
         async with httpx.AsyncClient(timeout=90) as http:  # a sleeping free server takes a while
+            auth = (await http.get(f"{self.base}/api/auth-config")).json()
+            if auth.get("mode", "off") != "off":
+                # Accounts are on: sign in as a guest (Supabase anonymous sign-in), like "Continue as guest".
+                guest = await http.post(f"{auth['supabase_url']}/auth/v1/signup",
+                                        headers={"apikey": auth["publishable_key"]}, json={})
+                guest.raise_for_status()
+                headers["Authorization"] = f"Bearer {guest.json()['access_token']}"
             response = await http.post(f"{self.base}/api/session", headers=headers)
             response.raise_for_status()
             self.token = response.json()["token"]
