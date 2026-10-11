@@ -24,6 +24,8 @@ interface TurnRecord {
   heardText?: string
   backchannels: Backchannel[]
   tools: ToolCall[]
+  /** The user typed this turn (text.input) instead of saying it. */
+  typed?: boolean
 }
 
 export interface ConversationModel {
@@ -133,6 +135,7 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
           // User deltas carry the full text so far; assistant deltas append.
           text: event.speaker === 'user' ? event.text : turn.text + event.text,
           final: event.final,
+          typed: event.typed || turn.typed,
         })),
       }
     }
@@ -231,6 +234,7 @@ export function toTurns(model: ConversationModel): Turn[] {
     .map((turn) => ({
       id: turn.id,
       speaker: turn.speaker,
+      typed: turn.typed || undefined,
       tools: turn.tools.length ? turn.tools : undefined,
       segments: turn.speaker === 'user' ? [{ kind: 'heard', text: turn.text }] : assistantSegments(turn),
     }))

@@ -60,6 +60,8 @@ export interface Turn {
   speaker: Speaker
   segments: Segment[]
   tools?: ToolCall[]
+  /** The user typed this turn instead of saying it. */
+  typed?: boolean
 }
 
 export interface ConfirmRequest {

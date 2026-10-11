@@ -122,8 +122,22 @@ export function LiveConversation({
 
   useEffect(() => () => void engineRef.current?.close(), [])
 
+  // Typing can start a conversation without the microphone (plan P3).
+  const [micOn, setMicOn] = useState(false)
+  const pendingText = useRef<string | null>(null)
+
+  const openMic = async (engine: AudioEngine) => {
+    await engine.startMic()
+    setMicOn(true)
+    // Opt-in recording (Settings > Privacy), chosen in this browser: never uploaded.
+    if (effects.saveRecordings) {
+      engine.startRecording()
+      setRecording(true)
+    }
+  }
+
   /** Runs on the user's click or key press (browsers require a gesture for audio). */
-  const begin = async () => {
+  const begin = async (withMic = true) => {
     if (starting || started) return
     setStarting(true)
     setMicProblem(null)
@@ -139,14 +153,7 @@ export function LiveConversation({
     try {
       await engine.start()
       // The replay does not listen, so it never asks for the microphone.
-      if (mode === 'live') {
-        await engine.startMic()
-        // Opt-in recording (Settings > Privacy), chosen in this browser: never uploaded.
-        if (effects.saveRecordings) {
-          engine.startRecording()
-          setRecording(true)
-        }
-      }
+      if (mode === 'live' && withMic) await openMic(engine)
     } catch (error) {
       await engine.close()
       setMicProblem(error instanceof MicError ? error.problem : 'unavailable')
@@ -169,9 +176,41 @@ export function LiveConversation({
     setMuted(next)
   }
 
+  /** The conversation started by typing; now the user wants to talk too. */
+  const startMicLater = async () => {
+    const engine = engineRef.current
+    if (!engine || micOn) return
+    setMicProblem(null)
+    try {
+      await openMic(engine)
+    } catch (error) {
+      setMicProblem(error instanceof MicError ? error.problem : 'unavailable')
+    }
+  }
+
+  /** A typed turn; starts the conversation (without the mic) if needed. */
+  const sendText = (text: string) => {
+    if (mode !== 'live') return
+    if (started && model.connection === 'open') {
+      session.sendText(text)
+      return
+    }
+    pendingText.current = text
+    if (!started) void begin(false)
+  }
+  useEffect(() => {
+    if (model.connection !== 'open' || !pendingText.current) return
+    session.sendText(pendingText.current)
+    pendingText.current = null
+  }, [model.connection, session])
+
   const toggleMute = () => {
     if (!started) {
       void begin()
+      return
+    }
+    if (!micOn) {
+      void startMicLater()
       return
     }
     setMicMuted(!muted)
@@ -190,13 +229,18 @@ export function LiveConversation({
       if (held) void begin()
       return
     }
+    if (!micOn) {
+      if (held) void startMicLater()
+      return
+    }
     if (muted === !held) return
     setMicMuted(!held)
   }
 
   const turns = useMemo(() => toTurns(model), [model])
   const state = displayState(model, muted)
-  const micMode: MicMode = !started ? 'off' : muted ? 'muted' : 'live'
+  // A conversation started by typing has no mic yet: the button offers to start it.
+  const micMode: MicMode = !started || (mode === 'live' && !micOn) ? 'off' : muted ? 'muted' : 'live'
 
   const banner: BannerProps | undefined = micProblem
     ? { tone: 'danger', message: MIC_PROBLEM_COPY[micProblem], action: { label: 'Try again', onClick: () => void begin() } }
@@ -261,9 +305,8 @@ export function LiveConversation({
       onAnswerConfirm={answerConfirm}
       onStop={session.stop}
       onHold={pushToTalk ? hold : undefined}
-      onExample={() => {
-        if (!started) void begin()
-      }}
+      onExample={sendText}
+      onSendText={mode === 'live' ? sendText : undefined}
     />
   )
 }

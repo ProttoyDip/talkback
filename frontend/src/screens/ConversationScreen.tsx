@@ -15,6 +15,7 @@ import type { ConversationModel } from '../session/model'
 import { MicButton, type MicMode } from '../components/MicButton'
 import { NavRail, TabBar, type Panel } from '../components/Navigation'
 import { StatusBar } from '../components/StatusBar'
+import { TextComposer } from '../components/TextComposer'
 import { TranscriptTurn } from '../components/TranscriptTurn'
 import type { ConfirmRequest, ConversationState, TimelineData, ToolName, Turn } from '../state/types'
 
@@ -55,8 +56,10 @@ interface ConversationScreenProps {
   onStop?: () => void
   /** Push-to-talk is on: hold Space or the mic button to talk. */
   onHold?: (held: boolean) => void
-  /** An example chip on the empty screen was chosen (starts the conversation). */
-  onExample?: () => void
+  /** An example chip on the empty screen was chosen: send its words as a typed turn. */
+  onExample?: (text: string) => void
+  /** Typed turns (plan P3); missing in the recorded demo. */
+  onSendText?: (text: string) => void
 }
 
 /** First-conversation guidance: what to try, and the words to say. */
@@ -87,6 +90,7 @@ export function ConversationScreen({
   onStop,
   onHold,
   onExample,
+  onSendText,
 }: ConversationScreenProps) {
   const [panel, setPanel] = useState<Panel | null>(null)
   const [example, setExample] = useState<string>()
@@ -194,7 +198,9 @@ export function ConversationScreen({
           <div
             className={
               empty
-                ? 'flex flex-1 flex-col items-center justify-center gap-8 pb-[calc(var(--mic-size)+var(--space-12))] lg:pb-0'
+                ? `flex flex-1 flex-col items-center justify-center gap-8 lg:pb-0 ${
+                    onSendText ? '' : 'pb-[calc(var(--mic-size)+var(--space-12))]'
+                  }`
                 : 'flex shrink-0 flex-col items-center gap-4'
             }
           >
@@ -241,7 +247,7 @@ export function ConversationScreen({
                         aria-pressed={example === say}
                         onClick={() => {
                           setExample(say)
-                          onExample?.()
+                          onExample?.(say)
                         }}
                         className="min-h-target rounded-pill border border-field-line bg-chrome px-4 text-body text-text transition-colors duration-(--dur-fast) hover:border-text-subtle aria-pressed:border-voice-assistant"
                       >
@@ -250,9 +256,12 @@ export function ConversationScreen({
                     </li>
                   ))}
                 </ul>
-                <p aria-live="polite" className="min-h-target text-transcript text-text-muted">
-                  {example && <>Say: “{example}”</>}
-                </p>
+                {/* Live, a chip sends its words; the static preview shows them instead. */}
+                {!onExample && (
+                  <p aria-live="polite" className="min-h-target text-transcript text-text-muted">
+                    {example && <>Say: “{example}”</>}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -266,7 +275,9 @@ export function ConversationScreen({
                 following.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX
               }}
               // The translucent panel keeps captions readable where the field passes behind them.
-              className="-mx-4 flex-1 overflow-y-auto rounded-panel bg-bg/80 px-4 pb-[calc(var(--mic-size)+var(--space-12))] sm:-mx-8 sm:px-8 lg:pb-8"
+              className={`-mx-4 flex-1 overflow-y-auto rounded-panel bg-bg/80 px-4 sm:-mx-8 sm:px-8 lg:pb-8 ${
+                onSendText ? 'pb-4' : 'pb-[calc(var(--mic-size)+var(--space-12))]'
+              }`}
             >
               {view.replay && (
                 <p className="pt-2 font-mono text-label uppercase text-text-muted">
@@ -293,7 +304,21 @@ export function ConversationScreen({
             </section>
           )}
 
-          <div className="hidden justify-center pb-8 lg:flex">{mic}</div>
+          {/* The bottom row: typing, and on desktop the mic beside it. On
+              phones the mic lives in the tab bar, so the row clears its
+              raised button. */}
+          <div
+            className={`flex items-end justify-center gap-6 lg:pb-8 ${
+              onSendText ? 'pb-[calc(var(--mic-size)+var(--space-4))]' : 'hidden lg:flex'
+            }`}
+          >
+            {onSendText && (
+              <div className="min-w-0 flex-1">
+                <TextComposer onSend={onSendText} disabled={state === 'offline'} />
+              </div>
+            )}
+            <div className="hidden lg:block">{mic}</div>
+          </div>
         </div>
       </main>
 

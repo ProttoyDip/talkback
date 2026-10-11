@@ -84,3 +84,29 @@ describe('reducer edge cases', () => {
     expect(model.turns.length).toBeGreaterThan(0)
   })
 })
+
+describe('interruption-aware actions (plan P3)', () => {
+  const step = (model: ConversationModel, event: ServerEvent) => reduce(model, { kind: 'event', event, at: 0 })
+  const asking = replay() // the fixture ends waiting for an OK on call c3
+
+  it('closes the confirmation card when the call ends any other way', () => {
+    expect(asking.confirm?.callId).toBe('c3')
+    for (const status of ['cancelled', 'declined', 'expired', 'done', 'failed'] as const) {
+      const after = step(asking, {
+        type: 'tool.status', call_id: 'c3', message_id: 'a4', name: 'memory_delete', status,
+      })
+      expect(after.confirm).toBeUndefined()
+    }
+    const running = step(asking, {
+      type: 'tool.status', call_id: 'c3', message_id: 'a4', name: 'memory_delete', status: 'running',
+    })
+    expect(running.confirm?.callId).toBe('c3')
+  })
+
+  it('marks a typed turn', () => {
+    const typed = step(initialModel, {
+      type: 'transcript.delta', message_id: 't1', speaker: 'user', text: 'Hello', final: true, typed: true,
+    })
+    expect(toTurns(typed)[0]).toMatchObject({ id: 't1', typed: true })
+  })
+})
