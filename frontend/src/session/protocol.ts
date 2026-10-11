@@ -23,6 +23,8 @@ export type ToolName =
   | 'calendar_delete'
   | 'reminder_set'
   | 'reminder_update'
+  | 'day_plan_propose'
+  | 'day_plan_apply'
 
 /**
  * declined: the user said no or did not answer; cancelled: stopped before it ran;
@@ -40,6 +42,17 @@ export type ToolStatusReason =
   | 'already_done'
 
 import type { ReminderItem } from '../api/types'
+
+/** One proposed change in a day plan: a block for a task in free time. */
+export interface PlanItem {
+  index: number
+  op: 'create_block'
+  title: string
+  starts_at: string
+  ends_at: string
+  task_id?: string
+  reason: string
+}
 
 export const CLIENT_SAMPLE_RATE = 16_000
 export const SERVER_SAMPLE_RATE = 22_050
@@ -138,6 +151,22 @@ export type ServerEvent =
     }
   /** Stored data changed by voice: open panels reload. */
   | { type: 'data.changed'; kinds: Array<'memories' | 'actions' | 'tasks' | 'calendar' | 'reminders' | 'skills'> }
+  /** "Prepare my day" (plan P6): a plan card. Nothing changes until accepted. */
+  | {
+      type: 'plan.proposed'
+      proposal_id: string
+      message_id: string
+      date: string
+      items: PlanItem[]
+      expires_at: string
+    }
+  | {
+      type: 'plan.updated'
+      proposal_id: string
+      status: 'accepted' | 'partially_applied' | 'rejected' | 'superseded' | 'expired'
+      applied?: number[]
+      action_id?: string
+    }
   /** A reminder is due now (plan P5). */
   | { type: 'reminder.due'; reminder: ReminderItem }
   | { type: 'metrics'; latency_ms: number }
@@ -156,6 +185,8 @@ const SERVER_EVENT_TYPES = new Set<ServerEvent['type']>([
   'memory.saved',
   'data.changed',
   'reminder.due',
+  'plan.proposed',
+  'plan.updated',
   'metrics',
   'error',
   'model.active',

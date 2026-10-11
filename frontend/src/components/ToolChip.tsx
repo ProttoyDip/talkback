@@ -23,6 +23,8 @@ const RUNNING_COPY: Record<ToolCall['name'], string> = {
   calendar_delete: 'Removing the calendar block…',
   reminder_set: 'Setting the reminder…',
   reminder_update: 'Changing the reminder…',
+  day_plan_propose: 'Planning your day…',
+  day_plan_apply: 'Applying your plan…',
   skill_run: 'Running a skill…',
 }
 
@@ -43,6 +45,8 @@ const FAILED_COPY: Record<ToolCall['name'], string> = {
   calendar_delete: "Couldn't remove the calendar block",
   reminder_set: "Couldn't set the reminder",
   reminder_update: "Couldn't change the reminder",
+  day_plan_propose: "Couldn't plan your day",
+  day_plan_apply: "Couldn't apply the plan",
   skill_run: "Couldn't finish the skill",
 }
 
@@ -62,6 +66,8 @@ const DONE_COPY: Record<Exclude<ToolCall['name'], 'web_search'>, string> = {
   calendar_delete: 'Calendar block removed',
   reminder_set: 'Reminder set',
   reminder_update: 'Reminder changed',
+  day_plan_propose: 'Plan ready for your OK',
+  day_plan_apply: 'Plan applied',
   skill_run: 'Skill finished',
 }
 

@@ -18,6 +18,8 @@ export const TOOL_STATUS_NAME: Record<ToolName, string> = {
   calendar_delete: 'CALENDAR',
   reminder_set: 'REMINDERS',
   reminder_update: 'REMINDERS',
+  day_plan_propose: 'YOUR DAY',
+  day_plan_apply: 'YOUR DAY',
 }
 
 /** Status labels from docs/design.md, section 6. */

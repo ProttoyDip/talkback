@@ -33,7 +33,7 @@ ToolName = Literal[
     "weather", "web_search", "memory_read", "memory_write", "memory_delete", "memory_suggest", "skill_run",
     "task_list", "task_add", "task_update", "task_delete",
     "calendar_list", "calendar_add", "calendar_update", "calendar_delete",
-    "reminder_set", "reminder_update",
+    "reminder_set", "reminder_update", "day_plan_propose", "day_plan_apply",
 ]
 
 # Ids are short opaque strings created by the server.
@@ -215,6 +215,44 @@ class DataChanged(Message):
     kinds: list[DataKind] = Field(min_length=1, max_length=8)
 
 
+class PlanItem(Rest):
+    """One proposed change in a day plan: a block for a task in free time."""
+
+    index: int = Field(ge=0, le=20)
+    op: Literal["create_block"] = "create_block"
+    title: str = Field(max_length=200)
+    starts_at: str
+    ends_at: str
+    task_id: Id | None = None
+    reason: str = Field(max_length=120)
+
+
+class PlanProposed(Message):
+    """A day plan for the user to accept (all or some) or decline. Nothing
+    changes until they accept it (plan P6)."""
+
+    type: Literal["plan.proposed"] = "plan.proposed"
+    proposal_id: Id
+    message_id: Id
+    date: str  # local date, "2026-10-12"
+    items: list[PlanItem] = Field(max_length=20)
+    expires_at: str
+
+
+class PlanUpdated(Message):
+    type: Literal["plan.updated"] = "plan.updated"
+    proposal_id: Id
+    status: Literal["accepted", "partially_applied", "rejected", "superseded", "expired"]
+    applied: list[int] = Field(default_factory=list, max_length=20)
+    action_id: Id | None = None
+
+
+class PlanApply(Rest):
+    """POST /api/plans/{id}/apply: which items to apply (all when missing)."""
+
+    items: list[int] | None = Field(default=None, max_length=20)
+
+
 class ReminderDue(Message):
     """A reminder is due now: the page shows it (and a notification if hidden)."""
 
@@ -273,6 +311,8 @@ ServerMessage = Annotated[
     | MemorySaved
     | DataChanged
     | ReminderDue
+    | PlanProposed
+    | PlanUpdated
     | Metrics
     | ErrorEvent
     | ModelActive
