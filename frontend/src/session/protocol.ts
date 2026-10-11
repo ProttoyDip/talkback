@@ -40,6 +40,8 @@ export type ClientMessage =
   | { type: 'control.mute'; muted: boolean }
   | { type: 'control.stop' }
   | { type: 'tool.confirm'; call_id: string; approved: boolean }
+  /** A typed turn, handled like a spoken one; works while muted. */
+  | { type: 'text.input'; text: string }
 
 // Server -> client. Optional fields may be missing (missing means null).
 
@@ -86,6 +88,8 @@ export type ServerEvent =
       text: string
       final: boolean
       backchannel?: boolean
+      /** The user typed this turn (text.input). */
+      typed?: boolean
     }
   | { type: 'transcript.trim'; message_id: string; heard_text: string; unheard_text?: string }
   | {

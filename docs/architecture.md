@@ -104,10 +104,11 @@ One WebSocket: `wss://<host>/ws/session?token=<session-token>`. The token comes 
 | C → S | `control.mute` | `{muted}` | User mute toggle |
 | C → S | `control.stop` | `{}` | Stop TalkBack now (Esc or Stop button). The server flushes audio (`audio.flush` with reason `stopped`), trims the message to the heard words and returns to `idle` |
 | C → S | `tool.confirm` | `{call_id, approved}` | Answer to a confirmation request |
+| C → S | `text.input` | `{text}` (1–2000 characters) | A typed turn, handled like a spoken one; works while muted. The server echoes it as a user `transcript.delta` with `typed: true` |
 | S → C | `state` | `{state, tool?}` | Drives the UI state machine; `tool` is set with state `tool` |
 | S → C | `audio.chunk` | `{seq, samples}` | Header before each audio binary message |
 | S → C | `audio.flush` | `{reason}` | Stop playback now (`interrupted` or `stopped`) |
-| S → C | `transcript.delta` | `{message_id, speaker, text, final, backchannel}` | Live captions. Deltas with the same `message_id` form one turn: user deltas carry the full text so far, assistant deltas append words as they start playing. `backchannel: true` marks a "mm-hm" that did not interrupt |
+| S → C | `transcript.delta` | `{message_id, speaker, text, final, backchannel, typed}` | Live captions. Deltas with the same `message_id` form one turn: user deltas carry the full text so far, assistant deltas append words as they start playing. `backchannel: true` marks a "mm-hm" that did not interrupt |
 | S → C | `transcript.trim` | `{message_id, heard_text, unheard_text}` | After an interruption, the message keeps `heard_text` in history. `unheard_text` (what it had planned to say) is only shown, faded |
 | S → C | `tool.status` | `{call_id, message_id, name, status, reason?, sources}` | Tool chip under assistant turn `message_id`; `sources` lists web results. `status` is `running`, `done`, `failed`, `declined` (the user said no or did not answer), `cancelled` (stopped before it ran) or `expired`. `reason`: `user_declined`, `timeout`, `superseded`, `stopped`, `interrupted`, `session_closed`, `already_done`. Any final status closes the call's confirmation card |
 | S → C | `tool.confirm_request` | `{call_id, summary, message_id?, name?, expires_in_ms}` | Ask the user before a sensitive action (30 s) |
@@ -126,7 +127,8 @@ All routes except `/health` and `POST /api/session` need `Authorization: Bearer 
 | Method and path | Request | Response | Used by |
 |---|---|---|---|
 | `GET /health` | — | `{status: "ok"}` | Monitoring |
-| `POST /api/session` | — | `{token, expires_at}` | Session start |
+| `POST /api/session` | Optional `Authorization: Bearer <Supabase access token>` and `X-Access-Code` | `SessionToken {token, expires_at, user: {id, email?, anonymous}}`; `401` with detail `sign_in_required` or `access_code_required` | Session start |
+| `GET /api/me` | — | `SessionUser {id, email?, anonymous}` | Account menu |
 | `GET /api/memories?q=` | optional search text | `MemoryList` | Memory panel |
 | `PATCH /api/memories/{id}` | `MemoryUpdate` | `MemoryItem` | Edit a memory |
 | `DELETE /api/memories/{id}` | — | `204` | Delete a memory |

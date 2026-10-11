@@ -8,9 +8,17 @@ const CODE_KEY = 'talkback.accessCode'
 /** The server wants an access code, or the one we sent is wrong. */
 export class AccessCodeError extends Error {}
 
+/** Who the session belongs to; "local" when the server has no accounts. */
+export interface SessionUser {
+  id: string
+  email?: string | null
+  anonymous: boolean
+}
+
 export interface SessionToken {
   token: string
   expires_at: number
+  user?: SessionUser | null
 }
 
 export function savedAccessCode(): string {

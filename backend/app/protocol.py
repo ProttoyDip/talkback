@@ -83,8 +83,15 @@ class ToolConfirm(Message):
     approved: bool
 
 
+class TextInput(Message):
+    """A typed turn: the same as speaking it (works while muted)."""
+
+    type: Literal["text.input"]
+    text: str = Field(min_length=1, max_length=2000)
+
+
 ClientMessage = Annotated[
-    SessionStart | PlaybackPosition | ControlMute | ControlStop | ToolConfirm,
+    SessionStart | PlaybackPosition | ControlMute | ControlStop | ToolConfirm | TextInput,
     Field(discriminator="type"),
 ]
 client_message = TypeAdapter(ClientMessage)
@@ -122,6 +129,8 @@ class TranscriptDelta(Message):
     # A short user sound ("mm-hm") that did not interrupt. The UI shows it
     # inside the assistant turn that was playing (design.md 5.2).
     backchannel: bool = False
+    # The user typed this turn instead of saying it (text.input).
+    typed: bool = False
 
 
 class TranscriptTrim(Message):
@@ -243,6 +252,23 @@ server_message = TypeAdapter(ServerMessage)
 
 class Rest(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class SessionUser(Rest):
+    """Who the session belongs to. Without accounts (AUTH_MODE=off) everyone is "local"."""
+
+    id: str = Field(min_length=1, max_length=64)
+    email: str | None = Field(default=None, max_length=320)
+    # A guest who signed in with the access code instead of an email.
+    anonymous: bool = False
+
+
+class SessionToken(Rest):
+    """POST /api/session. 401 details: sign_in_required, access_code_required."""
+
+    token: str
+    expires_at: int
+    user: SessionUser | None = None
 
 
 MemoryKind = Literal["preference", "fact", "reminder"]

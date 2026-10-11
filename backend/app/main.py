@@ -5,8 +5,8 @@ from typing import Annotated
 import hmac
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from pydantic import BaseModel
 
+from .protocol import SessionToken
 from .config import Settings, get_settings
 from .logs import setup_logging
 from .memory_routes import router as memory_router
@@ -26,11 +26,6 @@ app.include_router(skills_router)
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
-
-
-class SessionToken(BaseModel):
-    token: str
-    expires_at: int
 
 
 @app.post("/api/session")
