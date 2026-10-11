@@ -39,7 +39,7 @@ def create_engine(settings: Settings, user_id: str, prefs: Prefs) -> EngineChoic
         from .cascade_engine import CascadeEngine
         from .llm import LlmClient, providers_from_settings
         from .speech.nvidia import RivaStreamingASR, RivaTTS
-        from .stores import memory_store
+        from .stores import stores_for
         from .skills import load_skills
         from .tool_bridge import ToolBridge
         from .tools.memory import memory_tools
@@ -47,9 +47,10 @@ def create_engine(settings: Settings, user_id: str, prefs: Prefs) -> EngineChoic
         from .tools.web_search import web_search_tool
 
         http = httpx.AsyncClient(follow_redirects=False)
-        memory = memory_store(settings, user_id)
+        stores = stores_for(settings, user_id)
+        memory, ledger = stores.memory, stores.ledger()
         # Weather needs no key (Open-Meteo). Web search needs a Tavily or Perplexity key.
-        tools = [weather_tool(http), *memory_tools(memory)]
+        tools = [weather_tool(http), *memory_tools(memory, ledger)]
         if settings.tavily_api_key.get_secret_value() or settings.perplexity_api_key.get_secret_value():
             tools.append(web_search_tool(http, settings.tavily_api_key, settings.perplexity_api_key))
         # The user's tool switches (Settings) apply when a session starts.
@@ -68,6 +69,7 @@ def create_engine(settings: Settings, user_id: str, prefs: Prefs) -> EngineChoic
             memory_store=memory,
             skills=load_skills(settings.skills_dir),
             answer_length=prefs.answer_length,
+            ledger=ledger,
         )
         return EngineChoice(engine, http=http)
     return EngineChoice(None, f"The voice engine '{kind}' is not available in this build.")

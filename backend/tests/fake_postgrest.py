@@ -15,6 +15,9 @@ def _value(text: str):
 
 
 def _in_values(text: str) -> list[str]:
+    """in.("a","b") or in.(a,b): PostgREST accepts both."""
+    if '"' not in text:
+        return text.split(",")
     found = re.finditer(r'"((?:[^"\\]|\\.)*)"', text)
     return [m.group(1).replace('\\"', '"').replace("\\\\", "\\") for m in found]
 

@@ -79,6 +79,12 @@ class UserStores:
     def repo(self, table: str) -> Repo:
         return repo(self.settings, table, self.user_id)
 
+    def ledger(self, session_id: str | None = None):
+        """This user's action history, with undo (plan P4)."""
+        from .actions import ActionLedger
+
+        return ActionLedger(self.repo("actions"), self.memory, session_id)
+
 
 def stores_for(settings: Settings, user_id: str) -> UserStores:
     return UserStores(settings, user_id, memory_store(settings, user_id), prefs_store(settings, user_id))

@@ -23,10 +23,10 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 from .memory import MemoryStore, MemoryWrite, remember
-from .memory_capture import extract_memory
+from .memory_capture import extract_correction, extract_memory, slot_of
 from .skills import Skill, match_trigger
 from .llm import LlmClient, LlmProvider, LlmUnavailable, ToolCalls
-from .protocol import ServerMessage, ToolConfirm
+from .protocol import DataChanged, ServerMessage, ToolConfirm
 from .speech import SpeechToText, TextToSpeech
 from .tool_bridge import ToolBridge
 from .turn_taking import (
@@ -116,6 +116,7 @@ class CascadeEngine:
         memory_store: MemoryStore | None = None,
         skills: list[Skill] | None = None,
         answer_length: str = "normal",
+        ledger=None,
     ) -> None:
         self.stt = stt
         self.tts = tts
@@ -137,6 +138,8 @@ class CascadeEngine:
         # once; an unfinished one waits briefly for the rest.
         self.incomplete_wait_s = incomplete_wait_s
         self.memory_store = memory_store
+        self.ledger = ledger  # the user's action history: saves can be undone
+        self.typed_turns: set[str] = set()  # user turns that were typed, not said
         self.skills = skills or []
         self.answer_length = answer_length
         # Set for the next reply when a skill starts (by voice or from the panel).
@@ -171,6 +174,10 @@ class CascadeEngine:
         self._emit(ModelInUse(role="voice", provider="nvidia", model="Parakeet + Magpie TTS", backup=False))
         if self.bridge_factory is not None:
             self.bridge = self.bridge_factory(context.session_id, self._emit_protocol, self.say_filler)
+            self.bridge.ledger = self.ledger
+            if self.ledger is not None:
+                self.ledger.session_id = context.session_id
+                self.bridge.user_id = getattr(self.ledger.repo, "user_id", None) or "local"
         self.worker = asyncio.create_task(self._serve_turns())
 
     async def _emit_protocol(self, message: ServerMessage) -> None:
@@ -257,6 +264,7 @@ class CascadeEngine:
         """A typed turn (text.input). The gateway shows it; it is handled like speech."""
         text = text.strip()
         if text:
+            self.typed_turns.add(text)
             self._on_final_input(text)
 
     def _on_final_input(self, text: str) -> None:
@@ -404,16 +412,29 @@ class CascadeEngine:
         """Saves a memory only when the user's own words ask for one (SECURITY.md T1)."""
         if self.memory_store is None:
             return None
+        source = "user_text" if user_text in self.typed_turns else "user_utterance"
+        self.typed_turns.discard(user_text)
         found = extract_memory(user_text)
-        if found is None:
-            return None
-        text, kind = found
+        if found is not None:
+            text, kind = found
+            slot = slot_of(text)
+        else:
+            # "Actually, I live in Rome now": a correction replaces what was
+            # remembered about the same thing, without "remember that".
+            correction = extract_correction(user_text)
+            if correction is None:
+                return None
+            text, kind, slot = correction
+            if await asyncio.to_thread(self.memory_store.find_slot, slot) is None:
+                return None
         try:
             await remember(
                 self.memory_store,
-                MemoryWrite(text=text, kind=kind, source="user_utterance", utterance=user_text[:1000], confidence=0.9),
+                MemoryWrite(text=text, kind=kind, source=source, utterance=user_text[:1000], confidence=0.9),
                 lambda saved: self._emit_protocol(saved),
+                slot=slot, ledger=self.ledger,
             )
+            await self._emit_protocol(DataChanged(kinds=["memories", "actions"]))
         except Exception:
             log.exception("memory save failed")
             return None
@@ -424,7 +445,7 @@ class CascadeEngine:
         if self.memory_store is None:
             return ""
         try:
-            items = await asyncio.to_thread(self.memory_store.list, "")
+            items = await asyncio.to_thread(self.memory_store.in_use)  # never suggestions or replaced ones
         except Exception:
             return ""
         if not items:
