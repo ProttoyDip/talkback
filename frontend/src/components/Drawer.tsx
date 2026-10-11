@@ -51,7 +51,7 @@ export function Drawer({ panel, onClose, context }: { panel: Panel; onClose: () 
         </button>
       </header>
       {/* Focusable, so keyboard users can scroll a panel with no enabled controls. */}
-      <div tabIndex={0} className="flex-1 overflow-y-auto p-6">
+      <div tabIndex={0} role="region" aria-label={`${TITLES[panel]} content`} className="flex-1 overflow-y-auto p-6">
         {context.replay && (
           <p className="mb-6 rounded-card border border-border px-4 py-3 text-data text-text-muted">
             Sample data. Start a live conversation to see yours.
