@@ -9,7 +9,7 @@ from app.engines import EngineChoice, get_engine_factory
 from app.main import app
 from app.stores import repo, stores_for
 from app.timeutil import iso, now_utc
-from app.voice_engine import SessionContext
+from app.voice_engine import SessionContext, TurnEnded
 
 from .conftest import ORIGIN
 
@@ -87,6 +87,11 @@ class ResumableEngine:
     def recent_turns(self) -> list[dict]:
         return [{"role": "user", "content": "Help me plan"}]
 
+    def submit_text(self, text: str) -> None:
+        """A typed turn: it becomes the goal and the turn ends (a save follows)."""
+        self.goal = text
+        self.queue.put_nowait(TurnEnded("a1", "Okay."))
+
     def resume(self, note, recent, **carried) -> None:
         self.resumed.append((note, recent))
         self.goal = carried.get("goal")
@@ -108,15 +113,14 @@ def test_a_later_conversation_offers_to_continue_and_continuing_tells_the_engine
     with connect() as ws:
         ws.send_text(json.dumps({"type": "session.start", "client_sample_rate": 16000}))
         assert json.loads(ws.receive_text()) == {"type": "state", "state": "idle"}
-        ws.send_text(json.dumps({"type": "control.mute", "muted": False}))
-        ws.receive_text()  # answered after session.start finished: the engine exists now
-        engines[0].goal = "Help me plan tomorrow"
-    # The first conversation saves its state as it closes; wait for that.
-    import time
-    for _ in range(100):
-        if tables(settings)("conversation_states").select():
-            break
-        time.sleep(0.02)
+        ws.send_text(json.dumps({"type": "text.input", "text": "Help me plan tomorrow"}))
+        ws.receive_text()  # the typed turn's echo
+        # The turn end saves the state while the conversation is still open.
+        import time
+        for _ in range(100):
+            if tables(settings)("conversation_states").select():
+                break
+            time.sleep(0.02)
     with connect() as ws:
         ws.send_text(json.dumps({"type": "session.start", "client_sample_rate": 16000}))
         ws.receive_text()  # idle
@@ -138,9 +142,10 @@ def test_turning_resume_off_keeps_nothing(client, settings, tmp_path):
     with client.websocket_connect(f"/ws/session?token={token}", headers={"origin": ORIGIN}) as ws:
         ws.send_text(json.dumps({"type": "session.start", "client_sample_rate": 16000}))
         ws.receive_text()
-        ws.send_text(json.dumps({"type": "control.mute", "muted": False}))
-        ws.receive_text()
-        engine.goal = "Help me plan tomorrow"
+        ws.send_text(json.dumps({"type": "text.input", "text": "Help me plan tomorrow"}))
+        ws.receive_text()  # the typed turn's echo
+        import time
+        time.sleep(0.3)  # a turn-end save would happen now
     assert tables(settings)("conversation_states").select() == []
 
 
