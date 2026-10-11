@@ -13,7 +13,7 @@ from pydantic import Field, TypeAdapter, ValidationError
 
 from .protocol import DataChanged, ServerMessage, Source, ToolConfirm, ToolConfirmRequest, ToolStatus
 from .tool_results import sanitize, wrap_results
-from .tools import Arguments, Tool, ToolOutcome, current_action_key, current_turn_id
+from .tools import Arguments, Tool, ToolOutcome, current_action_key, current_turn_id, seen_sources
 
 log = logging.getLogger("talkback.tools")
 
@@ -87,6 +87,8 @@ class ToolBridge:
         # Turns that saw web results: they may not suggest memories (SECURITY.md T1, T3).
         self.tainted: set[str] = set()
         self.pending_summaries: dict[str, str] = {}  # call id -> the card's summary (plan P7)
+        # Links from this conversation's web results: a saved note may cite only these (plan P8).
+        self.sources_seen: dict[str, str] = {}
         self.finishing: dict[str, asyncio.Task] = {}  # changes running now
         self.abandoned: set[str] = set()  # ...whose turn was cancelled; they report themselves
         self.applied: set[str] = set()  # changes that finished (the race with a cancel)
@@ -143,6 +145,7 @@ class ToolBridge:
         If the turn is cancelled, the call in progress reports a final status.
         """
         self.cancel_reason = "interrupted"
+        seen_sources.set(self.sources_seen)  # tools run in tasks that copy this context
         try:
             calls = parse_calls(raw)
         except ValueError:
@@ -182,6 +185,7 @@ class ToolBridge:
         cause = None
         action_id, undoable, follow_up = None, False, ()
         sources: list[Source] = []
+        citations: list = []
         if tool is None:
             error = "unknown_tool"
         elif self.closed or call.name not in self.enabled:
@@ -262,8 +266,9 @@ class ToolBridge:
                 output = await asyncio.wait_for(asyncio.shield(task) if tool.mutates else task, self.tool_timeout)
                 if isinstance(output, ToolOutcome):
                     action_id, undoable, follow_up = output.action_id, output.undoable, output.events
+                    citations = list(output.citations)[:10]
                     output = output.results
-                if tool.name == "web_search":
+                if tool.name == "web_search" or tool.taints:
                     self.tainted.add(turn_id)
                 data = [sanitize(item) for item in output[:10]]
                 if tool.name == "web_search":
@@ -272,6 +277,8 @@ class ToolBridge:
                             sources.append(Source(title=item["title"], url=item["url"]))
                         except ValidationError:
                             continue  # Unsafe or malformed URLs are not UI links.
+                        if len(self.sources_seen) < 50:
+                            self.sources_seen[str(sources[-1].url)] = sources[-1].title
             except TimeoutError:
                 error = "tool_timeout"
             except Exception as exc:
@@ -296,6 +303,7 @@ class ToolBridge:
             await self.emit(ToolStatus(
                 call_id=call_id, message_id=turn_id, name=tool.name, status=status, reason=reason,
                 sources=sources if not error else [], action_id=action_id, undoable=undoable and not error,
+                citations=citations if not error else [],
             ))
             if not error:
                 for message in follow_up:

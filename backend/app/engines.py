@@ -53,7 +53,12 @@ def create_engine(settings: Settings, user_id: str, prefs: Prefs) -> EngineChoic
         from .tools.planner import planner_tools
 
         planner = stores.planner(prefs.timezone, ledger)
-        tools = [weather_tool(http), *memory_tools(memory, ledger), *planner_tools(planner)]
+        from .tools.knowledge import knowledge_tools
+
+        tools = [
+            weather_tool(http), *memory_tools(memory, ledger), *planner_tools(planner),
+            *knowledge_tools(stores.knowledge(http), ledger),
+        ]
         if settings.tavily_api_key.get_secret_value() or settings.perplexity_api_key.get_secret_value():
             tools.append(web_search_tool(http, settings.tavily_api_key, settings.perplexity_api_key))
         # The user's tool switches (Settings) apply when a session starts.

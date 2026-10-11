@@ -91,6 +91,17 @@ class UserStores:
 
         return Planner(self.repo, timezone, ledger if ledger is not None else self.ledger())
 
+    def knowledge(self, client=None):
+        """This user's documents and research projects (plan P8)."""
+        from .embeddings import embedder_for
+        from .knowledge import Knowledge
+
+        rpc = None
+        if uses_supabase(self.settings):
+            rest = shared_rest(self.settings.supabase_url, self.settings.supabase_secret_key.get_secret_value())
+            rpc = lambda body: rest.call("POST", "/rpc/match_chunks", json=body).json()  # noqa: E731
+        return Knowledge(self.repo, self.user_id, embedder_for(self.settings, client), rpc)
+
 
 def stores_for(settings: Settings, user_id: str) -> UserStores:
     return UserStores(settings, user_id, memory_store(settings, user_id), prefs_store(settings, user_id))

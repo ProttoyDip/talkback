@@ -105,6 +105,12 @@ PLAN_WORDS = re.compile(
     r"my list|to my|add|remove|book|errands?)\b",
     re.IGNORECASE,
 )
+KNOWLEDGE_TOOLS = {"docs_search", "project_list", "project_search", "project_save"}
+KNOWLEDGE_WORDS = re.compile(
+    r"\b(?:documents?|docs?|files?|pdfs?|uploads?|uploaded|papers?|reports?|manuals?|notes?|projects?|"
+    r"research\w*|sources?|cite|citations?|according to|says? about|in my|save (?:that|this|it))\b",
+    re.IGNORECASE,
+)
 MAX_HISTORY_TURNS = 20
 # Split spoken text at sentence ends, or at a comma once a clause is long.
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
@@ -156,6 +162,7 @@ class CascadeEngine:
         self.ledger = ledger  # the user's action history: saves can be undone
         self.timezone = timezone  # for "tomorrow at 3" (plan P5)
         self.plan_turns_left = 0  # turns that still offer the planning tools
+        self.knowledge_turns_left = 0  # ...and the document and project tools (plan P8)
         self.goal: str | None = None  # the first real request, in the user's words (plan P7)
         self.carried: list[str] = []  # open items from a conversation this one continues
         self.next_typed = False  # the input being handled was typed, not said
@@ -598,6 +605,11 @@ class CascadeEngine:
             if self.plan_turns_left <= 0:
                 tools = [t for t in tools if t["name"] not in PLAN_TOOLS]
             self.plan_turns_left -= 1
+            if KNOWLEDGE_WORDS.search(user_text):
+                self.knowledge_turns_left = 3
+            if self.knowledge_turns_left <= 0:
+                tools = [t for t in tools if t["name"] not in KNOWLEDGE_TOOLS]
+            self.knowledge_turns_left -= 1
         try:
             for round_ in range(MAX_TOOL_ROUNDS + 1):
                 requested: ToolCalls | None = None

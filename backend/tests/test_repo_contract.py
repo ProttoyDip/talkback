@@ -76,3 +76,16 @@ def test_unknown_columns_are_refused(make_repo):
         notes.select({"nope": 1})
     with pytest.raises(ValueError):
         notes.select(order="title; DROP TABLE notes")
+
+
+def test_insert_many_and_delete_where_stay_within_the_user(make_repo):
+    alice, bob = make_repo("alice"), make_repo("bob")
+    assert alice.insert_many([
+        {"title": f"p{i}", "status": "doc1", "created_at": "2026-10-12", "updated_at": "2026-10-12"} for i in range(3)
+    ]) == 3
+    bob.insert({"title": "theirs", "status": "doc1"})
+    assert {n["user_id"] for n in alice.select()} == {"alice"}
+    assert alice.delete_where({"status": "doc1"}) == 3
+    assert alice.select() == [] and [n["title"] for n in bob.select()] == ["theirs"]
+    with pytest.raises(ValueError):
+        alice.delete_where({})

@@ -137,6 +137,32 @@ class PostgrestRepo:
             raise Conflict(identifier)
         return None
 
+    def delete_where(self, where: Where) -> int:
+        """Delete every matching row of this user (a document's passages)."""
+        if not where:
+            raise ValueError("a filter is required")
+        rows = self.rest.call(
+            "DELETE", self._path(), params=[("select", "id"), *self._params(where)],
+            headers={"Prefer": "return=representation"},
+        ).json()
+        return len(rows)
+
+    def insert_many(self, rows: list[Row]) -> int:
+        """One request for many rows (a document's passages)."""
+        if not rows:
+            return 0
+        body = []
+        for row in rows:
+            row = dict(row)
+            check_columns(self.table, row)
+            row.setdefault("id", uuid.uuid4().hex)
+            if self.user_id is None:
+                raise ValueError("an unscoped insert must name the user")
+            row["user_id"] = self.user_id
+            body.append(row)
+        self.rest.call("POST", self._path(), json=body, headers={"Prefer": "return=minimal"})
+        return len(body)
+
     def delete(self, identifier: str, where: Where | None = None) -> bool:
         rows = self.rest.call(
             "DELETE", self._path(), params=[("select", "id"), *self._params({**(where or {}), "id": identifier})],

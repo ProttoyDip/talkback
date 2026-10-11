@@ -56,9 +56,10 @@ class FakePostgrest:
         rows = self.tables.setdefault(request.url.path.rsplit("/", 1)[-1], [])
         params = request.url.params
         if request.method == "POST":
-            row = json.loads(request.content)
-            rows.append(row)
-            return httpx.Response(201, json=[row])
+            body = json.loads(request.content)
+            new = body if isinstance(body, list) else [body]  # a list is a bulk insert
+            rows.extend(new)
+            return httpx.Response(201, json=new)
         hits = [r for r in rows if self._matches(r, params)]
         if request.method == "GET":
             for item in reversed((params.get("order") or "").split(",")):

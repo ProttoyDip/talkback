@@ -15,6 +15,7 @@ from .logs import setup_logging
 from . import scheduler
 from .action_routes import router as action_router
 from .planner_routes import router as planner_router
+from .knowledge_routes import router as knowledge_router
 from .memory_routes import router as memory_router
 from .session import router as session_router
 from .settings_routes import settings_router, skills_router
@@ -40,6 +41,7 @@ app.include_router(session_router)
 app.include_router(memory_router)
 app.include_router(action_router)
 app.include_router(planner_router)
+app.include_router(knowledge_router)
 app.include_router(settings_router)
 app.include_router(skills_router)
 
