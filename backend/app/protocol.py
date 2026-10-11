@@ -263,6 +263,17 @@ class SessionUser(Rest):
     anonymous: bool = False
 
 
+class AuthConfig(Rest):
+    """GET /api/auth-config (no token needed): how this server signs people in.
+    The publishable key is public by design; Row Level Security protects data."""
+
+    mode: Literal["off", "optional", "required"]
+    supabase_url: str | None = None
+    publishable_key: str | None = None
+    # The server asks for an access code (SECURITY.md T8).
+    access_code: bool = False
+
+
 class SessionToken(Rest):
     """POST /api/session. 401 details: sign_in_required, access_code_required."""
 

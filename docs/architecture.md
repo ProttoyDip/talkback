@@ -122,13 +122,14 @@ Tool names: `weather`, `web_search`, `memory_read`, `memory_write`, `memory_dele
 
 ### 3.2 REST API
 
-All routes except `/health` and `POST /api/session` need `Authorization: Bearer <session-token>`. Bodies are JSON and validated with the models in `protocol.py`.
+All routes except `/health`, `GET /api/auth-config` and `POST /api/session` need `Authorization: Bearer <session-token>`. Bodies are JSON and validated with the models in `protocol.py`.
 
 | Method and path | Request | Response | Used by |
 |---|---|---|---|
 | `GET /health` | — | `{status: "ok"}` | Monitoring |
 | `POST /api/session` | Optional `Authorization: Bearer <Supabase access token>` and `X-Access-Code` | `SessionToken {token, expires_at, user: {id, email?, anonymous}}`; `401` with detail `sign_in_required` or `access_code_required` | Session start |
 | `GET /api/me` | — | `SessionUser {id, email?, anonymous}` | Account menu |
+| `GET /api/auth-config` | — (no token) | `AuthConfig {mode: off \| optional \| required, supabase_url?, publishable_key?, access_code}` | Sign-in screen: whether accounts are on, and where to sign in |
 | `GET /api/memories?q=` | optional search text | `MemoryList` | Memory panel |
 | `PATCH /api/memories/{id}` | `MemoryUpdate` | `MemoryItem` | Edit a memory |
 | `DELETE /api/memories/{id}` | — | `204` | Delete a memory |

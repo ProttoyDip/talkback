@@ -8,6 +8,14 @@ const CODE_KEY = 'talkback.accessCode'
 /** The server wants an access code, or the one we sent is wrong. */
 export class AccessCodeError extends Error {}
 
+/** GET /api/auth-config: how this server signs people in. */
+export interface AuthConfig {
+  mode: 'off' | 'optional' | 'required'
+  supabase_url?: string | null
+  publishable_key?: string | null
+  access_code: boolean
+}
+
 /** Who the session belongs to; "local" when the server has no accounts. */
 export interface SessionUser {
   id: string
