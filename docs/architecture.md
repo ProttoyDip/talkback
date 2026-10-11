@@ -239,6 +239,13 @@ graph TB
 
 ## 7. Memory and skills
 
+### 7.0 Storage
+
+Data lives in Supabase (Postgres, through its REST API) when `SUPABASE_URL` and `SUPABASE_SECRET_KEY` are set, and in local SQLite otherwise.
+
+- **Per-user access:** code reaches a user's data through `stores.stores_for(settings, user_id)`. Each repo (`backend/app/db/repo.py`) is bound to one table and one user, so every query is filtered by `user_id` and every insert is stamped with it. Only server jobs, such as the reminder scheduler, use `stores.system_repo()`.
+- **Schema changes:** add a `Table` to `backend/app/db/schema.py`, append a SQLite migration there (they run once each, tracked by `PRAGMA user_version`), and add a numbered file to `supabase/migrations/`.
+
 ### 7.1 Memory schema (SQLite)
 
 ```sql

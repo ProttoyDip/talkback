@@ -17,45 +17,23 @@ from datetime import datetime, timezone
 import httpx
 from pydantic import SecretStr
 
+from .db.postgrest_repo import Rest, SupabaseError, shared_rest
+
 from .memory import MemoryWrite
 from .prefs import Prefs, PrefsStore
 from .protocol import MemoryItem, MemoryUpdate
 
-TIMEOUT = 8.0
 FIELDS = "id,text,kind,utterance,created_at"
 
 
-class SupabaseError(Exception):
-    """Supabase could not be reached or refused the request. Safe to log."""
-
-
-class _Rest:
-    def __init__(self, url: str, key: SecretStr, transport: httpx.BaseTransport | None = None) -> None:
-        secret = key.get_secret_value()
-        headers = {"apikey": secret}
-        # Legacy service_role keys are JWTs and also go in Authorization;
-        # the newer sb_secret_ keys go in apikey only.
-        if secret.startswith("eyJ"):
-            headers["Authorization"] = f"Bearer {secret}"
-        self.client = httpx.Client(
-            base_url=f"{url.rstrip('/')}/rest/v1", headers=headers, timeout=TIMEOUT,
-            follow_redirects=False, transport=transport,
-        )
-
-    def call(self, method: str, path: str, **kwargs) -> httpx.Response:
-        try:
-            response = self.client.request(method, path, **kwargs)
-        except httpx.HTTPError:
-            raise SupabaseError("Supabase is not reachable") from None
-        if response.status_code >= 400:
-            # Never include the response body: it can echo stored text.
-            raise SupabaseError(f"Supabase refused the request ({response.status_code})")
-        return response
+def _rest(url: str, key: SecretStr, transport: httpx.BaseTransport | None) -> Rest:
+    # Tests pass a transport; otherwise every store shares one client.
+    return Rest(url, key, transport) if transport else shared_rest(url, key.get_secret_value())
 
 
 class SupabaseMemoryStore:
     def __init__(self, url: str, key: SecretStr, transport: httpx.BaseTransport | None = None) -> None:
-        self.rest = _Rest(url, key, transport)
+        self.rest = _rest(url, key, transport)
 
     @staticmethod
     def _item(row: dict) -> MemoryItem:
@@ -115,7 +93,7 @@ class SupabasePrefsStore(PrefsStore):
     """One row (id = 1) holding the settings as JSON."""
 
     def __init__(self, url: str, key: SecretStr, transport: httpx.BaseTransport | None = None) -> None:
-        self.rest = _Rest(url, key, transport)
+        self.rest = _rest(url, key, transport)
 
     def load(self) -> Prefs:
         try:

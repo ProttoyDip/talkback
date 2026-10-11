@@ -4,13 +4,14 @@ import asyncio
 import sqlite3
 import uuid
 from collections.abc import Awaitable, Callable
-from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .db.schema import SQLITE_MIGRATIONS
+from .db.sqlite_repo import SqliteDatabase
 from .protocol import MemoryItem, MemoryKind, MemorySaved, MemoryUpdate
 
 
@@ -27,41 +28,10 @@ class MemoryWrite(BaseModel):
 class MemoryStore:
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.connect() as db:
-            db.executescript("""
-                CREATE TABLE IF NOT EXISTS memories (
-                    id TEXT PRIMARY KEY, text TEXT NOT NULL, kind TEXT NOT NULL,
-                    source TEXT NOT NULL CHECK(source = 'user_utterance'),
-                    utterance TEXT NOT NULL, created_at TEXT NOT NULL,
-                    confidence REAL NOT NULL
-                );
-                CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts
-                    USING fts5(text, content='memories');
-                CREATE TRIGGER IF NOT EXISTS memories_ai AFTER INSERT ON memories BEGIN
-                    INSERT INTO memories_fts(rowid, text) VALUES (new.rowid, new.text);
-                END;
-                CREATE TRIGGER IF NOT EXISTS memories_ad AFTER DELETE ON memories BEGIN
-                    INSERT INTO memories_fts(memories_fts, rowid, text)
-                        VALUES ('delete', old.rowid, old.text);
-                END;
-                CREATE TRIGGER IF NOT EXISTS memories_au AFTER UPDATE ON memories BEGIN
-                    INSERT INTO memories_fts(memories_fts, rowid, text)
-                        VALUES ('delete', old.rowid, old.text);
-                    INSERT INTO memories_fts(rowid, text) VALUES (new.rowid, new.text);
-                END;
-            """)
+        self.database = SqliteDatabase(self.path, SQLITE_MIGRATIONS)
 
-    @contextmanager
     def connect(self):
-        db = sqlite3.connect(self.path, timeout=5)
-        db.row_factory = sqlite3.Row
-        db.execute("PRAGMA secure_delete = ON")
-        try:
-            with db:
-                yield db
-        finally:
-            db.close()
+        return self.database.connect()
 
     @staticmethod
     def item(row: sqlite3.Row) -> MemoryItem:
