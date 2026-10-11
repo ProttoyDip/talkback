@@ -285,6 +285,7 @@ export function LiveConversation({
     sessionOpen: model.connection === 'open',
     replay: mode === 'replay',
     reminders: reminders.due,
+    plan: model.plan,
     onDismissReminder: reminders.dismiss,
     onSaveRecording: recording
       ? () => {

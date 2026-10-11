@@ -70,6 +70,8 @@ export interface Turn {
 export interface ConfirmRequest {
   callId: string
   summary: string
+  /** More lines, e.g. a day plan's blocks. */
+  details?: string[]
 }
 
 /** Levels are 0..1, one value per 100 ms, oldest first. */

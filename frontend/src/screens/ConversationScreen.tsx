@@ -11,10 +11,11 @@ import { PresenceOrb } from '../components/PresenceOrb'
 import type { LevelMeters } from '../session/useLevelHistory'
 import { Drawer } from '../components/Drawer'
 import { Toast, type ToastData } from '../components/Toast'
-import type { ConversationModel, Remembered } from '../session/model'
+import type { ConversationModel, DayPlan, Remembered } from '../session/model'
 import { MicButton, type MicMode } from '../components/MicButton'
 import { NavRail, TabBar, type Panel } from '../components/Navigation'
 import { StatusBar } from '../components/StatusBar'
+import { PlanCard } from '../components/PlanCard'
 import { ReminderBanner } from '../components/ReminderBanner'
 import { TextComposer } from '../components/TextComposer'
 import type { ReminderItem } from '../api/types'
@@ -45,6 +46,8 @@ export interface ConversationView {
   sessionOpen?: boolean
   /** The recorded demo (?replay): labelled everywhere, panels show sample data. */
   replay?: boolean
+  /** The latest "Prepare my day" plan card (plan P6). */
+  plan?: DayPlan
   /** Due or missed reminders (plan P5), until the user answers each. */
   reminders?: DueReminder[]
   onDismissReminder?: (reminder: ReminderItem) => void
@@ -74,7 +77,7 @@ interface ConversationScreenProps {
 const EXAMPLES = [
   { label: 'Remember a preference', say: 'Remember that I like short answers.' },
   { label: 'Research a topic', say: 'Quick research on solar batteries.' },
-  { label: 'Prepare my day', say: 'Morning brief.' },
+  { label: 'Prepare my day', say: 'Prepare my day.' },
 ]
 
 function isTyping(target: EventTarget | null) {
@@ -329,6 +332,9 @@ export function ConversationScreen({
               </ol>
 
               <AnimatePresence>
+                {view.plan && (
+                  <PlanCard key={view.plan.id} className="mt-8" plan={view.plan} />
+                )}
                 {confirm && state !== 'offline' && (
                   <ConfirmCard key={confirm.callId} className="mt-8" request={confirm} onAnswer={onAnswerConfirm} />
                 )}
