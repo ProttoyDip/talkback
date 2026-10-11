@@ -56,8 +56,8 @@ export interface ConversationModel {
   remembered?: Remembered
   /** Bumped by data.changed: open panels reload. */
   dataVersion: number
-  /** The last reminder that came due (reminder.due), for its toast. */
-  reminder?: ReminderItem
+  /** Reminders the server sent as due during this conversation (reminder.due). */
+  reminders: ReminderItem[]
   /**
    * Where the user started talking over TalkBack: the playing turn and its
    * text length at that moment. A backchannel caption arrives after the
@@ -73,6 +73,7 @@ export const initialModel: ConversationModel = {
   state: 'idle',
   turns: [],
   dataVersion: 0,
+  reminders: [],
   interrupts: [],
   models: {},
 }
@@ -219,7 +220,7 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
       return { ...model, dataVersion: model.dataVersion + 1 }
 
     case 'reminder.due':
-      return { ...model, reminder: event.reminder }
+      return { ...model, reminders: [...model.reminders, event.reminder] }
 
     case 'error':
       return {

@@ -7,8 +7,9 @@ import { TOOL_LABEL } from './toolLabels'
 
 /** Tools a skill may use (backend skills.SKILL_TOOLS). */
 const SKILL_TOOLS: ToolName[] = [
-  'weather', 'web_search', 'memory_read', 'memory_suggest',
-  'task_list', 'task_add', 'task_update', 'calendar_list', 'calendar_add', 'calendar_update', 'reminder_set',
+  'weather', 'web_search', 'memory_read', 'memory_suggest', 'memory_delete',
+  'task_list', 'task_add', 'task_update', 'task_delete',
+  'calendar_list', 'calendar_add', 'calendar_update', 'calendar_delete', 'reminder_set', 'reminder_update',
 ]
 const MAX_INSTRUCTIONS = 2000
 const field = 'min-h-target rounded-input border border-border bg-bg px-3 text-body text-text'

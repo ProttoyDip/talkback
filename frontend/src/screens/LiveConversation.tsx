@@ -125,7 +125,7 @@ export function LiveConversation({
 
   // Reminders while the page is open (plan P5), and the user's time zone, so
   // "tomorrow at 3" means their 3 PM.
-  const reminders = useReminders(mode === 'live' && access === 'open', model.reminder)
+  const reminders = useReminders(mode === 'live' && access === 'open', model.reminders)
   useEffect(() => {
     if (mode !== 'live' || access !== 'open') return
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone

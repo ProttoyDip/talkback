@@ -6,6 +6,12 @@ export function localInput(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+/** A datetime-local value ("2026-10-12T15:00") as an exact time with an offset. */
+export function exact(local: string) {
+  const date = new Date(local)
+  return Number.isNaN(date.getTime()) ? local : date.toISOString()
+}
+
 export function dayInput(date: Date) {
   return localInput(date).slice(0, 10)
 }

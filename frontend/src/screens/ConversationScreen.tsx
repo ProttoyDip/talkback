@@ -17,6 +17,7 @@ import { NavRail, TabBar, type Panel } from '../components/Navigation'
 import { StatusBar } from '../components/StatusBar'
 import { ReminderBanner } from '../components/ReminderBanner'
 import { TextComposer } from '../components/TextComposer'
+import type { ReminderItem } from '../api/types'
 import type { DueReminder } from '../session/useReminders'
 import { TranscriptTurn } from '../components/TranscriptTurn'
 import type { ConfirmRequest, ConversationState, TimelineData, ToolName, Turn } from '../state/types'
@@ -46,7 +47,7 @@ export interface ConversationView {
   replay?: boolean
   /** Due or missed reminders (plan P5), until the user answers each. */
   reminders?: DueReminder[]
-  onDismissReminder?: (id: string) => void
+  onDismissReminder?: (reminder: ReminderItem) => void
   /** Set while the opt-in recording runs: downloads it as a WAV file. */
   onSaveRecording?: () => void
   activeModels?: ConversationModel['models']

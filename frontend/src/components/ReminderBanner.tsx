@@ -1,4 +1,5 @@
 import { api } from '../api/client'
+import type { ReminderItem } from '../api/types'
 import type { DueReminder } from '../session/useReminders'
 import { askForNotifications } from '../session/useReminders'
 import { when } from '../state/when'
@@ -8,7 +9,7 @@ const button =
   'min-h-target rounded-pill border border-border px-4 font-medium text-text transition-colors duration-(--dur-fast) hover:border-text-subtle'
 
 /** Due (or missed) reminders, until the user answers each one (plan P5). */
-export function ReminderBanner({ due, onDismiss }: { due: DueReminder[]; onDismiss: (id: string) => void }) {
+export function ReminderBanner({ due, onDismiss }: { due: DueReminder[]; onDismiss: (reminder: ReminderItem) => void }) {
   if (due.length === 0) return null
   return (
     <ul aria-label="Reminders" className="flex flex-col gap-2">
@@ -35,7 +36,7 @@ export function ReminderBanner({ due, onDismiss }: { due: DueReminder[]; onDismi
               onClick={() => {
                 askForNotifications()
                 void api.snoozeReminder(reminder.id, 10).catch(() => {})
-                onDismiss(reminder.id)
+                onDismiss(reminder)
               }}
             >
               Snooze 10 min
@@ -46,7 +47,7 @@ export function ReminderBanner({ due, onDismiss }: { due: DueReminder[]; onDismi
               onClick={() => {
                 askForNotifications()
                 void api.reminderDone(reminder.id).catch(() => {})
-                onDismiss(reminder.id)
+                onDismiss(reminder)
               }}
             >
               Done

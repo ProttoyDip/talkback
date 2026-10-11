@@ -15,7 +15,7 @@ import asyncio
 import logging
 
 from .config import Settings
-from .db.repo import Conflict, IsNull, Lte
+from .db.repo import Conflict, In, IsNull, Lte
 from .planner import Planner
 from .protocol import ReminderDue
 from .session import registry
@@ -27,10 +27,15 @@ log = logging.getLogger("talkback.scheduler")
 
 async def deliver_due(settings: Settings) -> int:
     """Deliver due reminders to open conversations. Returns how many."""
+    live_users = tuple({s.user_id for s in list(registry.live.values())})
+    if not live_users:
+        return 0  # nobody to tell: the pages deliver
     reminders = system_repo(settings, "reminders")  # every user's: server job only
+    # Only users with a conversation open, so reminders of people who are
+    # away never crowd out the ones that can be delivered now.
     due = await asyncio.to_thread(
         reminders.select,
-        {"status": "scheduled", "deleted_at": IsNull(), "due_at": Lte(iso(now_utc()))},
+        {"status": "scheduled", "deleted_at": IsNull(), "due_at": Lte(iso(now_utc())), "user_id": In(live_users)},
         "due_at.asc", 50,
     )
     delivered = 0

@@ -3,7 +3,7 @@ import { ApiError, api } from '../../api/client'
 import type { EventItem, ReminderItem, TaskItem } from '../../api/types'
 import { useResource } from '../../api/useResource'
 import { Icon } from '../Icon'
-import { dayInput, localInput, when } from '../../state/when'
+import { dayInput, exact, localInput, when } from '../../state/when'
 import { iconButton, ResourceView, secondaryButton } from './shared'
 
 const field = 'min-h-target rounded-input border border-border bg-bg px-3 text-body text-text'
@@ -35,7 +35,7 @@ function Tasks({ refreshKey }: { refreshKey?: string }) {
     const value = title.trim()
     if (!value) return
     try {
-      const task = await api.addTask({ title: value, due_at: due || undefined })
+      const task = await api.addTask({ title: value, due_at: due ? exact(due) : undefined })
       set([...items, task])
       setTitle('')
       setDue('')
@@ -159,7 +159,7 @@ function Calendar({ refreshKey }: { refreshKey?: string }) {
   const next = new Date(`${day}T00:00`)
   next.setDate(next.getDate() + 1)
   const { state, reload, set } = useResource(
-    () => api.listEvents(`${day}T00:00`, `${dayInput(next)}T00:00`),
+    () => api.listEvents(exact(`${day}T00:00`), exact(`${dayInput(next)}T00:00`)),
     `calendar|${day}|${refreshKey ?? ''}`,
   )
   const [title, setTitle] = useState('')
@@ -171,8 +171,12 @@ function Calendar({ refreshKey }: { refreshKey?: string }) {
   const add = async (items: EventItem[]) => {
     if (!title.trim()) return
     try {
-      const event = await api.addEvent({ title: title.trim(), starts_at: `${day}T${start}`, ends_at: `${day}T${end}` })
-      set([...items, event].sort((a, b) => a.starts_at.localeCompare(b.starts_at)))
+      const event = await api.addEvent({
+        title: title.trim(),
+        starts_at: exact(`${day}T${start}`),
+        ends_at: exact(`${day}T${end}`),
+      })
+      set([...items, event].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()))
       setTitle('')
       setProblem(undefined)
     } catch (error) {
@@ -206,15 +210,17 @@ function Calendar({ refreshKey }: { refreshKey?: string }) {
               <ol aria-label="Agenda" className="flex flex-col gap-2">
                 {items.map((event) => (
                   <li key={event.id} className={`${card} flex-row items-center`}>
-                    <p className="w-28 shrink-0 font-mono text-data text-text-muted">
+                    <div className="min-w-0 flex-1">
+                    <p className="font-mono text-data text-text-muted">
                       {time(event.starts_at)}–{time(event.ends_at)}
                     </p>
-                    <p className="min-w-0 flex-1 text-body text-text">
+                    <p className="text-body text-text">
                       {event.title}
                       {event.kind !== 'block' && (
                         <span className="ml-2 font-mono text-label uppercase text-text-muted">{event.kind}</span>
                       )}
                     </p>
+                    </div>
                     <button
                       type="button"
                       className={iconButton}
@@ -275,8 +281,8 @@ function Reminders({ refreshKey }: { refreshKey?: string }) {
   const add = async (items: ReminderItem[]) => {
     if (!text.trim()) return
     try {
-      const reminder = await api.setReminder({ text: text.trim(), due_at: due })
-      set([...items, reminder].sort((a, b) => a.due_at.localeCompare(b.due_at)))
+      const reminder = await api.setReminder({ text: text.trim(), due_at: exact(due) })
+      set([...items, reminder].sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime()))
       setText('')
       setProblem(undefined)
     } catch (error) {

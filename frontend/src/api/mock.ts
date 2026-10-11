@@ -159,10 +159,11 @@ export async function mockRequest<T>(method: string, path: string, body?: unknow
     if (method === 'GET') {
       const params = new URLSearchParams(query)
       const [from, to] = [params.get('from') ?? '', params.get('to') ?? '']
-      result = { items: events.filter((e) => e.starts_at < to && e.ends_at > from) }
+      const at = (iso: string) => new Date(iso).getTime()
+      result = { items: events.filter((e) => at(e.starts_at) < at(to) && at(e.ends_at) > at(from)) }
     } else if (method === 'POST') {
       const event = { id: `e${mockId++}`, kind: 'block', status: 'confirmed', created_at: new Date().toISOString(), ...(body as object) } as EventItem
-      events = [...events, event].sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+      events = [...events, event].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
       result = event
     } else {
       events = events.filter((e) => e.id !== id)
