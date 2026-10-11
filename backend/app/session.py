@@ -147,10 +147,7 @@ class Session:
         self.turn_epoch = 0
         # Turn-taking (X2): barge-in and trimming at the playback position.
         self.vad = EnergyVad()
-        self.decider = BargeInDecider()
-        if settings is not None:
-            # The user's Interruptions setting applies when a session starts.
-            self.decider = BargeInDecider.for_sensitivity(prefs_store(settings).load().interrupt_sensitivity)
+        self.decider = BargeInDecider()  # start_engine applies the user's setting
         self.interim_user_text = ""
         self.overlapping = False
         self.words: dict[str, list[tuple[str, float, float]]] = {}
@@ -184,7 +181,12 @@ class Session:
     async def start_engine(self) -> None:
         if self.engine_factory is None or self.settings is None:
             return
-        choice = self.engine_factory(self.settings)
+        # Settings may live in Supabase behind a blocking HTTP client, so these
+        # run on a worker thread: on the event loop they froze every session.
+        prefs = await asyncio.to_thread(prefs_store(self.settings).load)
+        # The user's Interruptions setting applies when a session starts.
+        self.decider = BargeInDecider.for_sensitivity(prefs.interrupt_sensitivity)
+        choice = await asyncio.to_thread(self.engine_factory, self.settings)
         self.engine_choice = choice
         if choice.problem:
             await self.send(ErrorEvent(code="voice_engine_offline", message=choice.problem))

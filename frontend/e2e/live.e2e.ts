@@ -67,6 +67,16 @@ test('a lost connection shows the reconnecting message', async ({ page }) => {
   await expect(status(page)).toContainText('OFFLINE')
 })
 
+test('a microphone that sends only silence says so', async ({ page }) => {
+  // Like a mic muted in Windows: the browser opens it, but every sample is zero.
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = async () => new AudioContext().createMediaStreamDestination().stream
+  })
+  await page.goto('/')
+  await micButton(page, 'Start talking').click()
+  await expect(page.getByRole('alert')).toContainText("TalkBack can't hear your microphone.", { timeout: 10_000 })
+})
+
 test('a blocked microphone explains how to fix it', async ({ page }) => {
   await page.addInitScript(() => {
     navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('denied', 'NotAllowedError'))

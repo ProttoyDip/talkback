@@ -86,6 +86,7 @@ export function LiveConversation({
   const engineRef = useRef<AudioEngine | null>(null)
   const [starting, setStarting] = useState(false)
   const [micProblem, setMicProblem] = useState<MicProblem | null>(null)
+  const [micSilent, setMicSilent] = useState(false)
   // First run: onboarding (design.md 5.1). The replay needs none.
   const [onboarding, setOnboarding] = useState(() => mode === 'live' && !hasOnboarded())
   const [tip, setTip] = useState(false)
@@ -110,9 +111,11 @@ export function LiveConversation({
     if (starting || started) return
     setStarting(true)
     setMicProblem(null)
+    setMicSilent(false)
     const engine = new AudioEngine({
       onFrame: (frame) => session.sendAudio(frame),
       onInputLevel: (level) => (meters.current.user = level),
+      onSilentMic: setMicSilent,
       onOutputLevel: (level) => (meters.current.assistant = level),
       onPosition: (seq, samplesPlayed) =>
         session.send({ type: 'playback.position', seq, samples_played: samplesPlayed }),
@@ -175,6 +178,7 @@ export function LiveConversation({
   const banner: BannerProps | undefined = micProblem
     ? { tone: 'danger', message: MIC_PROBLEM_COPY[micProblem], action: { label: 'Try again', onClick: () => void begin() } }
     : (bannerFor(model, reconnect) ??
+      (micSilent && !muted ? { tone: 'danger' as const, message: MIC_PROBLEM_COPY.silent } : undefined) ??
       (tip
         ? {
             tone: 'neutral' as const,

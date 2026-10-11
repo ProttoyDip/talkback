@@ -11,6 +11,8 @@ const FRAME_SAMPLES = 320 // 20 ms
 export interface CaptureMessage {
   frame: ArrayBuffer
   level: number
+  /** Every sample rounds to zero: a real mic always has some noise, a muted one does not. */
+  silent: boolean
 }
 
 class CaptureProcessor extends AudioWorkletProcessor {
@@ -18,22 +20,27 @@ class CaptureProcessor extends AudioWorkletProcessor {
   private frame = new Int16Array(FRAME_SAMPLES)
   private filled = 0
   private sumSquares = 0
+  private peak = 0
 
   process(inputs: Float32Array[][]): boolean {
     const channel = inputs[0]?.[0]
     if (!channel) return true
     for (const sample of this.resampler.process(channel)) {
-      this.frame[this.filled++] = floatToInt16(sample)
+      const value = floatToInt16(sample)
+      this.frame[this.filled++] = value
+      this.peak = Math.max(this.peak, Math.abs(value))
       this.sumSquares += sample * sample
       if (this.filled === FRAME_SAMPLES) {
         const message: CaptureMessage = {
           frame: this.frame.buffer,
           level: levelFromRms(Math.sqrt(this.sumSquares / FRAME_SAMPLES)),
+          silent: this.peak === 0,
         }
         this.port.postMessage(message, [this.frame.buffer])
         this.frame = new Int16Array(FRAME_SAMPLES)
         this.filled = 0
         this.sumSquares = 0
+        this.peak = 0
       }
     }
     return true

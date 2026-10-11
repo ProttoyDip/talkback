@@ -15,15 +15,22 @@ export interface AudioCallbacks {
   onOutputLevel: (level: number) => void
   /** samples_played counts all assistant samples since the session started. */
   onPosition: (seq: number, samplesPlayed: number) => void
+  /** true: the mic has sent only silence for a while (muted by the system or a mic key). */
+  onSilentMic?: (silent: boolean) => void
 }
 
-export type MicProblem = 'blocked' | 'not_found' | 'unavailable'
+export type MicProblem = 'blocked' | 'not_found' | 'unavailable' | 'silent'
+
+/** 3 s of digital silence (150 frames of 20 ms) before warning. */
+const SILENT_FRAMES = 150
 
 /** Copy from design.md 5.6: plain, specific, with a next step. */
 export const MIC_PROBLEM_COPY: Record<MicProblem, string> = {
   blocked: 'Microphone is blocked. Click the camera icon in the address bar and allow access.',
   not_found: 'No microphone found. Connect one and try again.',
   unavailable: 'The microphone is in use by another app or not available. Close it there and try again.',
+  silent:
+    "TalkBack can't hear your microphone. Check it isn't muted by a mic key or in your system sound settings, or choose another one in Settings.",
 }
 
 export class MicError extends Error {
@@ -117,10 +124,19 @@ export class AudioEngine {
 
     // numberOfOutputs 0: a sink node, so the browser always runs it.
     const capture = new AudioWorkletNode(context, 'talkback-capture', { numberOfInputs: 1, numberOfOutputs: 0 })
+    const track = stream.getAudioTracks()[0]
+    let silentFrames = 0
     capture.port.onmessage = (event: MessageEvent<CaptureMessage>) => {
       if (this.muted) return // muted audio never leaves the page
       this.callbacks.onInputLevel(event.data.level)
       this.callbacks.onFrame(event.data.frame)
+      // A mic muted by the system still sends frames, but they are empty.
+      if (event.data.silent || track?.muted) {
+        if (++silentFrames === SILENT_FRAMES) this.callbacks.onSilentMic?.(true)
+      } else {
+        if (silentFrames >= SILENT_FRAMES) this.callbacks.onSilentMic?.(false)
+        silentFrames = 0
+      }
     }
     context.createMediaStreamSource(stream).connect(capture)
     this.capture = capture

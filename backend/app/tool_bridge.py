@@ -8,6 +8,7 @@ from collections import deque
 from collections.abc import Awaitable, Callable
 from typing import Annotated
 
+import httpx
 from pydantic import Field, TypeAdapter, ValidationError
 
 from .protocol import ServerMessage, Source, ToolConfirm, ToolConfirmRequest, ToolStatus
@@ -89,11 +90,12 @@ class ToolBridge:
                 future.set_result(False)
         self.pending.clear()
 
-    def _log(self, code: str, turn_id: str) -> None:
+    def _log(self, code: str, turn_id: str, cause: str | None = None) -> None:
         # Never log model-supplied names, arguments, results or exception messages.
-        log.warning("tool rejected or failed", extra={
-            "session_id": self.session_id, "turn_id": turn_id, "code": code,
-        })
+        extra = {"session_id": self.session_id, "turn_id": turn_id, "code": code}
+        if cause:
+            extra["event"] = cause
+        log.warning("tool rejected or failed", extra=extra)
 
     async def execute(self, raw: str, turn_id: str) -> str:
         try:
@@ -106,6 +108,7 @@ class ToolBridge:
             call_id = uuid.uuid4().hex
             tool = self.tools.get(call.name)
             error = None
+            cause = None
             sources: list[Source] = []
             if tool is None:
                 error = "unknown_tool"
@@ -161,14 +164,18 @@ class ToolBridge:
                                 continue  # Unsafe or malformed URLs are not UI links.
                 except TimeoutError:
                     error = "tool_timeout"
-                except Exception:
+                except Exception as exc:
                     error = "tool_failed"
+                    # The exception type and HTTP status only, never its message.
+                    cause = type(exc).__name__
+                    if isinstance(exc, httpx.HTTPStatusError):
+                        cause += f" {exc.response.status_code}"
                 finally:
                     task.cancel()
                     filler.cancel()
                     await asyncio.gather(task, filler, return_exceptions=True)
             if error:
-                self._log(error, turn_id)
+                self._log(error, turn_id, cause)
             # Unknown names are untrusted text and must not be echoed to the UI.
             if tool is not None:
                 await self.emit(ToolStatus(
