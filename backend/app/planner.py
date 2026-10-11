@@ -10,11 +10,11 @@ from datetime import date, datetime, timedelta
 
 from .actions import ActionLedger
 from .db.repo import Gte, In, IsNull, Lte, Repo
+from .planning import free_slots, schedule
 from .protocol import EventItem, PlanItem, ReminderItem, TaskItem
+from .timeutil import day_bounds, iso, local, now_utc, parse, spoken, to_storage, zone
 
 PLAN_LIFETIME = timedelta(minutes=30)  # an unanswered plan expires
-from .planning import free_slots, schedule
-from .timeutil import day_bounds, iso, local, now_utc, parse, spoken, to_storage, zone
 
 MAX_ITEMS = 500  # per list; plenty for one person
 
@@ -265,10 +265,14 @@ class Planner:
 
     # Prepare my day (plan P6)
 
-    def propose_day(self, day: str | None = None, message_id: str | None = None) -> tuple[str, str, list[PlanItem]]:
-        """A plan for the day: (proposal id, local date, items). Nothing changes yet."""
+    def propose_day(
+        self, day: str | None = None, message_id: str | None = None,
+    ) -> tuple[str, str, list[PlanItem], str]:
+        """A plan for the day: (proposal id, local date, items, expires_at). Nothing changes yet."""
         today = now_utc().astimezone(zone(self.tz)).date()
         when = date.fromisoformat(day) if day else today
+        if when < today:
+            raise ValueError("that day has passed")
         start, end = day_bounds(when, self.tz)
         busy = [
             (datetime.fromisoformat(r["starts_at"]), datetime.fromisoformat(r["ends_at"]))
@@ -299,7 +303,7 @@ class Planner:
             "date": when.isoformat(), "status": "pending", "message_id": message_id,
             "items": [item.model_dump() for item in items], "expires_at": iso(now_utc() + PLAN_LIFETIME),
         })
-        return row["id"], when.isoformat(), items
+        return row["id"], when.isoformat(), items, row["expires_at"]
 
     def plan_items(self, proposal_id: str) -> list[PlanItem]:
         row = self.repo("proposals").get(proposal_id)
@@ -323,6 +327,8 @@ class Planner:
             proposals.update(proposal_id, {"status": "expired"})
             raise ValueError("that plan expired; ask for a new one")
         items = [PlanItem(**item) for item in row["items"]]
+        if indices is None:
+            indices = row.get("chosen")  # what the user ticked on the card, if anything
         chosen = [i for i in items if indices is None or i.index in indices]
         created, applied = [], []
         for item in chosen:
@@ -335,7 +341,9 @@ class Planner:
             })
             created.append({"id": event["id"], "title": event["title"]})
             applied.append(item.index)
-        status = "accepted" if len(applied) == len(items) else "partially_applied"
+        # Partly applied only when something chosen clashed; leaving items
+        # unticked is the user's choice, not a failure.
+        status = "accepted" if len(applied) == len(chosen) else "partially_applied"
         proposals.update(proposal_id, {"status": status})
         action_id = None
         if created and self.ledger is not None:
@@ -345,6 +353,14 @@ class Planner:
             )
             action_id = action["id"]
         return status, applied, action_id
+
+    def choose(self, proposal_id: str, indices: list[int]) -> bool:
+        """The card's ticks, so a spoken yes applies just those."""
+        row = self.repo("proposals").get(proposal_id)
+        if row is None or row["status"] != "pending":
+            return False
+        self.repo("proposals").update(proposal_id, {"chosen": indices})
+        return True
 
     def reject_plan(self, proposal_id: str) -> bool:
         row = self.repo("proposals").get(proposal_id)

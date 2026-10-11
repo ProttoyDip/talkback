@@ -148,7 +148,8 @@ All routes except `/health`, `GET /api/auth-config` and `POST /api/session` need
 | `POST /api/reminders/{id}/delivered`, `/ack`, `/snooze` (`{minutes}`), `DELETE /api/reminders/{id}` | — | `ReminderItem`, `204` | Shown, done, snooze, cancel |
 | `POST /api/skills`, `PATCH /api/skills/{id}`, `DELETE /api/skills/{id}` | `SkillCreate`, `SkillUpdate` | `SkillItem`, `204` | Your own skills; built-ins are read-only |
 | `POST /api/plans/{id}/apply` | `PlanApply {items?}` | `{proposal_id, status, applied[], action_id?}` | Accept a day plan (the button is the confirmation); undo reverts the whole plan |
-| `POST /api/plans/{id}/reject` | — | `204` | "Not now" |
+| `POST /api/plans/{id}/choose` | `PlanApply {items}` | `204` | The card's ticks; a spoken yes then applies just these |
+| `POST /api/plans/{id}/reject` | — | `204`; `409` if already answered | "Not now" |
 | `GET /api/actions?limit=` | — | `ActionList` (newest first: `id, tool, status, summary, created_at, finished_at?, undoable, undone_at?`) | Activity panel |
 | `POST /api/actions/{id}/undo` | optional `Idempotency-Key` header | `ActionItem` (`status: undone`); `409` if the target changed since, `404` if not undoable | Undo in the Activity panel and toasts |
 | `DELETE /api/memories/{id}` | — | `204` | Delete a memory |

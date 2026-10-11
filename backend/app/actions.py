@@ -84,8 +84,14 @@ def _undo_row(tables, undo: dict) -> None:
         rows = [(repo.get(r["id"]), r) for r in undo["rows"]]
         if any(cur is None or cur.get("deleted_at") or cur["title"] != r["title"] for cur, r in rows):
             raise UndoConflict("a block of the plan changed since")
-        for current, _ in rows:
-            repo.update(current["id"], {"deleted_at": now()}, expect_updated_at=current["updated_at"])
+        removed = []
+        try:
+            for current, _ in rows:
+                removed.append(repo.update(current["id"], {"deleted_at": now()}, expect_updated_at=current["updated_at"]))
+        except Exception:
+            for row in removed:  # all or none
+                repo.update(row["id"], {"deleted_at": None})
+            raise UndoConflict("a block of the plan changed since") from None
         return
     current = repo.get(undo["id"])
     # Changed since? Only the fields this action changed matter, so undoing

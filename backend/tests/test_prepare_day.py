@@ -63,7 +63,7 @@ def urgent_tasks(planner):
 
 def test_a_plan_changes_nothing_until_accepted_and_undo_removes_it_all(planner):
     urgent_tasks(planner)
-    proposal, day, items = planner.propose_day("2030-01-07")
+    proposal, day, items, _ = planner.propose_day("2030-01-07")
     assert day == "2030-01-07" and [i.title for i in items] == ["Invoice", "Slides"]
     assert [e.title for e in planner.events("2030-01-07T00:00", "2030-01-08T00:00")] == ["Standup"]  # nothing yet
 
@@ -80,7 +80,7 @@ def test_a_plan_changes_nothing_until_accepted_and_undo_removes_it_all(planner):
 
 def test_accepting_some_items_and_clashes_are_skipped(planner):
     urgent_tasks(planner)
-    proposal, _, items = planner.propose_day("2030-01-07")
+    proposal, _, items, _ = planner.propose_day("2030-01-07")
     first = items[0]
     planner.add_event("Dentist", first.starts_at, first.ends_at)  # the calendar changed since
     status, applied, _ = planner.apply_plan(proposal)
@@ -89,8 +89,8 @@ def test_accepting_some_items_and_clashes_are_skipped(planner):
 
 def test_a_newer_plan_replaces_the_older_one(planner):
     urgent_tasks(planner)
-    older, _, _ = planner.propose_day("2030-01-07")
-    newer, _, _ = planner.propose_day("2030-01-07")
+    older, *_ = planner.propose_day("2030-01-07")
+    newer, *_ = planner.propose_day("2030-01-07")
     with pytest.raises(ValueError, match="superseded"):
         planner.apply_plan(older)
     assert planner.apply_plan(newer)[0] == "accepted"
@@ -98,7 +98,7 @@ def test_a_newer_plan_replaces_the_older_one(planner):
 
 def test_an_old_plan_expires(planner, settings):
     urgent_tasks(planner)
-    proposal, _, _ = planner.propose_day("2030-01-07")
+    proposal, *_ = planner.propose_day("2030-01-07")
     stores_for(settings, "u1").repo("proposals").update(proposal, {"expires_at": iso(now_utc() - timedelta(minutes=1))})
     with pytest.raises(ValueError, match="expired"):
         planner.apply_plan(proposal)
@@ -135,7 +135,7 @@ def test_the_propose_tool_shows_a_card_and_apply_asks_with_every_block(planner):
 def test_the_card_buttons_apply_or_decline(client, settings):
     planner = stores_for(settings, "u1").planner("UTC")
     planner.add_task("Invoice", "2030-01-07T17:00")
-    proposal, _, _ = planner.propose_day("2030-01-07")
+    proposal, *_ = planner.propose_day("2030-01-07")
     token, _ = issue_token(settings.signing_key(), user_id="u1")
     headers = {"Authorization": f"Bearer {token}"}
     assert client.post(f"/api/plans/{proposal}/apply", headers=bearer_for(settings, "u2"), json={}).status_code == 404
@@ -153,3 +153,31 @@ def test_the_skill_ships(client, settings):
     items = client.get("/api/skills", headers=bearer_for(settings, "u1")).json()["items"]
     skill = next(s for s in items if s["id"] == "prepare-my-day")
     assert "day_plan_propose" in skill["allowed_tools"] and "prepare my day" in skill["triggers"]
+
+
+# Review fixes
+
+
+def test_unticked_items_are_a_choice_not_a_clash(planner):
+    urgent_tasks(planner)
+    proposal, _, items, _ = planner.propose_day("2030-01-07")
+    assert planner.apply_plan(proposal, [1])[:2] == ("accepted", [1])
+
+
+def test_a_spoken_yes_applies_only_the_ticked_items(planner):
+    urgent_tasks(planner)
+    proposal, *_ = planner.propose_day("2030-01-07")
+    assert planner.choose(proposal, [0])
+    assert planner.apply_plan(proposal)[1] == [0]  # no items given: the card's ticks
+
+
+def test_a_past_day_cannot_be_planned(planner):
+    with pytest.raises(ValueError):
+        planner.propose_day("2020-01-01")
+
+
+def test_rounding_never_goes_back_in_time():
+    from app.planning import round_up
+
+    assert round_up(at(9, 15).replace(second=40)) == at(9, 30)
+    assert round_up(at(9, 15)) == at(9, 15)

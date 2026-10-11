@@ -151,6 +151,8 @@ export const api = {
       return result
     }),
   rejectPlan: (id: string) => request<void>('POST', `/api/plans/${encodeURIComponent(id)}/reject`),
+  choosePlanItems: (id: string, items: number[]) =>
+    request<void>('POST', `/api/plans/${encodeURIComponent(id)}/choose`, { items }),
   cancelReminder: (id: string) => request<void>('DELETE', `/api/reminders/${encodeURIComponent(id)}`),
   updateSettings: (update: SettingsUpdate) => request<SettingsView>('PATCH', '/api/settings', update),
 }

@@ -100,6 +100,14 @@ def apply_plan(identifier: Id, body: PlanApply, plan: Plan) -> dict:
     return {"proposal_id": identifier, "status": status, "applied": applied, "action_id": action_id}
 
 
+@router.post("/plans/{identifier}/choose", status_code=204)
+def choose_plan_items(identifier: Id, body: PlanApply, plan: Plan) -> Response:
+    """The card's ticks: a spoken yes then applies just these."""
+    if not plan.choose(identifier, body.items or []):
+        raise HTTPException(409, "That plan was already answered or replaced")
+    return Response(status_code=204)
+
+
 @router.post("/plans/{identifier}/reject", status_code=204)
 def reject_plan(identifier: Id, plan: Plan) -> Response:
     if not plan.reject_plan(identifier):

@@ -6,6 +6,7 @@ create table if not exists public.proposals (
   status text not null default 'pending'
     check (status in ('pending', 'accepted', 'partially_applied', 'rejected', 'superseded', 'expired')),
   items jsonb not null,
+  chosen jsonb,  -- the items ticked on the card, applied by a spoken yes
   message_id text,
   expires_at timestamptz not null,
   created_at timestamptz not null default now(),
