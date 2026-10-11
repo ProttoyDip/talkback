@@ -77,6 +77,8 @@ const paths = {
     </>
   ),
   folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  arrowUp: <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />,
   search: (
     <>
       <circle cx="11" cy="11" r="6.5" />
