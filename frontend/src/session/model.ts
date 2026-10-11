@@ -186,6 +186,9 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
     case 'metrics':
       return { ...model, latencyMs: event.latency_ms }
 
+    case 'data.changed':
+      return model // the panels reload themselves (plan P4)
+
     case 'error':
       return {
         ...model,

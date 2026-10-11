@@ -10,6 +10,7 @@ const RUNNING_COPY: Record<ToolCall['name'], string> = {
   memory_read: 'Checking memory…',
   memory_write: 'Saving to memory…',
   memory_delete: 'Deleting a memory…',
+  memory_suggest: 'Suggesting a memory…',
   skill_run: 'Running a skill…',
 }
 
@@ -19,6 +20,7 @@ const FAILED_COPY: Record<ToolCall['name'], string> = {
   memory_read: "Couldn't read memory",
   memory_write: "Couldn't save to memory",
   memory_delete: "Couldn't delete the memory",
+  memory_suggest: "Couldn't save the suggestion",
   skill_run: "Couldn't finish the skill",
 }
 
@@ -27,6 +29,7 @@ const DONE_COPY: Record<Exclude<ToolCall['name'], 'web_search'>, string> = {
   memory_read: 'Checked memory',
   memory_write: 'Saved to memory',
   memory_delete: 'Memory deleted',
+  memory_suggest: 'Suggested a memory for your OK',
   skill_run: 'Skill finished',
 }
 

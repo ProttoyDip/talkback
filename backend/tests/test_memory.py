@@ -73,7 +73,9 @@ def test_save_emits_memory_saved(store):
     emit = AsyncMock()
     item = asyncio.run(remember(store, write(), emit))
     event = emit.await_args.args[0]
-    assert event.model_dump() == {'type': 'memory.saved', 'id': item.id, 'text': item.text}
+    assert event.model_dump(exclude_none=True) == {
+        'type': 'memory.saved', 'id': item.id, 'text': item.text, 'status': 'confirmed',
+    }
 
 
 @pytest.fixture

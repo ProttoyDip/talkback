@@ -6,6 +6,7 @@ export const TOOL_STATUS_NAME: Record<ToolName, string> = {
   memory_read: 'MEMORY',
   memory_write: 'MEMORY',
   memory_delete: 'MEMORY',
+  memory_suggest: 'MEMORY',
   skill_run: 'SKILL',
 }
 

@@ -29,7 +29,9 @@ ConversationState = Literal[
 ]
 
 
-ToolName = Literal["weather", "web_search", "memory_read", "memory_write", "memory_delete", "skill_run"]
+ToolName = Literal[
+    "weather", "web_search", "memory_read", "memory_write", "memory_delete", "memory_suggest", "skill_run",
+]
 
 # Ids are short opaque strings created by the server.
 Id = Annotated[str, Field(min_length=1, max_length=64)]
@@ -167,6 +169,9 @@ class ToolStatus(Message):
     # closes its confirmation card.
     status: Literal["running", "done", "failed", "declined", "cancelled", "expired"]
     reason: ToolStatusReason | None = None
+    # The change this call made (GET /api/actions), and whether it can be undone.
+    action_id: Id | None = None
+    undoable: bool = False
     # web_search results, shown as the expandable source list.
     sources: list[Source] = Field(default_factory=list, max_length=10)
 
@@ -186,6 +191,20 @@ class MemorySaved(Message):
     type: Literal["memory.saved"] = "memory.saved"
     id: Id
     text: str
+    # A suggestion waits for the user's OK; it is not used until confirmed.
+    status: MemoryStatus = "confirmed"
+    # A correction replaces an older memory ("Remembered: tea, instead of coffee").
+    replaced_id: Id | None = None
+    replaced_text: str | None = Field(default=None, max_length=500)
+    # Undo goes through POST /api/actions/{action_id}/undo.
+    action_id: Id | None = None
+
+
+class DataChanged(Message):
+    """Stored data changed outside the panel (by voice): open panels reload."""
+
+    type: Literal["data.changed"] = "data.changed"
+    kinds: list[Literal["memories", "actions"]] = Field(min_length=1, max_length=8)
 
 
 class Metrics(Message):
@@ -237,6 +256,7 @@ ServerMessage = Annotated[
     | ToolStatus
     | ToolConfirmRequest
     | MemorySaved
+    | DataChanged
     | Metrics
     | ErrorEvent
     | ModelActive
@@ -283,6 +303,12 @@ class SessionToken(Rest):
 
 
 MemoryKind = Literal["preference", "fact", "reminder"]
+# confirmed: in use. suggested: proposed by TalkBack, waiting for the user's OK.
+# superseded: replaced by a correction (kept as history). dismissed: rejected.
+MemoryStatus = Literal["confirmed", "suggested", "superseded", "dismissed"]
+# Where the words came from (SECURITY.md T3): only the user's own words, or
+# their edit, create a memory in use; a suggestion stays one until confirmed.
+MemorySource = Literal["user_utterance", "user_text", "user_edit", "assistant_suggestion"]
 
 
 class MemoryItem(Rest):
@@ -291,6 +317,10 @@ class MemoryItem(Rest):
     kind: MemoryKind
     utterance: str = Field(max_length=1000)  # the user's exact words
     created_at: str  # ISO 8601, UTC
+    status: MemoryStatus = "confirmed"
+    source: MemorySource = "user_utterance"
+    updated_at: str | None = None  # ISO 8601, UTC; set when edited or replaced
+    superseded_by: Id | None = None  # the correction that replaced it
 
 
 class MemoryList(Rest):
@@ -300,6 +330,28 @@ class MemoryList(Rest):
 class MemoryUpdate(Rest):
     text: str | None = Field(default=None, min_length=1, max_length=500)
     kind: MemoryKind | None = None
+    # Confirm or dismiss a suggestion. Only suggestions can change status.
+    status: Literal["confirmed", "dismissed"] | None = None
+
+
+ActionStatus = Literal["done", "failed", "cancelled", "declined", "expired", "undone"]
+
+
+class ActionItem(Rest):
+    """One change TalkBack made, or was asked to make (action history)."""
+
+    id: Id
+    tool: str = Field(max_length=64)
+    status: ActionStatus
+    summary: str = Field(max_length=300)  # "Deleted the memory “Home city is Lisbon”"
+    created_at: str
+    finished_at: str | None = None
+    undoable: bool = False
+    undone_at: str | None = None
+
+
+class ActionList(Rest):
+    items: list[ActionItem]
 
 
 class SkillItem(Rest):

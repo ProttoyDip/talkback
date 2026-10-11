@@ -36,7 +36,7 @@ class MemoryStore:
 
     @staticmethod
     def item(row: sqlite3.Row) -> MemoryItem:
-        return MemoryItem(**{key: row[key] for key in MemoryItem.model_fields})
+        return MemoryItem(**{key: row[key] for key in MemoryItem.model_fields if key in row.keys()})
 
     def create(self, write: MemoryWrite) -> MemoryItem:
         # Revalidate at the persistence boundary, including model_construct input.

@@ -8,5 +8,6 @@ export const TOOL_LABEL: Record<ToolName, { icon: IconName; label: string }> = {
   memory_read: { icon: 'memory', label: 'Read saved memories' },
   memory_write: { icon: 'memory', label: 'Save memories' },
   memory_delete: { icon: 'memory', label: 'Delete saved memories' },
+  memory_suggest: { icon: 'memory', label: 'Suggest memories' },
   skill_run: { icon: 'skills', label: 'Skills' },
 }

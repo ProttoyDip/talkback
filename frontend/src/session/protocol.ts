@@ -11,6 +11,7 @@ export type ToolName =
   | 'memory_read'
   | 'memory_write'
   | 'memory_delete'
+  | 'memory_suggest'
   | 'skill_run'
 
 /**
@@ -99,6 +100,9 @@ export type ServerEvent =
       name: ToolName
       status: ToolCallStatus
       reason?: ToolStatusReason
+      /** The change this call made (Activity panel), and whether it can be undone. */
+      action_id?: string
+      undoable?: boolean
       sources?: Source[]
     }
   | {
@@ -109,7 +113,17 @@ export type ServerEvent =
       name?: ToolName
       expires_in_ms?: number
     }
-  | { type: 'memory.saved'; id: string; text: string }
+  | {
+      type: 'memory.saved'
+      id: string
+      text: string
+      status?: 'confirmed' | 'suggested'
+      replaced_id?: string
+      replaced_text?: string
+      action_id?: string
+    }
+  /** Stored data changed by voice: open panels reload. */
+  | { type: 'data.changed'; kinds: Array<'memories' | 'actions'> }
   | { type: 'metrics'; latency_ms: number }
   | { type: 'error'; code: ErrorCode; message: string; retry_in_ms?: number }
   | { type: 'model.active'; role: ModelRole; provider: ProviderId; model: string; backup: boolean }
@@ -124,6 +138,7 @@ const SERVER_EVENT_TYPES = new Set<ServerEvent['type']>([
   'tool.status',
   'tool.confirm_request',
   'memory.saved',
+  'data.changed',
   'metrics',
   'error',
   'model.active',

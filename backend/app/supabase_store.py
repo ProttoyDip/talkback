@@ -41,7 +41,7 @@ class SupabaseMemoryStore:
 
     @staticmethod
     def _item(row: dict) -> MemoryItem:
-        return MemoryItem(**{key: row[key] for key in MemoryItem.model_fields})
+        return MemoryItem(**{key: row[key] for key in MemoryItem.model_fields if key in row.keys()})
 
     def create(self, write: MemoryWrite) -> MemoryItem:
         write = MemoryWrite.model_validate(write.model_dump())  # revalidate at the boundary

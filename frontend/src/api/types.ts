@@ -16,11 +16,34 @@ export interface MemoryItem {
   /** The user's exact words that created it. */
   utterance: string
   created_at: string
+  /** suggested: proposed by TalkBack, waiting for an OK. superseded: replaced by a correction. */
+  status?: MemoryStatus
+  /** Where the words came from: said, typed, edited, or suggested by TalkBack. */
+  source?: MemorySource
+  updated_at?: string | null
+  superseded_by?: string | null
+}
+
+export type MemoryStatus = 'confirmed' | 'suggested' | 'superseded' | 'dismissed'
+export type MemorySource = 'user_utterance' | 'user_text' | 'user_edit' | 'assistant_suggestion'
+
+/** One change TalkBack made or was asked to make (GET /api/actions). */
+export interface ActionItem {
+  id: string
+  tool: string
+  status: 'done' | 'failed' | 'cancelled' | 'declined' | 'expired' | 'undone'
+  summary: string
+  created_at: string
+  finished_at?: string | null
+  undoable: boolean
+  undone_at?: string | null
 }
 
 export interface MemoryUpdate {
   text?: string
   kind?: MemoryKind
+  /** Confirm or dismiss a suggestion. */
+  status?: 'confirmed' | 'dismissed'
 }
 
 export interface SkillItem {
