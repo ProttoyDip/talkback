@@ -8,11 +8,13 @@ import { PROVIDER_NAMES } from '../session/protocol'
 import { useLevelHistory, type LevelMeters } from '../session/useLevelHistory'
 import { useSession, type SessionMode } from '../session/useSession'
 import type { ConversationState } from '../state/types'
-import { AccessCodeError, requestSession } from '../api/session'
+import { authConfig } from '../api/auth'
+import { AccessCodeError, SignInRequiredError, requestSession } from '../api/session'
 import { useEffectsSetting } from '../background/effects'
 import { rememberSessionToken } from '../api/client'
 import { downloadBlob } from '../state/exportTranscript'
 import { AccessGate } from './AccessGate'
+import { SignIn } from './SignIn'
 import { hasOnboarded } from './onboarded'
 import { Onboarding } from './Onboarding'
 import { ConversationScreen, type ConversationView } from './ConversationScreen'
@@ -94,17 +96,28 @@ export function LiveConversation({
   const [onboarding, setOnboarding] = useState(() => mode === 'live' && !hasOnboarded())
   const [tip, setTip] = useState(false)
   // Public demo gate (SECURITY.md T8): ask once whether this browser may start a session.
-  const [access, setAccess] = useState<'checking' | 'open' | 'locked'>(mode === 'live' ? 'checking' : 'open')
+  // With accounts on (plan P2), the sign-in screen replaces the code-only gate.
+  const [access, setAccess] = useState<'checking' | 'open' | 'locked' | 'signin'>(
+    mode === 'live' ? 'checking' : 'open',
+  )
+  const [needsCode, setNeedsCode] = useState(false)
   useEffect(() => {
     if (access !== 'checking') return
-    requestSession().then(
-      (body) => {
-        rememberSessionToken(body.token, body.expires_at)
-        setAccess('open')
-      },
-      // Any other failure is shown by the connection banner later.
-      (error: unknown) => setAccess(error instanceof AccessCodeError ? 'locked' : 'open'),
-    )
+    void authConfig().then((config) => {
+      setNeedsCode(config.access_code)
+      const accounts = config.mode !== 'off'
+      return requestSession().then(
+        (body) => {
+          rememberSessionToken(body.token, body.expires_at)
+          setAccess('open')
+        },
+        (error: unknown) => {
+          if (error instanceof SignInRequiredError) setAccess('signin')
+          else if (error instanceof AccessCodeError) setAccess(accounts ? 'signin' : 'locked')
+          else setAccess('open') // any other failure is shown by the connection banner later
+        },
+      )
+    })
   }, [access])
 
   useEffect(() => () => void engineRef.current?.close(), [])
@@ -224,6 +237,7 @@ export function LiveConversation({
   }
 
   if (access === 'locked') return <AccessGate onPass={() => setAccess('open')} />
+  if (access === 'signin') return <SignIn needsCode={needsCode} onPass={() => setAccess('checking')} />
   if (access === 'checking') return null
 
   if (onboarding) {

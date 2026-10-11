@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { currentAccount, signOut, type Account } from '../../api/auth'
 import { api } from '../../api/client'
 import type { SettingsUpdate, SettingsView } from '../../api/types'
 import { useResource } from '../../api/useResource'
@@ -9,13 +10,44 @@ import { SettingsToggleRow } from '../SettingsToggleRow'
 import { ChoiceRow } from './ChoiceRow'
 import { setEffects, useEffectsSetting } from '../../background/effects'
 import { VoiceSection } from './VoiceSection'
-import { ResourceView, SectionTitle } from './shared'
+import { ResourceView, SectionTitle, secondaryButton } from './shared'
 import { TOOL_LABEL } from './toolLabels'
 
 /** Default and current value side by side, so "off by default" never reads as "off now". */
 const onOff = (now: boolean) => `Default: off · Now: ${now ? 'on' : 'off'}`
 
 const ROLE_TITLE: Record<ModelRole, string> = { voice: 'Voice', planner: 'Planner', search: 'Search' }
+
+/** Who is signed in (plan P2). Hidden when the server has no accounts. */
+function AccountSection() {
+  const [account, setAccount] = useState<Account | null>(null)
+  useEffect(() => {
+    let live = true
+    void currentAccount().then((found) => live && setAccount(found))
+    return () => {
+      live = false
+    }
+  }, [])
+  if (!account) return null
+  return (
+    <section aria-label="Account">
+      <SectionTitle>Account</SectionTitle>
+      <p className="mb-3 text-body text-text">
+        {account.guest ? 'Guest on this browser' : `Signed in as ${account.email ?? 'you'}`}
+      </p>
+      <button
+        type="button"
+        onClick={() => void signOut().then(() => window.location.reload())}
+        className={secondaryButton}
+      >
+        Sign out
+      </button>
+      {account.guest && (
+        <p className="mt-2 text-data text-text-muted">A guest's memories can't be reached again after signing out.</p>
+      )}
+    </section>
+  )
+}
 
 /** Kept in this browser only (src/background/effects.ts). */
 function VisualEffects() {
@@ -68,6 +100,8 @@ export function SettingsPanel({ active }: { active: ConversationModel['models'] 
               That change was not saved. Try again.
             </p>
           )}
+
+          <AccountSection />
 
           <section aria-label="Tools">
             <SectionTitle>Tools</SectionTitle>
