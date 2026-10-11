@@ -28,6 +28,8 @@ export interface SkillItem {
   name: string
   triggers: string[]
   allowed_tools: ToolName[]
+  /** One plain sentence: what the skill does and what to say. */
+  summary?: string
 }
 
 export interface ProviderInfo {
@@ -50,6 +52,8 @@ export interface ModelOption {
 
 export interface ModelsView {
   voice_model: string
+  /** True only for a full-duplex voice model; the cascade engine is turn-based. */
+  full_duplex?: boolean
   planner_model: string
   planner_options: ModelOption[]
   providers: ProviderInfo[]

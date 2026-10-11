@@ -141,13 +141,23 @@ class Source(Message):
     url: HttpUrl
 
 
+ToolStatusReason = Literal[
+    "user_declined", "timeout", "superseded", "stopped", "interrupted", "session_closed", "already_done",
+]
+
+
 class ToolStatus(Message):
     type: Literal["tool.status"] = "tool.status"
     call_id: Id
     # The assistant turn the tool chip belongs to.
     message_id: Id
     name: ToolName
-    status: Literal["running", "done", "failed"]
+    # declined: the user said no or did not answer in time; cancelled: the
+    # call was stopped before it ran (interruption, Stop, a newer request);
+    # expired: a confirmation request ran out. Any final status for a call_id
+    # closes its confirmation card.
+    status: Literal["running", "done", "failed", "declined", "cancelled", "expired"]
+    reason: ToolStatusReason | None = None
     # web_search results, shown as the expandable source list.
     sources: list[Source] = Field(default_factory=list, max_length=10)
 
@@ -156,6 +166,9 @@ class ToolConfirmRequest(Message):
     type: Literal["tool.confirm_request"] = "tool.confirm_request"
     call_id: Id
     summary: str = Field(max_length=300)
+    # The assistant turn and tool the request belongs to.
+    message_id: Id | None = None
+    name: ToolName | None = None
     # The request expires after 30 seconds (SECURITY.md T5).
     expires_in_ms: int = Field(default=30_000, gt=0)
 
@@ -257,6 +270,8 @@ class SkillItem(Rest):
     name: str
     triggers: list[str]
     allowed_tools: list[ToolName]
+    # One plain sentence: what the skill does and what to say.
+    summary: str | None = Field(default=None, max_length=200)
 
 
 class SkillList(Rest):
@@ -288,7 +303,10 @@ class ModelOption(Rest):
 
 
 class ModelsView(Rest):
-    voice_model: str  # fixed; cannot be changed
+    voice_model: str  # the engine serving voice now; cannot be changed
+    # True only for a full-duplex voice model (NVIDIA VoiceChat). The cascade
+    # engine is turn-based and handles interruptions with barge-in detection.
+    full_duplex: bool = False
     planner_model: Id  # selected ModelOption id
     planner_options: list[ModelOption]  # allowlist, NVIDIA models first
     providers: list[ProviderInfo]  # per role, in backup order

@@ -1,4 +1,4 @@
-import type { ToolName } from '../session/protocol'
+import type { ToolCallStatus, ToolName } from '../session/protocol'
 
 /** Conversation states from docs/design.md, section 6. */
 export type ConversationState =
@@ -30,7 +30,7 @@ export type Speaker = 'user' | 'assistant'
 
 export type { ToolName }
 
-export type ToolStatus = 'running' | 'done' | 'failed'
+export type ToolStatus = ToolCallStatus
 
 export interface Source {
   title: string

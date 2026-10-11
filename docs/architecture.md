@@ -109,8 +109,8 @@ One WebSocket: `wss://<host>/ws/session?token=<session-token>`. The token comes 
 | S → C | `audio.flush` | `{reason}` | Stop playback now (`interrupted` or `stopped`) |
 | S → C | `transcript.delta` | `{message_id, speaker, text, final, backchannel}` | Live captions. Deltas with the same `message_id` form one turn: user deltas carry the full text so far, assistant deltas append words as they start playing. `backchannel: true` marks a "mm-hm" that did not interrupt |
 | S → C | `transcript.trim` | `{message_id, heard_text, unheard_text}` | After an interruption, the message keeps `heard_text` in history. `unheard_text` (what it had planned to say) is only shown, faded |
-| S → C | `tool.status` | `{call_id, message_id, name, status, sources}` | Tool chip under assistant turn `message_id`; `sources` lists web results |
-| S → C | `tool.confirm_request` | `{call_id, summary, expires_in_ms}` | Ask the user before a sensitive action (30 s) |
+| S → C | `tool.status` | `{call_id, message_id, name, status, reason?, sources}` | Tool chip under assistant turn `message_id`; `sources` lists web results. `status` is `running`, `done`, `failed`, `declined` (the user said no or did not answer), `cancelled` (stopped before it ran) or `expired`. `reason`: `user_declined`, `timeout`, `superseded`, `stopped`, `interrupted`, `session_closed`, `already_done`. Any final status closes the call's confirmation card |
+| S → C | `tool.confirm_request` | `{call_id, summary, message_id?, name?, expires_in_ms}` | Ask the user before a sensitive action (30 s) |
 | S → C | `memory.saved` | `{id, text}` | Show "remembered" toast |
 | S → C | `metrics` | `{latency_ms}` | Live latency readout (debug mode) |
 | S → C | `error` | `{code, message, retry_in_ms?}` | A problem to show the user (`voice_engine_offline`, `tool_failed`, `rate_limited`, `internal`). The session stays open |
@@ -131,9 +131,9 @@ All routes except `/health` and `POST /api/session` need `Authorization: Bearer 
 | `PATCH /api/memories/{id}` | `MemoryUpdate` | `MemoryItem` | Edit a memory |
 | `DELETE /api/memories/{id}` | — | `204` | Delete a memory |
 | `DELETE /api/memories` | — | `204` | "Forget everything" |
-| `GET /api/skills` | — | `SkillList` | Skills panel |
+| `GET /api/skills` | — | `SkillList` (each skill: `id, name, triggers, allowed_tools, summary?`) | Skills panel |
 | `POST /api/skills/{id}/run` | — | `SkillRunAccepted` (`202`) | "Run" button; progress arrives on the WebSocket |
-| `GET /api/settings` | — | `SettingsView` | Settings, including `models`: the fixed voice model, the planner allowlist and the providers in backup order |
+| `GET /api/settings` | — | `SettingsView` | Settings, including `models`: the voice engine serving now and whether it is `full_duplex`, the planner allowlist and the providers in backup order |
 | `PATCH /api/settings` | `SettingsUpdate` | `SettingsView` | Tool toggles, privacy switches, planner model, backups on or off |
 
 Provider IDs: `nebius`, `nvidia` (NVIDIA API catalog, hosted speech models), `openrouter`, `agentrouter`, `nararouter`, `experimentallab`, `tavily`, `perplexity`. The browser only ever sees provider IDs, display names and model names; never keys or URLs.

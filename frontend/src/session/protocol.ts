@@ -13,6 +13,21 @@ export type ToolName =
   | 'memory_delete'
   | 'skill_run'
 
+/**
+ * declined: the user said no or did not answer; cancelled: stopped before it ran;
+ * expired: the confirmation ran out. Any final status closes the call's confirm card.
+ */
+export type ToolCallStatus = 'running' | 'done' | 'failed' | 'declined' | 'cancelled' | 'expired'
+
+export type ToolStatusReason =
+  | 'user_declined'
+  | 'timeout'
+  | 'superseded'
+  | 'stopped'
+  | 'interrupted'
+  | 'session_closed'
+  | 'already_done'
+
 export const CLIENT_SAMPLE_RATE = 16_000
 export const SERVER_SAMPLE_RATE = 22_050
 export const FRAME_SAMPLES = 320 // 20 ms at 16 kHz
@@ -78,10 +93,18 @@ export type ServerEvent =
       call_id: string
       message_id: string
       name: ToolName
-      status: 'running' | 'done' | 'failed'
+      status: ToolCallStatus
+      reason?: ToolStatusReason
       sources?: Source[]
     }
-  | { type: 'tool.confirm_request'; call_id: string; summary: string; expires_in_ms?: number }
+  | {
+      type: 'tool.confirm_request'
+      call_id: string
+      summary: string
+      message_id?: string
+      name?: ToolName
+      expires_in_ms?: number
+    }
   | { type: 'memory.saved'; id: string; text: string }
   | { type: 'metrics'; latency_ms: number }
   | { type: 'error'; code: ErrorCode; message: string; retry_in_ms?: number }
