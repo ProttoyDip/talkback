@@ -1,16 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="154" viewBox="0 0 760 154" font-family="system-ui, sans-serif" font-size="12">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="256" viewBox="0 0 760 256" font-family="system-ui, sans-serif" font-size="12">
 <rect width="100%" height="100%" fill="#ffffff"/>
 <text x="8" y="16" fill="#333">Warm latency, milliseconds (bar: p50, light extension: p95)</text>
 <text x="8" y="43" fill="#333">Local server: Spoken question → first audio</text>
-<rect x="300" y="32" width="420.0" height="16" fill="#9ecae1"/>
-<rect x="300" y="32" width="403.0" height="16" fill="#2171b5"/>
-<text x="726.0" y="44" fill="#333">1712 / 1784</text>
+<rect x="300" y="32" width="299.8" height="16" fill="#9ecae1"/>
+<rect x="300" y="32" width="287.7" height="16" fill="#2171b5"/>
+<text x="605.8" y="44" fill="#333">1712 / 1784</text>
 <text x="8" y="77" fill="#333">Local server: Typed question → first audio</text>
-<rect x="300" y="66" width="332.0" height="16" fill="#9ecae1"/>
-<rect x="300" y="66" width="224.4" height="16" fill="#2171b5"/>
-<text x="638.0" y="78" fill="#333">953 / 1410</text>
+<rect x="300" y="66" width="237.0" height="16" fill="#9ecae1"/>
+<rect x="300" y="66" width="160.2" height="16" fill="#2171b5"/>
+<text x="543.0" y="78" fill="#333">953 / 1410</text>
 <text x="8" y="111" fill="#333">Local server: &quot;Wait, stop&quot; → audio stops</text>
-<rect x="300" y="100" width="380.0" height="16" fill="#9ecae1"/>
-<rect x="300" y="100" width="356.2" height="16" fill="#2171b5"/>
-<text x="686.0" y="112" fill="#333">1513 / 1614</text>
+<rect x="300" y="100" width="271.3" height="16" fill="#9ecae1"/>
+<rect x="300" y="100" width="254.3" height="16" fill="#2171b5"/>
+<text x="577.3" y="112" fill="#333">1513 / 1614</text>
+<text x="8" y="145" fill="#333">Hosted demo (Render free tier): Spoken question → first audio</text>
+<rect x="300" y="134" width="420.0" height="16" fill="#9ecae1"/>
+<rect x="300" y="134" width="404.0" height="16" fill="#2171b5"/>
+<text x="726.0" y="146" fill="#333">2404 / 2499</text>
+<text x="8" y="179" fill="#333">Hosted demo (Render free tier): Typed question → first audio</text>
+<rect x="300" y="168" width="222.0" height="16" fill="#9ecae1"/>
+<rect x="300" y="168" width="217.5" height="16" fill="#2171b5"/>
+<text x="528.0" y="180" fill="#333">1294 / 1321</text>
+<text x="8" y="213" fill="#333">Hosted demo (Render free tier): &quot;Wait, stop&quot; → audio stops</text>
+<rect x="300" y="202" width="290.9" height="16" fill="#9ecae1"/>
+<rect x="300" y="202" width="275.5" height="16" fill="#2171b5"/>
+<text x="596.9" y="214" fill="#333">1639 / 1731</text>
 </svg>

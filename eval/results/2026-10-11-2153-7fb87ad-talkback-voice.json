@@ -1,0 +1,237 @@
+{
+  "meta": {
+    "target": "talkback-voice",
+    "url": "https://talkback-voice.onrender.com",
+    "date": "2026-10-11",
+    "commit": "7fb87ad",
+    "runs": 3
+  },
+  "summary": {
+    "latency_ms": {
+      "question": {
+        "p50": 2404,
+        "p95": 2499,
+        "n": 3
+      },
+      "typed": {
+        "p50": 1294,
+        "p95": 1321,
+        "n": 3
+      },
+      "barge_in": {
+        "p50": 1639,
+        "p95": 1731,
+        "n": 3
+      }
+    },
+    "recovery": {
+      "barge_in": 1.0,
+      "backchannel": 1.0,
+      "correction": 1.0,
+      "cancel_tool": 1.0
+    },
+    "outdated_actions": 0,
+    "runs": {
+      "question": {
+        "ok": 3,
+        "total": 3
+      },
+      "typed": {
+        "ok": 3,
+        "total": 3
+      },
+      "barge_in": {
+        "ok": 3,
+        "total": 3
+      },
+      "backchannel": {
+        "ok": 3,
+        "total": 3
+      },
+      "correction": {
+        "ok": 3,
+        "total": 3
+      },
+      "cancel_tool": {
+        "ok": 3,
+        "total": 3
+      }
+    }
+  },
+  "results": [
+    {
+      "scenario": "question",
+      "ok": true,
+      "ms": 2404.27130000171,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "heard": "What is the capital of Australia?"
+      }
+    },
+    {
+      "scenario": "typed",
+      "ok": true,
+      "ms": 1294.2041999995126,
+      "note": "",
+      "outdated_action": false,
+      "details": {}
+    },
+    {
+      "scenario": "barge_in",
+      "ok": true,
+      "ms": 981.4240999985486,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "heard_words": 6
+      }
+    },
+    {
+      "scenario": "backchannel",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {}
+    },
+    {
+      "scenario": "correction",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "first_request": "declined",
+        "corrected_request": true
+      }
+    },
+    {
+      "scenario": "cancel_tool",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "said": "",
+        "stopped": false
+      }
+    },
+    {
+      "scenario": "question",
+      "ok": true,
+      "ms": 2498.8324000005377,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "heard": "What is the capital of Australia?"
+      }
+    },
+    {
+      "scenario": "typed",
+      "ok": true,
+      "ms": 1249.3254000000888,
+      "note": "",
+      "outdated_action": false,
+      "details": {}
+    },
+    {
+      "scenario": "barge_in",
+      "ok": true,
+      "ms": 1730.800100005581,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "heard_words": 6
+      }
+    },
+    {
+      "scenario": "backchannel",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {}
+    },
+    {
+      "scenario": "correction",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "first_request": "declined",
+        "corrected_request": true
+      }
+    },
+    {
+      "scenario": "cancel_tool",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "said": "Tokyo ",
+        "stopped": true
+      }
+    },
+    {
+      "scenario": "question",
+      "ok": true,
+      "ms": 2316.115499997977,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "heard": "What is the capital of Australia?"
+      }
+    },
+    {
+      "scenario": "typed",
+      "ok": true,
+      "ms": 1321.2762999974075,
+      "note": "",
+      "outdated_action": false,
+      "details": {}
+    },
+    {
+      "scenario": "barge_in",
+      "ok": true,
+      "ms": 1639.0355999974418,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "heard_words": 7
+      }
+    },
+    {
+      "scenario": "backchannel",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {}
+    },
+    {
+      "scenario": "correction",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "first_request": "declined",
+        "corrected_request": true
+      }
+    },
+    {
+      "scenario": "cancel_tool",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "said": "",
+        "stopped": false
+      }
+    }
+  ]
+}

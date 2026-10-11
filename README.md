@@ -43,7 +43,7 @@
 | Changing your mind mid-request: "no, wait…", "never mind", a new request while it thinks | Working: the old action is dropped, an action already running finishes once and is reported | — |
 | Answering "yes" or "no" by voice to a confirmation | Working | Simulated (buttons) |
 | Typing instead of talking | Working, also without a microphone | — |
-| Accounts: email sign-in link or guest, private memories and settings | Built; turned on with `AUTH_MODE` and Supabase Auth (see `backend/.env.example`) | — |
+| Accounts: email sign-in link or guest, private memories and settings | Working on the hosted demo (guests need the access code); locally off unless `AUTH_MODE` is set | — |
 | "Prepare my day": focus blocks for urgent tasks in your free time | Working; you accept all or some of the plan, and one Undo removes it | — |
 | Continue where you left off (goal, what was done, what is open; 24 hours) | Working; no transcript unless you opt in | — |
 | Documents: add PDF, TXT or Markdown and ask about them; answers show the passages used | Working (NVIDIA embeddings; words alone if they are unavailable) | Sample data |
@@ -274,21 +274,21 @@ These use synthetic audio frames, so they do not include speech recognition, mod
 
 <!-- eval:start -->
 
-| Latency, warm (p50 / p95) | Local server |
-|---|---|
-| Spoken question → first audio | 1712 / 1784 ms |
-| Typed question → first audio | 953 / 1410 ms |
-| "Wait, stop" → audio stops | 1513 / 1614 ms |
+| Latency, warm (p50 / p95) | Local server | Hosted demo (Render free tier) |
+|---|---|---|
+| Spoken question → first audio | 1712 / 1784 ms | 2404 / 2499 ms |
+| Typed question → first audio | 953 / 1410 ms | 1294 / 1321 ms |
+| "Wait, stop" → audio stops | 1513 / 1614 ms | 1639 / 1731 ms |
 
-| Recovery | Local server |
-|---|---|
-| Stops when interrupted | 3 of 3 |
-| Keeps talking through "uh-huh" | 3 of 3 |
-| Correction during a confirmation | 3 of 3 |
-| "Never mind" during a tool call | 3 of 3 |
-| Outdated actions (a corrected change that happened anyway) | 0 |
+| Recovery | Local server | Hosted demo (Render free tier) |
+|---|---|---|
+| Stops when interrupted | 3 of 3 | 3 of 3 |
+| Keeps talking through "uh-huh" | 3 of 3 | 3 of 3 |
+| Correction during a confirmation | 3 of 3 | 3 of 3 |
+| "Never mind" during a tool call | 3 of 3 | 3 of 3 |
+| Outdated actions (a corrected change that happened anyway) | 0 | 0 |
 
-Runs: Local server 2026-10-11, commit `9d051a6`, 3 per scenario ([details](eval/results/2026-10-11-2131-9d051a6-local.md)).
+Runs: Local server 2026-10-11, commit `9d051a6`, 3 per scenario ([details](eval/results/2026-10-11-2131-9d051a6-local.md)); Hosted demo (Render free tier) 2026-10-11, commit `7fb87ad`, 3 per scenario ([details](eval/results/2026-10-11-2153-7fb87ad-talkback-voice.md)).
 
 ![Warm latency chart](eval/results/latency.svg)
 
