@@ -4,7 +4,7 @@
     backend/.venv/Scripts/python eval/run_e2e.py --target http://127.0.0.1:8000 --runs 5
     backend/.venv/Scripts/python eval/run_e2e.py --target https://talkback-voice.onrender.com --code XXXX
 
-Writes eval/results/<date>-<commit>-<target>.json and .md. Then
+Writes eval/results/<date>-<HHMM>-<commit>-<target>.json and .md. Then
 eval/report.py puts the latest numbers in the README.
 """
 
@@ -101,7 +101,8 @@ async def main() -> int:
             "commit": commit, "runs": args.runs}
     summary = summarize(results)
     RESULTS.mkdir(exist_ok=True)
-    stem = RESULTS / f"{meta['date']}-{commit}-{target}"
+    stamp = datetime.now(timezone.utc).strftime("%H%M")  # two runs of one commit keep both files
+    stem = RESULTS / f"{meta['date']}-{stamp}-{commit}-{target}"
     stem.with_suffix(".json").write_text(json.dumps({"meta": meta, "summary": summary, "results": results}, indent=2),
                                          encoding="utf-8")
     stem.with_suffix(".md").write_text(markdown(meta, summary, results), encoding="utf-8")

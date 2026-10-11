@@ -154,7 +154,12 @@ async def cancel_tool(s: LiveSession) -> Result:
     said = " ".join(e.msg["text"] for e in s.events[since:]
                     if e.msg["type"] == "transcript.delta" and e.msg["speaker"] == "assistant")
     weather = any(word in said.lower() for word in ("degrees", "°", "tokyo", "sunny", "rain", "cloud"))
-    return Result("cancel_tool", not weather, note="answered anyway" if weather else "", details={"said": said[:120]})
+    # A fast answer may already have started: stopping it mid-word is a pass too.
+    stopped = s.first(lambda m: m["type"] == "audio.flush" or (m["type"] == "tool.status" and m["status"] == "cancelled"),
+                      since) is not None
+    ok = stopped or not weather
+    return Result("cancel_tool", ok, note="" if ok else "answered anyway",
+                  details={"said": said[:120], "stopped": stopped})
 
 
 async def _reminders(s: LiveSession) -> list[dict]:

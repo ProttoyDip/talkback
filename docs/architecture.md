@@ -278,22 +278,23 @@ Data lives in Supabase (Postgres, through its REST API) when `SUPABASE_URL` and 
 - **Per-user access:** code reaches a user's data through `stores.stores_for(settings, user_id)`. Each repo (`backend/app/db/repo.py`) is bound to one table and one user, so every query is filtered by `user_id` and every insert is stamped with it. Only server jobs, such as the reminder scheduler, use `stores.system_repo()`.
 - **Schema changes:** add a `Table` to `backend/app/db/schema.py`, append a SQLite migration there (they run once each, tracked by `PRAGMA user_version`), and add a numbered file to `supabase/migrations/`.
 
-### 7.1 Memory schema (SQLite)
+### 7.1 Tables
 
-```sql
-CREATE TABLE memories (
-  id          TEXT PRIMARY KEY,
-  text        TEXT NOT NULL,          -- "Prefers short answers"
-  kind        TEXT NOT NULL,          -- preference | fact | reminder
-  source      TEXT NOT NULL,          -- always 'user_utterance'
-  utterance   TEXT NOT NULL,          -- the exact words that created it
-  created_at  TEXT NOT NULL,
-  confidence  REAL NOT NULL
-);
-CREATE VIRTUAL TABLE memories_fts USING fts5(text, content='memories');
-```
+Every table has `user_id`; on Supabase each has row level security (a signed-in user can read only their own rows) and the server writes with the secret key. The SQL is in `backend/app/db/schema.py` (SQLite) and `supabase/migrations/` (Postgres).
 
-- A memory is created only from the user's own transcribed words, after Nemotron classifies the utterance as a preference or fact.
+| Table | What it holds | Plan |
+|---|---|---|
+| `memories` (+ `memories_fts`) | `text, kind, source (user_utterance \| user_text \| user_edit \| assistant_suggestion), utterance, status (confirmed \| suggested \| superseded \| dismissed), slot, superseded_by, created_at, updated_at` | P4 |
+| `user_settings` | One JSON row per user (Supabase; locally a JSON file) | P2 |
+| `actions` | Every change and its undo data (24 hours), keyed for idempotency | P4 |
+| `tasks`, `events`, `reminders` | The Plan panel; soft-deleted so undo is simple; times in UTC | P5 |
+| `user_skills` | Your own skills, at most 20 | P5 |
+| `proposals` | Day plans waiting for an OK | P6 |
+| `conversation_states` | Goal, what was done, what was open; 24 hours | P7 |
+| `documents`, `knowledge_chunks` | Uploaded files and their passages with NVIDIA embeddings (`vector(2048)`, searched by `match_chunks`) | P8 |
+| `projects`, `project_notes` | Research projects and their notes with source links | P8 |
+
+- A memory is created only from the user's own words (spoken, typed or edited); a suggestion from TalkBack waits for the user's OK.
 - Tool outputs and web content can never write memory (defense against memory poisoning; see SECURITY.md).
 - Relevant memories are retrieved with FTS5 and added to the session context, wrapped as data.
 

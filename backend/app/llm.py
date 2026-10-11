@@ -120,6 +120,7 @@ class LlmClient:
         on_provider: Callable[[LlmProvider], None],
         max_tokens: int = 300,
         tools: list[dict[str, Any]] | None = None,
+        tool_choice: str | dict[str, Any] | None = None,
     ) -> AsyncIterator[str | ToolCalls]:
         """Yield reply text as it arrives, and at the end a ToolCalls item if
         the model asked for tools. on_provider is called once, with the
@@ -136,7 +137,7 @@ class LlmClient:
             }
             if tools:
                 body["tools"] = [{"type": "function", "function": tool} for tool in tools]
-                body["tool_choice"] = "auto"
+                body["tool_choice"] = tool_choice or "auto"
             headers = {"Authorization": f"Bearer {provider.api_key.get_secret_value()}"}
             started = False
             tool_parts: dict[int, dict[str, str]] = {}
