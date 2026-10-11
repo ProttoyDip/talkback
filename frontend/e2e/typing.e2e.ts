@@ -33,3 +33,19 @@ test('an example chip sends its words', async ({ page }) => {
   await page.getByRole('button', { name: 'Remember a preference' }).click()
   await expect(page.getByRole('listitem').filter({ hasText: 'Remember that I like short answers.' })).toBeVisible()
 })
+
+test('after a typed start, a blocked mic can be retried from the banner', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Type instead').fill('Hello')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByRole('listitem').filter({ hasText: 'Hello' })).toBeVisible()
+  await page.getByRole('button', { name: 'Start talking' }).first().click()
+  await expect(page.getByRole('alert')).toContainText('Microphone is blocked.')
+  // The page now allows the mic; Try again opens it in the same conversation.
+  await page.evaluate(() => {
+    navigator.mediaDevices.getUserMedia = () => new AudioContext().createMediaStreamDestination().stream as never
+  })
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Mute microphone' }).first()).toBeVisible()
+})

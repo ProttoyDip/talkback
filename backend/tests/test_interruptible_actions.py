@@ -122,7 +122,7 @@ def test_a_change_already_running_finishes_once_and_says_so():
     asyncio.run(scenario())
     assert runs == [1]
     assert statuses(emit) == [("running", None), ("done", "already_done")]
-    assert bridge.done_after_cancel == ["Delete the test memory?"]
+    assert bridge.done_after_cancel == ["memory_delete"]  # the tool name, never model-written text
 
 
 # The voice engine
@@ -286,3 +286,96 @@ def test_typing_before_session_start_closes_the_session(client, token):
         ws.send_text(json.dumps({"type": "text.input", "text": "hello"}))
         assert json.loads(ws.receive_text()) == {"type": "session.end", "reason": "protocol_error"}
 
+
+
+# Review fixes: hesitation, talking over the question, timeouts
+
+
+def test_yes_with_more_words_still_approves_but_not_with_doubt():
+    assert classify_confirmation("Yes please, delete it.") == ("yes", "")
+    assert classify_confirmation("Yes but not that one")[0] is None
+
+
+def test_hesitating_keeps_the_question_open():
+    async def scenario():
+        engine, handler, _ = await engine_with_pending_confirmation()
+        engine.submit_text("Hmm.")
+        engine.submit_text("Let me think.")
+        assert engine.bridge.pending_call() is not None
+        engine.submit_text("Yes.")
+        await asyncio.wait_for(engine.reply, 2)
+        await engine.close()
+        return handler
+
+    asyncio.run(scenario()).assert_awaited_once()
+
+
+def test_saying_yes_over_the_question_answers_it_instead_of_cancelling():
+    async def scenario():
+        engine, handler, _ = await engine_with_pending_confirmation()
+        # Barge-in while the question still plays: the gateway interrupts...
+        await engine.interrupt(engine.reply_message_id, "")
+        assert not engine.reply.cancelling()
+        engine.submit_text("Yes.")  # ...and the final words answer it.
+        await asyncio.wait_for(engine.reply, 2)
+        await engine.close()
+        return handler
+
+    asyncio.run(scenario()).assert_awaited_once()
+
+
+@pytest.mark.parametrize("sound", ["Umm.", "Okay."])
+def test_a_filler_or_okay_while_thinking_does_not_cancel(sound):
+    async def scenario():
+        llm = SlowLLM()
+        engine = CascadeEngine(FakeSTT(), FakeTTS(), llm)  # type: ignore[arg-type]
+        await engine.start(SessionContext("s1"))
+        engine.submit_text("Weather in Paris.")
+        while not llm.requests:
+            await asyncio.sleep(0.01)
+        engine.submit_text(sound)
+        await asyncio.sleep(0.05)
+        alive = not engine.reply.done()
+        await engine.close()
+        return alive
+
+    assert asyncio.run(scenario())
+
+
+def test_never_mind_with_nothing_to_cancel_just_says_okay():
+    async def scenario():
+        tts = FakeTTS()
+        engine = CascadeEngine(FakeSTT(), tts, ScriptedLLM())  # type: ignore[arg-type]
+        await engine.start(SessionContext("s1"))
+        engine.submit_text("Never mind.")
+        await asyncio.wait_for(engine.reply, 2)
+        await engine.close()
+        return tts.spoken
+
+    assert asyncio.run(scenario()) == ["Okay."]
+
+
+def test_a_change_that_hangs_after_a_cancel_times_out_and_says_so():
+    async def hang(args):
+        await asyncio.Event().wait()
+
+    bridge, _, emit = sensitive_bridge(hang, tool_timeout=0.05, filler_after=10)
+
+    async def event(message):
+        if isinstance(message, ToolConfirmRequest):
+            bridge.resolve(message.call_id, True)
+
+    emit.side_effect = event
+
+    async def scenario():
+        task = asyncio.create_task(bridge.execute(request(), "turn"))
+        while not bridge.finishing:
+            await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        await asyncio.sleep(0.2)
+
+    asyncio.run(scenario())
+    assert statuses(emit)[-1] == ("failed", None)
+    assert not bridge.finishing

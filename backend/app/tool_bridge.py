@@ -82,8 +82,9 @@ class ToolBridge:
         # Changes that finished after the user moved on; the engine tells the model.
         self.done_after_cancel: list[str] = []
         self.reported: set[str] = set()  # call ids whose final status was sent
-        self.finishing: set[str] = set()  # changes running now
+        self.finishing: dict[str, asyncio.Task] = {}  # changes running now
         self.abandoned: set[str] = set()  # ...whose turn was cancelled; they report themselves
+        self.applied: set[str] = set()  # changes that finished (the race with a cancel)
         self.closed = False
 
     def model_tools(self) -> list[dict]:
@@ -114,13 +115,6 @@ class ToolBridge:
     def resolve(self, call_id: str, approved: bool) -> bool:
         """A spoken yes or no to a pending confirmation (SECURITY.md T5)."""
         return self.confirm(ToolConfirm(type="tool.confirm", call_id=call_id, approved=approved))
-
-    def cancel_pending(self, reason: str = "superseded") -> None:
-        """The user moved on: pending confirmations end without running."""
-        self.cancel_reason = reason
-        for future, _ in list(self.pending.values()):
-            if not future.done():
-                future.set_result(reason)
 
     def close(self) -> None:
         self.closed = True
@@ -157,7 +151,16 @@ class ToolBridge:
                 results.append(await self._run_call(call, call_id, tool, turn_id, is_current))
             except asyncio.CancelledError:
                 if call_id in self.finishing:
-                    self.abandoned.add(call_id)  # still running: it reports how it ends
+                    self.abandoned.add(call_id)  # still running: it reports how it ends...
+                    # ...but not forever.
+                    asyncio.get_running_loop().call_later(self.tool_timeout, self.finishing[call_id].cancel)
+                elif tool is not None and call_id in self.applied and call_id not in self.reported:
+                    # It finished just as the turn was cancelled: it did happen.
+                    self.reported.add(call_id)
+                    self.done_after_cancel.append(tool.name)
+                    await self.emit(ToolStatus(
+                        call_id=call_id, message_id=turn_id, name=tool.name, status="done", reason="already_done",
+                    ))
                 elif tool is not None and call_id not in self.reported:
                     self.reported.add(call_id)
                     status, reason = OUTCOMES[self.cancel_reason]
@@ -222,8 +225,8 @@ class ToolBridge:
             if tool.sensitive:
                 # A change already under way finishes, so it is never half done;
                 # its real outcome is reported even if the turn is cancelled.
-                self.finishing.add(call_id)
-                self._report_when_done(task, call_id, tool, turn_id, summary)
+                self.finishing[call_id] = task
+                self._report_when_done(task, call_id, tool, turn_id)
             try:
                 output = await asyncio.wait_for(asyncio.shield(task) if tool.sensitive else task, self.tool_timeout)
                 data = [sanitize(item) for item in output[:10]]
@@ -264,17 +267,21 @@ class ToolBridge:
             "results": data,
         }
 
-    def _report_when_done(self, task: asyncio.Task, call_id: str, tool: Tool, turn_id: str, summary: str) -> None:
+    def _report_when_done(self, task: asyncio.Task, call_id: str, tool: Tool, turn_id: str) -> None:
         """If the turn is cancelled while a change runs, report how it ended."""
         def done(finished: asyncio.Task) -> None:
-            self.finishing.discard(call_id)
-            if call_id not in self.abandoned or finished.cancelled():
+            self.finishing.pop(call_id, None)
+            ok = not finished.cancelled() and finished.exception() is None
+            if ok:
+                self.applied.add(call_id)
+            if call_id not in self.abandoned:
                 return  # not cancelled: _run_call reports it
             self.abandoned.discard(call_id)
+            if call_id in self.reported:
+                return
             self.reported.add(call_id)
-            ok = finished.exception() is None
             if ok:
-                self.done_after_cancel.append(summary)
+                self.done_after_cancel.append(tool.name)
             asyncio.get_running_loop().create_task(self.emit(ToolStatus(
                 call_id=call_id, message_id=turn_id, name=tool.name,
                 status="done" if ok else "failed", reason="already_done" if ok else None,

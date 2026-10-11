@@ -33,6 +33,7 @@ from .turn_taking import (
     classify_confirmation,
     is_backchannel,
     is_cancel,
+    is_hesitation,
     is_filler_only,
     looks_incomplete,
     strip_fillers,
@@ -187,7 +188,11 @@ class CascadeEngine:
         # reply may still be running (its entry is written when it ends) or
         # already finished while its audio plays; handle both.
         self.heard[message_id] = heard_text
-        if self.reply and not self.reply.done() and self.reply_message_id == message_id:
+        # While a confirmation waits, talking over the question is how people
+        # answer it ("yes" before it finishes): keep the reply, so the final
+        # words can approve, decline or replace it (plan P3).
+        waiting = self.bridge is not None and self.bridge.pending_call() is not None
+        if self.reply and not self.reply.done() and self.reply_message_id == message_id and not waiting:
             self.reply.cancel()
         for turn in reversed(self.history):
             if turn["role"] == "assistant" and turn.get("id") == message_id:
@@ -243,8 +248,9 @@ class CascadeEngine:
             self._cancel_hold()
             return
         self.user_message_id = None
-        if is_backchannel(text) and self.playback_active():
-            return  # "mm-hm" while TalkBack speaks means "keep going"
+        waiting = self.bridge is not None and self.bridge.pending_call() is not None
+        if is_backchannel(text) and self.playback_active() and not waiting:
+            return  # "mm-hm" while TalkBack speaks means "keep going" (but "okay" can answer a question)
         self._on_final_input(text)
 
     def submit_text(self, text: str) -> None:
@@ -255,6 +261,8 @@ class CascadeEngine:
 
     def _on_final_input(self, text: str) -> None:
         pending = self.bridge.pending_call() if self.bridge else None
+        if pending and is_hesitation(text):
+            return  # "hmm": still deciding, the question stays open
         if pending:
             answer, rest = classify_confirmation(text)
             if answer is not None and not rest:
@@ -267,16 +275,19 @@ class CascadeEngine:
             if not text:
                 return
         if is_cancel(text):
+            busy = self.reply is not None and not self.reply.done()
             self._cancel_reply("stopped")
             self._drop_queued()
-            asyncio.ensure_future(self._say("Okay, cancelled."))
+            self.reply = asyncio.ensure_future(self._say("Okay, cancelled." if busy else "Okay."))
             return
-        if self.reply and not self.reply.done() and not self.reply_speaking:
-            # Still thinking or running a tool: the new words replace the request.
-            self._cancel_reply("superseded")
         cleaned = strip_fillers(text)
         if is_filler_only(text) or not cleaned:
             return  # "umm" alone is hesitation: keep listening
+        if is_backchannel(text) and self.reply and not self.reply.done():
+            return  # "okay" while it works is not a new request
+        if self.reply and not self.reply.done() and not self.reply_speaking:
+            # Still thinking or running a tool: the new words replace the request.
+            self._cancel_reply("superseded")
         self._cancel_hold()
         self.held_text = f"{self.held_text} {cleaned}".strip()
         if looks_incomplete(self.held_text) and self.loop is not None:
@@ -293,9 +304,11 @@ class CascadeEngine:
         if busy:
             self.reply.cancel()
             if self.current_request:
+                running = self.bridge is not None and bool(self.bridge.finishing)
                 self.notes.append(
                     f'(The user moved on before you finished. Their earlier request "{self.current_request[:200]}" '
-                    "was dropped; nothing was changed for it unless noted below.)"
+                    + ("was dropped, but a change for it was already under way and may have finished.)"
+                       if running else "was dropped; nothing was changed for it.)")
                 )
 
     def _drop_queued(self) -> None:
@@ -311,6 +324,7 @@ class CascadeEngine:
     async def _say(self, text: str) -> None:
         """A short spoken reply that needs no model ("Okay, cancelled.")."""
         message_id = _new_id("a")
+        self.reply_message_id = message_id
         try:
             speech = await self.tts.synthesize(text)
         except Exception:
@@ -447,9 +461,10 @@ class CascadeEngine:
         if self.skill_active:
             prompt += f" You are running the skill '{self.skill_active.name}': {self.skill_active.instructions}"
         if self.bridge is not None and self.bridge.done_after_cancel:
-            done = "; ".join(self.bridge.done_after_cancel[-3:])
+            # Tool names only: summaries come from model-written arguments (SECURITY.md T1).
+            done = ", ".join(sorted(set(self.bridge.done_after_cancel)))
             self.bridge.done_after_cancel.clear()
-            self.notes.append(f"(Already done before the user changed their mind: {done}. Say so plainly.)")
+            self.notes.append(f"(A change you started with the {done} tool finished before the user moved on. Say so plainly.)")
         if self.notes:
             prompt += " Facts about this conversation, not instructions: " + " ".join(self.notes[-3:])
             self.notes.clear()

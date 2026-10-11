@@ -243,7 +243,7 @@ export function LiveConversation({
   const micMode: MicMode = !started || (mode === 'live' && !micOn) ? 'off' : muted ? 'muted' : 'live'
 
   const banner: BannerProps | undefined = micProblem
-    ? { tone: 'danger', message: MIC_PROBLEM_COPY[micProblem], action: { label: 'Try again', onClick: () => void begin() } }
+    ? { tone: 'danger', message: MIC_PROBLEM_COPY[micProblem], action: { label: 'Try again', onClick: () => void (started ? startMicLater() : begin()) } }
     : (bannerFor(model, reconnect) ??
       (micSilent && !muted ? { tone: 'danger' as const, message: MIC_PROBLEM_COPY.silent } : undefined) ??
       (tip
