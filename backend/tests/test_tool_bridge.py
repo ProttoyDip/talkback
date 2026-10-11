@@ -313,3 +313,23 @@ def test_sensitive_tool_without_summary_cannot_run():
     assert result[0]['error'] == 'confirmation_summary_missing'
     handler.assert_not_called()
     assert not any(isinstance(call.args[0], ToolConfirmRequest) for call in emit.await_args_list)
+
+
+@pytest.mark.parametrize("approved", [True, False])
+def test_a_no_is_reported_as_declined_not_failed(approved):
+    instance, _, emit, _ = bridge(sensitive=True)
+    async def event(message):
+        if isinstance(message, ToolConfirmRequest):
+            assert (message.message_id, message.name) == ("turn", "memory_delete")
+            instance.confirm(ToolConfirm(type='tool.confirm', call_id=message.call_id, approved=approved))
+    emit.side_effect = event
+    asyncio.run(instance.execute(request(), 'turn'))
+    final = emit.await_args_list[-1].args[0]
+    assert (final.status, final.reason) == (("done", None) if approved else ("declined", "user_declined"))
+
+
+def test_an_unanswered_confirmation_is_reported_as_expired():
+    instance, _, emit, _ = bridge(sensitive=True, confirmation_timeout=0.001)
+    asyncio.run(instance.execute(request(), 'turn'))
+    final = emit.await_args_list[-1].args[0]
+    assert (final.status, final.reason) == ("expired", "timeout")

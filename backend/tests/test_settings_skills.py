@@ -115,3 +115,18 @@ def test_answer_length_reaches_the_prompt():
     from app.cascade_engine import ANSWER_LENGTH
 
     assert "one short sentence" in ANSWER_LENGTH["short"] and ANSWER_LENGTH["normal"] == ""
+
+
+def test_settings_name_the_voice_engine_running_and_whether_it_is_full_duplex(client, authed, settings):
+    models = client.get("/api/settings", headers=authed).json()["models"]
+    assert models["voice_model"] == "No voice engine" and models["full_duplex"] is False
+    settings.voice_engine = "cascade"
+    models = client.get("/api/settings", headers=authed).json()["models"]
+    assert models["voice_model"] == "NVIDIA Parakeet speech-to-text + Magpie TTS" and models["full_duplex"] is False
+
+
+def test_shipped_skills_carry_a_summary(client, authed):
+    items = client.get("/api/skills", headers=authed).json()["items"]
+    assert items and all(item["summary"] for item in items)
+    remind = next(item for item in items if item["id"] == "remind-me")
+    assert "does not send alerts" in remind["summary"]

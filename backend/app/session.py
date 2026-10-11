@@ -61,6 +61,9 @@ from .voice_engine import (
 )
 
 log = logging.getLogger("talkback.session")
+# Conversation words, logged only when the user turns on Settings > Privacy >
+# "Show transcripts in logs" (off by default, SECURITY.md T10).
+transcript_log = logging.getLogger("talkback.transcript")
 router = APIRouter()
 
 MAX_CONNECTIONS_PER_IP = 3
@@ -148,6 +151,7 @@ class Session:
         # Turn-taking (X2): barge-in and trimming at the playback position.
         self.vad = EnergyVad()
         self.decider = BargeInDecider()  # start_engine applies the user's setting
+        self.log_transcripts = False  # start_engine applies the user's setting
         self.interim_user_text = ""
         self.overlapping = False
         self.words: dict[str, list[tuple[str, float, float]]] = {}
@@ -186,6 +190,7 @@ class Session:
         prefs = await asyncio.to_thread(prefs_store(self.settings).load)
         # The user's Interruptions setting applies when a session starts.
         self.decider = BargeInDecider.for_sensitivity(prefs.interrupt_sensitivity)
+        self.log_transcripts = prefs.transcripts_in_logs
         choice = await asyncio.to_thread(self.engine_factory, self.settings)
         self.engine_choice = choice
         if choice.problem:
@@ -230,12 +235,16 @@ class Session:
                     return
                 self.words.setdefault(message_id, []).append((word, start_s, end_s))
                 self.caption_queue(message_id).put_nowait(event)
-            case TurnEnded(message_id=message_id, ends_turn=ends_turn):
+            case TurnEnded(message_id=message_id, text=text, ends_turn=ends_turn):
                 if message_id in self.dropped:
                     return
+                if self.log_transcripts and text:
+                    transcript_log.info(f"assistant: {text}", extra={"session_id": self.session_id})
                 self.caption_queue(message_id).put_nowait(_FINISH if ends_turn else _FINISH_QUIET)
             case UserTranscript(message_id=message_id, text=text, final=final):
                 self.interim_user_text = "" if final else text
+                if final and self.log_transcripts:
+                    transcript_log.info(f"user: {text}", extra={"session_id": self.session_id})
                 # A short sound over TalkBack that did not interrupt it.
                 reaction = final and is_backchannel(text) and loop_time() < self.play_until
                 await self.send(

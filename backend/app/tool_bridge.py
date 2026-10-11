@@ -38,6 +38,13 @@ def parse_calls(raw: str) -> list[ToolCall]:
         raise ValueError("invalid tool request") from None
 
 
+# A "no" is not a failure: the UI says "Cancelled. Nothing changed."
+OUTCOMES = {
+    "confirmation_denied": ("declined", "user_declined"),
+    "confirmation_timeout": ("expired", "timeout"),
+}
+
+
 class ToolBridge:
     def __init__(
         self, session_id: str, tools: list[Tool],
@@ -140,7 +147,9 @@ class ToolBridge:
                 future = asyncio.get_running_loop().create_future()
                 self.pending[call_id] = (future, self.clock() + self.confirmation_timeout)
                 try:
-                    await self.emit(ToolConfirmRequest(call_id=call_id, summary=summary))
+                    await self.emit(ToolConfirmRequest(
+                        call_id=call_id, summary=summary, message_id=turn_id, name=tool.name,
+                    ))
                     if not await asyncio.wait_for(future, self.confirmation_timeout):
                         error = "confirmation_denied"
                 except TimeoutError:
@@ -178,9 +187,10 @@ class ToolBridge:
                 self._log(error, turn_id, cause)
             # Unknown names are untrusted text and must not be echoed to the UI.
             if tool is not None:
+                status, reason = OUTCOMES.get(error, ("failed", None)) if error else ("done", None)
                 await self.emit(ToolStatus(
                     call_id=call_id, message_id=turn_id, name=tool.name,
-                    status="failed" if error else "done", sources=sources if not error else [],
+                    status=status, reason=reason, sources=sources if not error else [],
                 ))
             results.append({"call_id": call_id, "error": error} if error else {
                 "call_id": call_id, "untrusted": True,

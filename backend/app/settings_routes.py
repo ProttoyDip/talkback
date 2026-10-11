@@ -32,7 +32,13 @@ TOOL_DESCRIPTIONS = {
     "memory_read": "Reads the memories you asked TalkBack to keep.",
     "memory_delete": "Deletes memories, only after you say yes.",
 }
-VOICE_MODEL = "NVIDIA Parakeet and Magpie TTS (VoiceChat when available)"
+# What serves voice for each VOICE_ENGINE, and whether it is full-duplex.
+VOICE_ENGINES = {
+    "cascade": ("NVIDIA Parakeet speech-to-text + Magpie TTS", False),
+    "voicechat": ("NVIDIA VoiceChat", True),
+    "fake": ("Scripted test voice", False),
+    "none": ("No voice engine", False),
+}
 
 
 def claims(
@@ -97,6 +103,7 @@ def build_view(settings: Settings, prefs: Prefs) -> SettingsView:
         name: ToolSetting(enabled=prefs.tool_enabled(name), description=text)
         for name, text in TOOL_DESCRIPTIONS.items()
     }
+    voice_model, full_duplex = VOICE_ENGINES.get(settings.voice_engine, (settings.voice_engine, False))
     return SettingsView(
         tools=tools,
         save_recordings=prefs.save_recordings,
@@ -104,7 +111,8 @@ def build_view(settings: Settings, prefs: Prefs) -> SettingsView:
         interrupt_sensitivity=prefs.interrupt_sensitivity,
         answer_length=prefs.answer_length,
         models=ModelsView(
-            voice_model=VOICE_MODEL, planner_model=selected, planner_options=options, providers=providers
+            voice_model=voice_model, full_duplex=full_duplex,
+            planner_model=selected, planner_options=options, providers=providers,
         ),
     )
 

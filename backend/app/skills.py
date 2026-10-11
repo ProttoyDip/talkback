@@ -25,9 +25,14 @@ class Skill(BaseModel):
     triggers: list[str] = Field(min_length=1, max_length=10)
     allowed_tools: list[ToolName]
     instructions: str = Field(min_length=1, max_length=2000)
+    # One plain sentence for the Skills panel: what it does and what to say.
+    summary: str | None = Field(default=None, max_length=200)
 
     def item(self) -> SkillItem:
-        return SkillItem(id=self.id, name=self.name, triggers=self.triggers, allowed_tools=self.allowed_tools)
+        return SkillItem(
+            id=self.id, name=self.name, triggers=self.triggers,
+            allowed_tools=self.allowed_tools, summary=self.summary,
+        )
 
 
 def load_skills(directory: str | Path) -> list[Skill]:
