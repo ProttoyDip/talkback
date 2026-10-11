@@ -303,3 +303,10 @@ def test_list_phrases_count_as_talking_about_plans():
     from app.cascade_engine import PLAN_WORDS
 
     assert PLAN_WORDS.search("Put buy milk on my list")
+
+
+def test_a_change_card_says_exactly_what_changes(planner):
+    from app.tools.planner import TaskUpdateArguments, describe_task_update
+
+    args = TaskUpdateArguments(id="t1", title="Call dad", status="done")
+    assert describe_task_update(args, lambda t, end=False: t) == "Change the task: rename it to “Call dad”, mark it done?"

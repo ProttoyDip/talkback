@@ -81,6 +81,31 @@ class ReminderUpdateArguments(Arguments):
 PLAN_KINDS = ("tasks", "calendar", "reminders", "actions")
 
 
+def describe_task_update(a: "TaskUpdateArguments", when) -> str:
+    """The card says exactly what changes (SECURITY.md T5)."""
+    parts = []
+    if a.title:
+        parts.append(f"rename it to “{a.title}”")
+    if a.due_at:
+        parts.append(f"make it due {when(a.due_at, True)}")
+    if a.status:
+        parts.append({"done": "mark it done", "open": "reopen it", "cancelled": "cancel it"}[a.status])
+    if a.priority:
+        parts.append(f"set priority {a.priority}")
+    return f"Change the task: {', '.join(parts) or 'no change'}?"[:300]
+
+
+def describe_event_update(a: "CalendarUpdateArguments", when) -> str:
+    parts = []
+    if a.title:
+        parts.append(f"rename it to “{a.title}”")
+    if a.starts_at:
+        parts.append(f"start {when(a.starts_at)}")
+    if a.ends_at:
+        parts.append(f"end {when(a.ends_at)}")
+    return f"Change the calendar block: {', '.join(parts) or 'no change'}?"[:300]
+
+
 def _out(change: Change, text: str) -> ToolOutcome:
     note = f" {change.note}" if change.note else ""
     item = change.item.model_dump(exclude_none=True)
@@ -149,7 +174,7 @@ def planner_tools(planner: Planner) -> list[Tool]:
              confirmation_summary=lambda a: f"Add the task “{a.title}”{' for ' + when(a.due_at, True) if a.due_at else ''}?",
              **reversible),
         Tool("task_update", "Change, complete (status done) or reschedule a task by id.", TaskUpdateArguments,
-             task_update, confirmation_summary=lambda a: "Update this task?", **reversible),
+             task_update, confirmation_summary=lambda a: describe_task_update(a, when), **reversible),
         Tool("task_delete", "Delete a task by id and exact title.", TaskDeleteArguments, task_delete,
              confirmation_summary=lambda a: f"Delete the task “{a.title}”?", **asks),
         Tool("calendar_list", "List calendar blocks between two local times.", CalendarListArguments, calendar_list,
@@ -158,7 +183,7 @@ def planner_tools(planner: Planner) -> list[Tool]:
              calendar_add,
              confirmation_summary=lambda a: f"Add “{a.title}” {when(a.starts_at)}?", **reversible),
         Tool("calendar_update", "Move or rename a calendar block by id. Reports overlaps.", CalendarUpdateArguments,
-             calendar_update, confirmation_summary=lambda a: "Move this calendar block?", **reversible),
+             calendar_update, confirmation_summary=lambda a: describe_event_update(a, when), **reversible),
         Tool("calendar_delete", "Remove a calendar block by id and exact title.", CalendarDeleteArguments,
              calendar_delete, confirmation_summary=lambda a: f"Remove “{a.title}” from your calendar?", **asks),
         Tool("reminder_set", "Set a reminder that notifies the user at a local time.", ReminderSetArguments,
