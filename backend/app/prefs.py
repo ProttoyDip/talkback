@@ -22,6 +22,8 @@ class Prefs:
     answer_length: str = "normal"  # short, normal or detailed
     planner_model: str = ""  # a ModelOption id; empty means the default order
     timezone: str = "UTC"  # IANA name, set from the browser (plan P5)
+    resume_sessions: bool = True  # offer to continue an unfinished conversation (plan P7)
+    keep_recent_turns: bool = False  # keep the last 6 heard turns for that (T10)
     providers: dict[str, bool] = field(default_factory=dict)  # missing means on
 
     def tool_enabled(self, name: str) -> bool:
@@ -65,6 +67,8 @@ class PrefsStore:
                 answer_length=_choice(raw.get("answer_length"), ("short", "normal", "detailed")),
                 planner_model=str(raw.get("planner_model", ""))[:100],
                 timezone=_zone(raw.get("timezone")),
+                resume_sessions=bool(raw.get("resume_sessions", True)),
+                keep_recent_turns=bool(raw.get("keep_recent_turns", False)),
                 providers={str(k): bool(v) for k, v in dict(raw.get("providers", {})).items()},
             )
         except (AssertionError, ValueError, TypeError, AttributeError):

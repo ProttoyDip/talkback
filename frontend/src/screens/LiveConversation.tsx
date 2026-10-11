@@ -286,6 +286,8 @@ export function LiveConversation({
     replay: mode === 'replay',
     reminders: reminders.due,
     plan: model.plan,
+    resumable: model.resumable,
+    onResume: (stateId, accept) => session.send({ type: 'session.resume', state_id: stateId, accept }),
     onDismissReminder: reminders.dismiss,
     onSaveRecording: recording
       ? () => {

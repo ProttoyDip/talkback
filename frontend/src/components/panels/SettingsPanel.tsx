@@ -135,6 +135,21 @@ export function SettingsPanel({ active }: { active: ConversationModel['models'] 
               checked={settings.transcripts_in_logs}
               onChange={(transcripts_in_logs) => void update({ transcripts_in_logs })}
             />
+            <SettingsToggleRow
+              label="Offer to continue unfinished conversations"
+              description="Keeps your goal in your words, what was done and what was still open, for 24 hours. No transcript."
+              status={`Default: on · Now: ${settings.resume_sessions === false ? 'off' : 'on'}`}
+              checked={settings.resume_sessions !== false}
+              onChange={(resume_sessions) => void update({ resume_sessions })}
+            />
+            <SettingsToggleRow
+              label="Also keep the last 6 turns"
+              description="So TalkBack remembers exactly what was said when you continue. Kept for 24 hours."
+              status={onOff(settings.keep_recent_turns === true)}
+              checked={settings.keep_recent_turns === true}
+              disabled={settings.resume_sessions === false}
+              onChange={(keep_recent_turns) => void update({ keep_recent_turns })}
+            />
           </section>
 
           <section aria-label="Conversation">

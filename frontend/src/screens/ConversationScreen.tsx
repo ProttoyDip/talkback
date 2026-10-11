@@ -17,6 +17,7 @@ import { NavRail, TabBar, type Panel } from '../components/Navigation'
 import { StatusBar } from '../components/StatusBar'
 import { PlanCard } from '../components/PlanCard'
 import { ReminderBanner } from '../components/ReminderBanner'
+import { ResumeBanner } from '../components/ResumeBanner'
 import { TextComposer } from '../components/TextComposer'
 import type { ReminderItem } from '../api/types'
 import type { DueReminder } from '../session/useReminders'
@@ -46,6 +47,9 @@ export interface ConversationView {
   sessionOpen?: boolean
   /** The recorded demo (?replay): labelled everywhere, panels show sample data. */
   replay?: boolean
+  /** An unfinished conversation to continue (plan P7). */
+  resumable?: ConversationModel['resumable']
+  onResume?: (stateId: string, accept: boolean) => void
   /** The latest "Prepare my day" plan card (plan P6). */
   plan?: DayPlan
   /** Due or missed reminders (plan P5), until the user answers each. */
@@ -223,6 +227,13 @@ export function ConversationScreen({
           />
 
           {view.banner && <Banner {...view.banner} />}
+          {view.resumable && view.onResume && (
+            <ResumeBanner
+              key={view.resumable.id}
+              state={view.resumable}
+              onAnswer={(accept) => view.onResume?.(view.resumable!.id, accept)}
+            />
+          )}
           {view.reminders && view.onDismissReminder && (
             <ReminderBanner due={view.reminders} onDismiss={view.onDismissReminder} />
           )}

@@ -126,6 +126,8 @@ def build_view(settings: Settings, prefs: Prefs) -> SettingsView:
         interrupt_sensitivity=prefs.interrupt_sensitivity,
         answer_length=prefs.answer_length,
         timezone=prefs.timezone,
+        resume_sessions=prefs.resume_sessions,
+        keep_recent_turns=prefs.keep_recent_turns,
         models=ModelsView(
             voice_model=voice_model, full_duplex=full_duplex,
             planner_model=selected, planner_options=options, providers=providers,
@@ -161,6 +163,10 @@ def update_settings(
         prefs.interrupt_sensitivity = update.interrupt_sensitivity
     if update.answer_length is not None:
         prefs.answer_length = update.answer_length
+    if update.resume_sessions is not None:
+        prefs.resume_sessions = update.resume_sessions
+    if update.keep_recent_turns is not None:
+        prefs.keep_recent_turns = update.keep_recent_turns
     if update.timezone is not None:
         if not valid_zone(update.timezone):
             raise HTTPException(422, "Unknown time zone")
