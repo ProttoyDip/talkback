@@ -35,7 +35,11 @@
 | Skills: Morning brief, Quick research, Remind me | Working; "Remind me" keeps a note, it does not send alerts yet | Shown, but run only in a live conversation |
 | Settings: tools, privacy, interruptions, answer length, models | Working | Sample data |
 | Opt-in recording of your own voice | Working, kept in your browser only | — |
-| Accounts, tasks, calendar, timed reminders, documents | Planned | — |
+| Changing your mind mid-request: "no, wait…", "never mind", a new request while it thinks | Working: the old action is dropped, an action already running finishes once and is reported | — |
+| Answering "yes" or "no" by voice to a confirmation | Working | Simulated (buttons) |
+| Typing instead of talking | Working, also without a microphone | — |
+| Accounts: email sign-in link or guest, private memories and settings | Built; turned on with `AUTH_MODE` and Supabase Auth (see `backend/.env.example`) | — |
+| Tasks, calendar, timed reminders, documents | Planned | — |
 
 ## The problem
 
