@@ -13,17 +13,8 @@ from typing import Literal
 from pydantic import Field
 
 from ..planner import Change, Planner
+from ..protocol import PlanItem, PlanProposed, PlanUpdated
 from ..timeutil import spoken, to_storage
-from datetime import datetime, timedelta, timezone
-
-from ..protocol import PlanProposed, PlanUpdated
-
-PLAN_CARD_LIFETIME = timedelta(minutes=30)
-
-
-def planner_now() -> datetime:
-    return datetime.now(timezone.utc)
-
 from . import Arguments, Tool, ToolOutcome, ToolResult, current_action_key, current_turn_id
 
 LocalTime = Field(min_length=10, max_length=32, description="Local time, e.g. 2026-10-12T15:00")
@@ -133,6 +124,7 @@ def _out(change: Change, text: str) -> ToolOutcome:
 
 def planner_tools(planner: Planner) -> list[Tool]:
     tz = planner.tz
+    proposed: dict[str, list[PlanItem]] = {}  # plans this conversation made
 
     def when(text: str | None, end_of_day: bool = False) -> str:
         try:
@@ -186,10 +178,13 @@ def planner_tools(planner: Planner) -> list[Tool]:
                     "Reminder changed")
 
     async def day_plan_propose(args: DayPlanProposeArguments) -> ToolOutcome:
-        proposal_id, day, items = await asyncio.to_thread(planner.propose_day, args.date, current_turn_id.get())
+        proposal_id, day, items, expires_at = await asyncio.to_thread(
+            planner.propose_day, args.date, current_turn_id.get(),
+        )
+        proposed[proposal_id] = items  # for the apply card, without a store read on the event loop
         card = PlanProposed(
             proposal_id=proposal_id, message_id=current_turn_id.get() or "turn", date=day, items=items,
-            expires_at=(planner_now() + PLAN_CARD_LIFETIME).isoformat(timespec="seconds"),
+            expires_at=expires_at,
         )
         summary = "; ".join(f"{i.title} {i.starts_at[11:16]}–{i.ends_at[11:16]} ({i.reason})" for i in items)
         text = f"proposal_id={proposal_id}. {summary}" if items else "Nothing needs a block today: no free time or no urgent tasks."
@@ -204,7 +199,7 @@ def planner_tools(planner: Planner) -> list[Tool]:
         return ToolOutcome([ToolResult("Day plan", "", text)], action_id, action_id is not None, (update,))
 
     def plan_lines(args: DayPlanApplyArguments) -> list[str]:
-        items = planner.plan_items(args.proposal_id)
+        items = proposed.get(args.proposal_id, [])
         return [
             f"{i.starts_at[11:16]}–{i.ends_at[11:16]} {i.title}" for i in items
             if args.items is None or i.index in args.items

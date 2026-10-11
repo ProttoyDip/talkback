@@ -5,7 +5,11 @@ import type { DayPlan } from '../session/model'
 import { enter, exit } from '../styles/motion'
 import { Icon } from './Icon'
 
-const time = (iso: string) => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(iso))
+/** The wall-clock time in the plan's own time zone (the server's local time), not the browser's. */
+const time = (iso: string) =>
+  new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }).format(
+    new Date(`${iso.slice(0, 16)}Z`),
+  )
 
 const OUTCOME: Partial<Record<DayPlan['status'], string>> = {
   rejected: 'Not now. Your calendar is unchanged.',
@@ -41,8 +45,19 @@ export function PlanCard({ plan, className = '' }: { plan: DayPlan; className?: 
   }
 
   const decline = async () => {
-    setLocal({ status: 'rejected' })
-    await api.rejectPlan(plan.id).catch(() => {})
+    try {
+      await api.rejectPlan(plan.id)
+      setLocal({ status: 'rejected' })
+    } catch {
+      setProblem('That plan was already answered. Check your calendar in the Plan panel.')
+    }
+  }
+
+  const tick = (index: number, on: boolean) => {
+    const next = on ? [...chosen, index] : chosen.filter((i) => i !== index)
+    setChosen(next)
+    // Saved, so a spoken "yes" applies just these.
+    void api.choosePlanItems(plan.id, next).catch(() => {})
   }
 
   const undo = async () => {
@@ -82,9 +97,7 @@ export function PlanCard({ plan, className = '' }: { plan: DayPlan; className?: 
               type="checkbox"
               className="mt-1 size-4 accent-(--voice-assistant)"
               checked={status === 'proposed' ? chosen.includes(item.index) : applied.includes(item.index)}
-              onChange={(e) =>
-                setChosen((list) => (e.target.checked ? [...list, item.index] : list.filter((i) => i !== item.index)))
-              }
+              onChange={(e) => tick(item.index, e.target.checked)}
             />
             <span>
               <span className="font-mono text-data text-text-muted">

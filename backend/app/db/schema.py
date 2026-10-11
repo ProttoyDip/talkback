@@ -37,8 +37,8 @@ TABLES: dict[str, Table] = {
     # Day plans waiting for the user's OK (plan P6).
     "proposals": Table(
         "proposals",
-        frozenset({"date", "status", "items", "message_id", "expires_at", "created_at", "updated_at"}),
-        frozenset({"items"}),
+        frozenset({"date", "status", "items", "chosen", "message_id", "expires_at", "created_at", "updated_at"}),
+        frozenset({"items", "chosen"}),
     ),
     "user_skills": Table(
         "user_skills",
@@ -156,7 +156,7 @@ SQLITE_MIGRATIONS: list[str] = [
         id TEXT PRIMARY KEY, user_id TEXT NOT NULL, date TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending'
             CHECK(status IN ('pending', 'accepted', 'partially_applied', 'rejected', 'superseded', 'expired')),
-        items TEXT NOT NULL, message_id TEXT, expires_at TEXT NOT NULL,
+        items TEXT NOT NULL, chosen TEXT, message_id TEXT, expires_at TEXT NOT NULL,
         created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
     CREATE INDEX proposals_user ON proposals (user_id, date, status);

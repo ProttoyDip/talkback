@@ -94,6 +94,10 @@ export interface ToolSetting {
 export interface SettingsView {
   /** IANA time zone for tasks, calendar and reminders. */
   timezone?: string
+  /** Offer to continue an unfinished conversation (plan P7). */
+  resume_sessions?: boolean
+  /** Keep the last 6 heard turns for that (off by default). */
+  keep_recent_turns?: boolean
   tools: Partial<Record<ToolName, ToolSetting>>
   save_recordings: boolean
   transcripts_in_logs: boolean
@@ -111,6 +115,8 @@ export interface SettingsUpdate {
   planner_model?: string
   providers?: Partial<Record<ProviderId, boolean>>
   timezone?: string
+  resume_sessions?: boolean
+  keep_recent_turns?: boolean
 }
 
 // Tasks, calendar and reminders (plan P5). Times are ISO 8601 with an offset.

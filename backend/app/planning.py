@@ -35,8 +35,9 @@ class Proposed:
 def round_up(moment: datetime) -> datetime:
     """To the next quarter hour, so blocks start at :00, :15, :30, :45."""
     base = moment.replace(second=0, microsecond=0)
-    extra = (-base.minute) % 15
-    return base + timedelta(minutes=extra) if extra or moment != base else base
+    if base < moment:  # 09:15:40 is past 09:15
+        base += timedelta(minutes=1)
+    return base + timedelta(minutes=(-base.minute) % 15)
 
 
 def free_slots(busy: list[tuple[datetime, datetime]], day: date, tz: str, now: datetime) -> list[Slot]:

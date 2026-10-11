@@ -88,6 +88,14 @@ class ToolConfirm(Message):
     approved: bool
 
 
+class SessionResume(Message):
+    """The answer to session.resumable: continue the earlier conversation, or start fresh."""
+
+    type: Literal["session.resume"]
+    state_id: Id
+    accept: bool
+
+
 class TextInput(Message):
     """A typed turn: the same as speaking it (works while muted)."""
 
@@ -96,7 +104,7 @@ class TextInput(Message):
 
 
 ClientMessage = Annotated[
-    SessionStart | PlaybackPosition | ControlMute | ControlStop | ToolConfirm | TextInput,
+    SessionStart | PlaybackPosition | ControlMute | ControlStop | ToolConfirm | TextInput | SessionResume,
     Field(discriminator="type"),
 ]
 client_message = TypeAdapter(ClientMessage)
@@ -253,6 +261,19 @@ class PlanApply(Message):
     items: list[int] | None = Field(default=None, max_length=20)
 
 
+class SessionResumable(Message):
+    """An unfinished conversation from earlier (plan P7). Facts only: the
+    user's goal in their own words, what was done, what is still open.
+    Nothing open runs again without being asked again."""
+
+    type: Literal["session.resumable"] = "session.resumable"
+    state_id: Id
+    goal: str = Field(max_length=200)
+    decisions: list[Annotated[str, Field(max_length=300)]] = Field(default_factory=list, max_length=10)
+    pending: list[Annotated[str, Field(max_length=300)]] = Field(default_factory=list, max_length=10)
+    updated_at: str
+
+
 class ReminderDue(Message):
     """A reminder is due now: the page shows it (and a notification if hidden)."""
 
@@ -311,6 +332,7 @@ ServerMessage = Annotated[
     | MemorySaved
     | DataChanged
     | ReminderDue
+    | SessionResumable
     | PlanProposed
     | PlanUpdated
     | Metrics
@@ -597,6 +619,10 @@ class SettingsView(Rest):
     models: ModelsView
     # IANA time zone for tasks, calendar and reminders ("Asia/Dhaka").
     timezone: str = "UTC"
+    # Offer to continue an unfinished conversation (plan P7); on by default.
+    resume_sessions: bool = True
+    # Also keep the last 6 heard turns for that (off by default, SECURITY.md T10).
+    keep_recent_turns: bool = False
 
 
 class SettingsUpdate(Rest):
@@ -608,6 +634,8 @@ class SettingsUpdate(Rest):
     planner_model: Id | None = None  # must be an available ModelOption id
     providers: dict[ProviderId, bool] | None = None  # turn backups on or off
     timezone: str | None = Field(default=None, min_length=1, max_length=64)  # IANA name, checked by the server
+    resume_sessions: bool | None = None
+    keep_recent_turns: bool | None = None
 
 
 ReminderDue.model_rebuild()
