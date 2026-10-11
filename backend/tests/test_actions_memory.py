@@ -324,3 +324,30 @@ def test_a_typed_memory_is_marked_typed_even_with_fillers(stores):
     asyncio.run(scenario())
     [item] = stores.memory.list()
     assert item.source == "user_text"
+
+
+# Security review: forgetting means forgetting
+
+
+def test_undo_copies_expire_and_summaries_lose_the_text(stores):
+    from datetime import datetime, timedelta, timezone
+
+    ledger = stores.ledger()
+    item = stores.memory.create(said("Secret plan"))
+    row = stores.memory.row(item.id)
+    stores.memory.delete(item.id)
+    action = ledger.record("memory_delete", "done", "Forgot “Secret plan”", undo={"op": "memory.restore", "rows": [row]})
+    ledger.expire(older_than=datetime.now(timezone.utc) + timedelta(seconds=1))
+    stored = stores.repo("actions").get(action["id"])
+    assert stored["undo"] is None and stored["summary"] == "Forgot a memory"
+    assert not ledger.list()[0].undoable
+
+
+def test_forget_everything_erases_memory_text_from_earlier_history(client, settings, stores):
+    headers = bearer(settings)
+    first = stores.memory.create(said("Secret plan"))
+    client.delete(f"/api/memories/{first.id}", headers=headers)
+    stores.memory.create(said("Another thing"))
+    client.delete("/api/memories", headers=headers)
+    summaries = [a["summary"] for a in client.get("/api/actions", headers=headers).json()["items"]]
+    assert summaries == ["Forgot all 1 memories", "Forgot a memory"]

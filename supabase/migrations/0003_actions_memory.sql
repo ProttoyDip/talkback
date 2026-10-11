@@ -39,7 +39,8 @@ create table if not exists public.actions (
 create index if not exists actions_user on public.actions (user_id, created_at desc);
 alter table public.actions enable row level security;
 
+-- Read-only for signed-in users: only the server writes history, so a
+-- browser cannot plant an action with a forged undo.
 drop policy if exists own_rows on public.actions;
-create policy own_rows on public.actions for all to authenticated
-  using (user_id = (select auth.uid())::text)
-  with check (user_id = (select auth.uid())::text);
+create policy own_rows on public.actions for select to authenticated
+  using (user_id = (select auth.uid())::text);

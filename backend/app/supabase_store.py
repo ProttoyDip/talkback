@@ -120,10 +120,13 @@ class SupabaseMemoryStore:
         return self._item(rows[0]) if rows else None
 
     def restore(self, row: dict) -> MemoryItem:
-        body = {key: row.get(key) for key in COLUMNS} | {"user_id": self.user_id}
-        rows = self.rest.call(
-            "POST", "/memories", json=body, params={"select": FIELDS},
-            headers={"Prefer": "return=representation,resolution=merge-duplicates"},
+        body = {key: row.get(key) for key in COLUMNS}
+        if self.get(row["id"]) is not None:  # undo an edit: this user's row only
+            changes = {key: value for key, value in body.items() if key != "id"}
+            return self._item(self._patch({"id": f"eq.{row['id']}"}, changes)[0])
+        rows = self.rest.call(  # undo a delete: a plain insert, never an upsert
+            "POST", "/memories", json=body | {"user_id": self.user_id}, params={"select": FIELDS},
+            headers={"Prefer": "return=representation"},
         ).json()
         return self._item(rows[0])
 

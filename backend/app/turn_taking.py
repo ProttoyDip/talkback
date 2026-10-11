@@ -180,11 +180,6 @@ YES = frozenset({
     "yes please", "please do", "yes do it", "yes go ahead", "sure go ahead", "ok do it", "okay do it",
 })
 NO = frozenset({"no", "nope", "nah", "don't", "do not", "dont", "cancel", "keep it", "no thanks", "no thank you"})
-YES_STARTS = frozenset({"yes", "yeah", "yep", "yup", "sure", "ok", "okay"})
-# Words that turn "yes, but..." into something other than a plain yes.
-DOUBT = frozenset({
-    "no", "not", "don't", "dont", "wait", "actually", "but", "instead", "change", "different", "also", "too", "except",
-})
 # Thinking out loud while a confirmation waits: not an answer.
 HESITATION = frozenset({"hmm", "hm", "umm", "um", "uh", "er", "let me think", "hold on", "one second", "just a second"})
 # Words that call off the request in progress, said on their own.
@@ -197,17 +192,15 @@ CANCEL = frozenset({
 def classify_confirmation(text: str) -> tuple[str | None, str]:
     """('yes' | 'no' | None, what is left to handle as a new request).
 
-    Only a plain answer approves: "yes" or "go ahead". "No, wait, Friday"
+    Only a plain, short answer approves: "yes", "yes please", "go ahead";
+    never a sentence that merely starts with "okay". "No, wait, Friday"
     declines and leaves "wait, Friday" to be answered as a new request.
     Anything else is not an answer, so the pending action is not run.
     """
     words = _words(text)
     phrase = " ".join(words)
     if phrase in YES:
-        return "yes", ""
-    # "Yes please, delete it": a yes with more words, but no doubt in them.
-    if words and words[0] in YES_STARTS and not DOUBT & set(words[1:]):
-        return "yes", ""
+        return "yes", ""  # only an exact, short yes: "okay, keep going" is not one (T5)
     if phrase in NO or phrase in CANCEL:
         return "no", ""
     for size in (3, 2, 1):

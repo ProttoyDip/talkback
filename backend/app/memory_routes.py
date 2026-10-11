@@ -74,8 +74,9 @@ def forget_everything(store: Store, ledger: Ledger) -> Response:
     rows = store.all_rows()
     store.delete_all()
     if rows:
-        ledger.record(
+        action = ledger.record(
             "memory_delete", "done", f"Forgot all {len(rows)} memories", target_kind="memory",
             undo={"op": "memory.restore", "rows": rows},
         )
+        ledger.forget_history(keep=action["id"])  # only this undo keeps a copy, for 24 hours
     return Response(status_code=204)

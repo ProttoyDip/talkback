@@ -60,6 +60,8 @@ Prompt injection is still considered an unsolved, architectural problem for AI a
 - The memory writer rejects any write whose provenance is a tool result, web page or model output.
 - TalkBack says out loud when it saves a memory, and the UI shows a toast with Undo.
 - The Memory panel shows every memory with its origin quote, so users can spot and delete anything wrong.
+- **Suggestions:** the model may suggest a memory (`memory_suggest`), but it is stored apart (status `suggested`, source `assistant_suggestion`), never used in prompts, and becomes a memory only when the user taps Keep. It is refused in a turn that saw web results. The database refuses a confirmed memory with a suggestion's source.
+- **Corrections** replace a memory about the same thing only from the user's own words ("Actually, I live in Rome now"); the old one is kept as history and never used again.
 - Retrieved memories are passed to the model as data, not as instructions.
 
 ### T4. Excessive tool permissions
@@ -78,6 +80,8 @@ Prompt injection is still considered an unsolved, architectural problem for AI a
 - Sensitive calls pause and send a `tool.confirm_request`. The action runs only after an explicit "yes" from the user, by voice or button, within 30 seconds.
 - The confirmation summary shows the actual action and its arguments (for example, the memory text to delete), so the user knows exactly what they approve.
 - A confirmation applies to one call only.
+- **By voice:** TalkBack speaks the server-written summary (the card's text, never the model's words), and only an exact short answer counts: "yes", "yes please", "go ahead", or "no". A sentence that merely starts with "okay" or "sure" is not an approval. In a turn that saw web results, a spoken yes is not accepted; the user presses Yes on the card.
+- **Changing your mind:** a new request, "never mind", or Stop drops a pending action; an approved action never runs once the user has moved on; one already running finishes once and is reported (plan P3).
 
 ### T6. Secret exposure
 - All API keys live only on the server, in environment variables loaded from `.env`. The browser never sees them.
@@ -114,6 +118,7 @@ Prompt injection is still considered an unsolved, architectural problem for AI a
 - Server logs contain metadata (timings, tool names), not transcript text. Transcript lines are logged only when the server operator allows it (`ALLOW_TRANSCRIPT_LOGS=true`, off by default and on the hosted demo) and the user turns on Settings > Privacy > "Show transcripts in logs". Until accounts exist, settings are shared by every visitor, which is why the operator switch is needed.
 - Opt-in recording ("Save recordings on this device") keeps the user's own microphone audio in the browser only; it is downloaded as a file and never uploaded.
 - "Forget everything" deletes all memories and local data in one action.
+- **Undo window:** deleting a memory can be undone for 24 hours from Activity, which keeps a copy for that long only. After that the copy is erased and the history entry loses the memory's text; "Forget everything" also erases the text from earlier history at once. Only the server writes the history (browsers can only read their own).
 
 ## 5. Security requirements checklist
 

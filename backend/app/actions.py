@@ -9,12 +9,18 @@ the target has not changed since, so it never overwrites newer edits.
 import hashlib
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from .db.repo import Repo
+from .db.repo import IsNull, Lte, Repo
 from .protocol import ActionItem
 
 log = logging.getLogger("talkback.actions")
+
+# Undo keeps a copy of what changed (a deleted memory's words). It lasts this
+# long; then the copy is erased and the summary loses the memory's text
+# (SECURITY.md T10: forgetting means forgetting).
+UNDO_WINDOW = timedelta(hours=24)
+REDACTED = {"memory_delete": "Forgot a memory", "memory_write": "Changed a memory", "memory_suggest": "Suggested a memory"}
 
 # How each kind of change is reversed: undo["op"] -> handler(memory store, undo).
 
@@ -59,7 +65,8 @@ def _undo_memory(memory, undo: dict) -> None:
         current = memory.row(undo["id"])
         if current is None or current["updated_at"] != undo["after_updated_at"]:
             raise UndoConflict("memory changed since")
-        memory.restore({**current, **undo["before"]})
+        before = {key: undo["before"][key] for key in ("text", "kind", "status", "updated_at") if key in undo["before"]}
+        memory.restore({**current, **before})
     else:
         raise NotUndoable(op)
 
@@ -82,6 +89,7 @@ class ActionLedger:
         """Write one action; with a key already used, return that earlier action."""
         if key is not None and (earlier := self.find(key)) is not None:
             return earlier
+        self.expire()
         stamp = now()
         return self.repo.insert({
             "session_id": self.session_id, "call_id": call_id, "tool": tool, "status": status,
@@ -99,7 +107,23 @@ class ActionLedger:
         )
 
     def list(self, limit: int = 50) -> list[ActionItem]:
+        self.expire()
         return [self.item(row) for row in self.repo.select(order="created_at.desc", limit=limit)]
+
+    def expire(self, older_than: datetime | None = None) -> None:
+        """Erase undo copies past the undo window, and the memory text in their summaries."""
+        cutoff = (older_than or datetime.now(timezone.utc) - UNDO_WINDOW).isoformat()
+        for row in self.repo.select({"created_at": Lte(cutoff), "undo": IsNull(False)}, limit=200):
+            self.redact(row)
+
+    def redact(self, row: dict) -> None:
+        self.repo.update(row["id"], {"undo": None, "summary": REDACTED.get(row["tool"], row["summary"])})
+
+    def forget_history(self, keep: str | None = None) -> None:
+        """"Forget everything": earlier history keeps no memory text either."""
+        for row in self.repo.select({"target_kind": "memory"}, limit=1000):
+            if row["id"] != keep:
+                self.redact(row)
 
     def undo(self, action_id: str) -> ActionItem:
         row = self.repo.get(action_id)

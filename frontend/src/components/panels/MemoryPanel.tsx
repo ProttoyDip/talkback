@@ -324,7 +324,7 @@ function Memories({ refreshKey }: { refreshKey?: string }) {
               <div className="mt-auto pt-4">
                 {confirmAll ? (
                   <div role="alertdialog" aria-label="Forget everything" className="flex flex-col gap-3 rounded-card border border-danger p-4">
-                    <p className="text-body text-text">Delete all memories? You can undo this from Activity.</p>
+                    <p className="text-body text-text">Delete all memories? You can undo this from Activity for 24 hours.</p>
                     <div className="flex gap-2">
                       <button type="button" onClick={() => void forgetAll()} className={`${secondaryButton} border-danger text-danger`}>
                         Yes, forget everything

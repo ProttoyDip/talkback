@@ -291,9 +291,41 @@ def test_typing_before_session_start_closes_the_session(client, token):
 # Review fixes: hesitation, talking over the question, timeouts
 
 
-def test_yes_with_more_words_still_approves_but_not_with_doubt():
-    assert classify_confirmation("Yes please, delete it.") == ("yes", "")
-    assert classify_confirmation("Yes but not that one")[0] is None
+@pytest.mark.parametrize("said", [
+    "Okay, what is the weather tomorrow?", "Sure, tell me more about it", "Yeah, keep going",
+    "Yes please, delete it.", "Yes but not that one",
+])
+def test_a_sentence_that_starts_with_yes_is_not_an_approval(said):
+    # Security review: only an exact short yes approves by voice (T5).
+    assert classify_confirmation(said)[0] is None
+
+
+def test_the_summary_is_spoken_before_a_voice_answer():
+    async def scenario():
+        engine, _, _ = await engine_with_pending_confirmation()
+        await asyncio.sleep(0.05)
+        spoken = list(engine.tts.spoken)
+        await engine.close()
+        return spoken
+
+    assert "Delete the test memory? Say yes or no." in asyncio.run(scenario())
+
+
+def test_after_web_results_only_the_button_approves():
+    async def scenario():
+        engine, handler, _ = await engine_with_pending_confirmation()
+        engine.bridge.tainted.add(engine.reply_message_id)
+        engine.submit_text("Yes.")
+        await asyncio.sleep(0.05)
+        still_waiting = engine.bridge.pending_call() is not None
+        engine.bridge.resolve(engine.bridge.pending_call(), True)  # the card's button
+        await asyncio.wait_for(engine.reply, 2)
+        await engine.close()
+        return handler, still_waiting
+
+    handler, still_waiting = asyncio.run(scenario())
+    assert still_waiting
+    handler.assert_awaited_once()
 
 
 def test_hesitating_keeps_the_question_open():

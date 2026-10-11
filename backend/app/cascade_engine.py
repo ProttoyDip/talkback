@@ -26,7 +26,7 @@ from .memory import MemoryStore, MemoryWrite, remember
 from .memory_capture import extract_correction, extract_memory, slot_of
 from .skills import Skill, match_trigger
 from .llm import LlmClient, LlmProvider, LlmUnavailable, ToolCalls
-from .protocol import DataChanged, ServerMessage, ToolConfirm
+from .protocol import DataChanged, ServerMessage, ToolConfirm, ToolConfirmRequest
 from .speech import SpeechToText, TextToSpeech
 from .tool_bridge import ToolBridge
 from .turn_taking import (
@@ -183,6 +183,12 @@ class CascadeEngine:
 
     async def _emit_protocol(self, message: ServerMessage) -> None:
         self._emit(ProtocolEvent(message))
+        if isinstance(message, ToolConfirmRequest):
+            # Say what is being approved, in the server's words (the card's
+            # summary), not the model's: a voice "yes" answers this (T5).
+            tainted = self.bridge is not None and message.message_id in self.bridge.tainted
+            ask = "Press Yes on the card to confirm." if tainted else "Say yes or no."
+            await self.say_filler(f"{message.summary} {ask}")
 
     async def send_audio(self, frame: bytes) -> None:
         self.stt.push(frame)
@@ -277,6 +283,10 @@ class CascadeEngine:
             return  # "hmm": still deciding, the question stays open
         if pending:
             answer, rest = classify_confirmation(text)
+            if answer == "yes" and not rest and self.reply_message_id in self.bridge.tainted:
+                # After web results a spoken yes could come from the page's
+                # influence on the conversation: the card's button only (T1, T5).
+                return
             if answer is not None and not rest:
                 self.bridge.resolve(pending, answer == "yes")  # the reply goes on
                 return
