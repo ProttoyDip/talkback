@@ -70,6 +70,13 @@ const paths = {
   play: <path d="M8 5v14l11-7z" />,
   download: <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
   stop: <rect x="6" y="6" width="12" height="12" rx="2" />,
+  document: (
+    <>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5M9 13h6M9 17h4" />
+    </>
+  ),
+  folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
   search: (
     <>
       <circle cx="11" cy="11" r="6.5" />

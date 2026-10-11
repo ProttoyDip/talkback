@@ -35,14 +35,19 @@ def save_state(
     for row in proposals.select({"status": "pending"}, limit=5):
         if row["expires_at"] > iso(now_utc()) and (since is None or row["created_at"] >= since):
             pending.append(f"A day plan for {row['date']} was waiting for your OK")
+    existing = states.select({"session_id": session_id, "status": "open"}, limit=1)
     if not done and not pending:
+        if existing:  # it was unfinished, and is not any more
+            states.delete(existing[0]["id"])
         return None  # finished: nothing to pick up
-    return states.insert({
+    values = {
         "session_id": session_id, "goal": goal[:200], "decisions": done, "pending": pending[:10],
         # What the model may be told: tool names only, never model-written text (T1).
         "tools_used": tools,
         "recent_turns": recent[-RECENT_TURNS:] if recent else None, "status": "open",
-    })
+    }
+    # One row per conversation, updated as it goes.
+    return states.update(existing[0]["id"], values) if existing else states.insert(values)
 
 
 def offer(states: Repo, current_session: str) -> SessionResumable | None:

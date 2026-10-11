@@ -25,6 +25,10 @@ const RUNNING_COPY: Record<ToolCall['name'], string> = {
   reminder_update: 'Changing the reminder…',
   day_plan_propose: 'Planning your day…',
   day_plan_apply: 'Applying your plan…',
+  docs_search: 'Searching your documents…',
+  project_list: 'Checking your projects…',
+  project_search: 'Searching your project notes…',
+  project_save: 'Saving to your project…',
   skill_run: 'Running a skill…',
 }
 
@@ -47,6 +51,10 @@ const FAILED_COPY: Record<ToolCall['name'], string> = {
   reminder_update: "Couldn't change the reminder",
   day_plan_propose: "Couldn't plan your day",
   day_plan_apply: "Couldn't apply the plan",
+  docs_search: "Couldn't search your documents",
+  project_list: "Couldn't read your projects",
+  project_search: "Couldn't search your project notes",
+  project_save: "Couldn't save the note",
   skill_run: "Couldn't finish the skill",
 }
 
@@ -68,6 +76,10 @@ const DONE_COPY: Record<Exclude<ToolCall['name'], 'web_search'>, string> = {
   reminder_update: 'Reminder changed',
   day_plan_propose: 'Plan ready for your OK',
   day_plan_apply: 'Plan applied',
+  docs_search: 'Searched your documents',
+  project_list: 'Checked your projects',
+  project_search: 'Searched your project notes',
+  project_save: 'Saved to your project',
   skill_run: 'Skill finished',
 }
 
@@ -75,6 +87,7 @@ const DONE_COPY: Record<Exclude<ToolCall['name'], 'web_search'>, string> = {
 const DECLINED_COPY: Partial<Record<ToolCall['name'], string>> = {
   memory_delete: 'Cancelled. Your memory was kept.',
   memory_write: 'Cancelled. Nothing was saved.',
+  project_save: 'Cancelled. Nothing was saved.',
 }
 
 function outcomeCopy(call: ToolCall) {

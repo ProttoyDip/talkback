@@ -161,6 +161,7 @@ class Session:
         self.log_transcripts = False  # start_engine applies the user's setting
         self.resume_on, self.keep_turns = False, False  # start_engine applies the user's settings (plan P7)
         self.opened_at = iso(now_utc())  # only this conversation's plans count when resuming
+        self.saving = False  # a turn-end save is running
         self.interim_user_text = ""
         self.last_text_input = -1.0  # loop time of the last typed turn (1 per second)
         self.overlapping = False
@@ -247,6 +248,10 @@ class Session:
                 self.words.setdefault(message_id, []).append((word, start_s, end_s))
                 self.caption_queue(message_id).put_nowait(event)
             case TurnEnded(message_id=message_id, text=text, ends_turn=ends_turn):
+                if ends_turn and not self.saving:
+                    # Saved as it goes, so a crash or a sleeping server loses nothing (plan P7).
+                    self.saving = True
+                    self.spawn(self._save_then_clear())
                 if message_id in self.dropped:
                     return
                 if self.log_transcripts and text:
@@ -400,6 +405,12 @@ class Session:
                 resume.context_note(row), row.get("recent_turns"), goal=row["goal"], pending=row.get("pending") or [],
             )
 
+    async def _save_then_clear(self) -> None:
+        try:
+            await self.save_resume_state()
+        finally:
+            self.saving = False
+
     async def save_resume_state(self) -> None:
         engine = self.engine
         if self.settings is None or engine is None or not self.resume_on or not getattr(engine, "goal", None):
@@ -415,7 +426,7 @@ class Session:
             log.warning("conversation state not saved", extra={"session_id": self.session_id})
 
     async def close(self) -> None:
-        await self.save_resume_state()  # before the engine forgets what was open
+        await self.save_resume_state()  # a last update; each turn end already saved
         for task in list(self.tasks):
             task.cancel()
         await asyncio.gather(*self.tasks, return_exceptions=True)

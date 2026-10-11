@@ -2,7 +2,7 @@
  * REST types. Mirror the "REST API" section of backend/app/protocol.py and
  * docs/architecture.md 3.2. Change all together, in a "contract" pull request.
  */
-import type { ModelRole, ProviderId, ToolName } from '../session/protocol'
+import type { ModelRole, ProviderId, Source, ToolName } from '../session/protocol'
 
 export type InterruptSensitivity = 'low' | 'normal' | 'high'
 export type AnswerLength = 'short' | 'normal' | 'detailed'
@@ -153,6 +153,44 @@ export interface ReminderItem {
   delivered_at?: string | null
   snooze_count: number
   created_at: string
+}
+
+// Documents and research projects (plan P8).
+
+export interface DocumentItem {
+  id: string
+  title: string
+  filename: string
+  kind: 'pdf' | 'txt' | 'md'
+  size_bytes: number
+  pages?: number | null
+  chunks: number
+  status: 'processing' | 'ready' | 'failed'
+  /** Why it failed, in plain words. */
+  error?: string | null
+  created_at: string
+}
+
+export interface ProjectItem {
+  id: string
+  name: string
+  description?: string | null
+  notes: number
+  created_at: string
+  updated_at?: string | null
+}
+
+export interface ProjectNote {
+  id: string
+  text: string
+  /** Only links from that turn's web results. */
+  sources: Source[]
+  created_at: string
+}
+
+export interface ProjectDetail {
+  project: ProjectItem
+  notes: ProjectNote[]
 }
 
 export interface SkillCreate {
