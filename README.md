@@ -276,25 +276,25 @@ These use synthetic audio frames, so they do not include speech recognition, mod
 
 | Latency, warm (p50 / p95) | Local server |
 |---|---|
-| Spoken question → first audio | 1977 / 2047 ms |
-| Typed question → first audio | 1175 / 1526 ms |
-| "Wait, stop" → audio stops | 1566 / 1628 ms |
+| Spoken question → first audio | 1712 / 1784 ms |
+| Typed question → first audio | 953 / 1410 ms |
+| "Wait, stop" → audio stops | 1513 / 1614 ms |
 
 | Recovery | Local server |
 |---|---|
 | Stops when interrupted | 3 of 3 |
 | Keeps talking through "uh-huh" | 3 of 3 |
-| Correction during a confirmation | — |
+| Correction during a confirmation | 3 of 3 |
 | "Never mind" during a tool call | 3 of 3 |
 | Outdated actions (a corrected change that happened anyway) | 0 |
 
-Runs: Local server 2026-10-11, commit `1e4cace`, 3 per scenario ([details](eval/results/2026-10-11-1912-1e4cace-local.md)).
+Runs: Local server 2026-10-11, commit `9d051a6`, 3 per scenario ([details](eval/results/2026-10-11-2131-9d051a6-local.md)).
 
 ![Warm latency chart](eval/results/latency.svg)
 
 <!-- eval:end -->
 
-Not in the table yet: **a correction during a confirmation** ("Remind me … at nine", then "No wait, make it ten"). It failed in all 3 runs of the first full run (12 October): the model replied as if it had set the reminder but never called the tool, so no confirmation was asked. That is being fixed; nothing outdated was ever saved.
+What these runs found and fixed: short commands ("Wait, stop", two ~240 ms words) did not stop TalkBack; the recognizer's "uh huh" was not taken as a backchannel; and the model sometimes said it had set a reminder without calling the tool (in the first full run, all 3 corrections failed that way; nothing outdated was saved). Action requests now require the tool, and a reply cannot claim an action that did not happen.
 
 ```bash
 backend/.venv/Scripts/python eval/audio_fixtures.py                 # once
