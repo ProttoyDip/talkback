@@ -1,6 +1,8 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../components/Icon'
+import { secondaryButton } from '../components/panels/shared'
+import { REPLAY_HREF } from './AccessGate'
 import { markOnboarded } from './onboarded'
 import { enter, exit } from '../styles/motion'
 
@@ -36,7 +38,7 @@ const primary =
  * need before audio can start. The headphones tip (step 4) shows afterwards,
  * on the conversation screen.
  */
-export function Onboarding({ onStart }: { onStart: () => void }) {
+export function Onboarding({ onStart, onLater }: { onStart: () => void; onLater: () => void }) {
   const [step, setStep] = useState(0)
   const [mic, setMic] = useState<MicResult>('idle')
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -96,8 +98,24 @@ export function Onboarding({ onStart }: { onStart: () => void }) {
                   Talk to me like a person.
                 </h1>
                 <p className="text-transcript text-text-muted">Interrupt me any time. I'll keep up.</p>
-                <button type="button" className={primary} onClick={() => setStep(1)}>
-                  Allow microphone
+                <div className="flex flex-wrap items-center gap-3">
+                  <button type="button" className={primary} onClick={() => setStep(1)}>
+                    Allow microphone
+                  </button>
+                  <a href={REPLAY_HREF} className={secondaryButton}>
+                    <Icon name="play" className="size-4" />
+                    Try recorded demo
+                  </a>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    markOnboarded()
+                    onLater()
+                  }}
+                  className="min-h-target self-start text-body text-text-muted underline underline-offset-4 hover:text-text"
+                >
+                  Set up later
                 </button>
               </>
             )}

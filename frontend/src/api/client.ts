@@ -16,7 +16,9 @@ export class ApiError extends Error {
   }
 }
 
-export const USE_MOCK = new URLSearchParams(window.location.search).has('mock')
+// The recorded demo (?replay) has no session of its own, so its panels show sample data too.
+const params = new URLSearchParams(window.location.search)
+export const USE_MOCK = params.has('mock') || params.has('replay')
 
 let cached: { token: string; expiresAt: number } | undefined
 

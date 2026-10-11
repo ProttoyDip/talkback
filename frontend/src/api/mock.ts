@@ -1,10 +1,18 @@
 /*
- * Local sample data for ?mock, so the panels can be developed and shown
- * before the backend routes exist. Never used unless the URL asks for it.
+ * Local sample data for ?mock and for the recorded demo (?replay), so the
+ * panels can be shown without a backend session. Never used otherwise.
+ * It mirrors what the real backend returns (backend/skills, settings_routes).
  */
 import type { MemoryItem, SettingsView, SkillItem } from './types'
 
 let memories: MemoryItem[] = [
+  {
+    id: 'm0',
+    text: 'Home city is Lisbon',
+    kind: 'fact',
+    utterance: 'Remember that my home city is Lisbon.',
+    created_at: '2026-10-03T08:05:00Z',
+  },
   {
     id: 'm1',
     text: 'Prefers Celsius',
@@ -22,22 +30,43 @@ let memories: MemoryItem[] = [
 ]
 
 const skills: SkillItem[] = [
-  { id: 'morning-brief', name: 'Morning brief', triggers: ['morning brief', 'start my day'], allowed_tools: ['weather', 'web_search'] },
-  { id: 'quick-research', name: 'Quick research', triggers: ['research', 'look into'], allowed_tools: ['web_search'] },
-  { id: 'remind-me', name: 'Remind me', triggers: ['remind me'], allowed_tools: ['memory_write'] },
+  {
+    id: 'morning-brief',
+    name: 'Morning brief',
+    triggers: ['morning brief', 'start my day', 'brief me'],
+    allowed_tools: ['weather', 'memory_read'],
+    summary: "Today's weather for your city and anything you asked TalkBack to remember for today.",
+  },
+  {
+    id: 'quick-research',
+    name: 'Quick research',
+    triggers: ['quick research', 'research this', 'look into'],
+    allowed_tools: ['web_search'],
+    summary: 'One web search, answered in two or three sentences with the source named.',
+  },
+  {
+    id: 'remind-me',
+    name: 'Remind me',
+    triggers: ['remind me'],
+    allowed_tools: ['memory_read'],
+    summary: 'Saves a note that TalkBack reads back when you ask. It does not send alerts yet.',
+  },
 ]
 
 let settings: SettingsView = {
   tools: {
     web_search: { enabled: true, description: 'Searches the web with your question. It sees only that text.' },
     weather: { enabled: true, description: 'Looks up the weather for a place you name.' },
+    memory_read: { enabled: true, description: 'Reads what you asked TalkBack to remember.' },
+    memory_delete: { enabled: true, description: 'Deletes a saved memory, only after you say yes.' },
   },
   save_recordings: false,
   transcripts_in_logs: false,
   interrupt_sensitivity: 'normal',
   answer_length: 'normal',
   models: {
-    voice_model: 'NVIDIA NemotronLabs VoiceChat',
+    voice_model: 'NVIDIA Parakeet speech-to-text + Magpie TTS',
+    full_duplex: false,
     planner_model: 'nebius:nemotron-3-nano',
     planner_options: [
       { id: 'nebius:nemotron-3-nano', provider: 'nebius', model: 'Nemotron 3 Nano', nvidia: true, available: true },

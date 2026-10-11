@@ -37,6 +37,10 @@ export interface ConversationView {
   remembered?: { id: string; text: string }
   /** True once the session is open, so skills can run. */
   sessionOpen?: boolean
+  /** The recorded demo (?replay): labelled everywhere, panels show sample data. */
+  replay?: boolean
+  /** Set while the opt-in recording runs: downloads it as a WAV file. */
+  onSaveRecording?: () => void
   activeModels?: ConversationModel['models']
   /** Live voice levels, so the presence orb can pulse with them. */
   levels?: RefObject<LevelMeters>
@@ -51,7 +55,16 @@ interface ConversationScreenProps {
   onStop?: () => void
   /** Push-to-talk is on: hold Space or the mic button to talk. */
   onHold?: (held: boolean) => void
+  /** An example chip on the empty screen was chosen (starts the conversation). */
+  onExample?: () => void
 }
+
+/** First-conversation guidance: what to try, and the words to say. */
+const EXAMPLES = [
+  { label: 'Remember a preference', say: 'Remember that I like short answers.' },
+  { label: 'Research a topic', say: 'Quick research on solar batteries.' },
+  { label: 'Prepare my day', say: 'Morning brief.' },
+]
 
 function isTyping(target: EventTarget | null) {
   return (
@@ -66,8 +79,17 @@ const FOLLOW_THRESHOLD_PX = 160
 /** TalkBack is answering, so Stop has something to stop. */
 const STOPPABLE = new Set(['assistant_speaking', 'overlap', 'thinking', 'tool'])
 
-export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm, onStop, onHold }: ConversationScreenProps) {
+export function ConversationScreen({
+  view,
+  debug,
+  onToggleMute,
+  onAnswerConfirm,
+  onStop,
+  onHold,
+  onExample,
+}: ConversationScreenProps) {
   const [panel, setPanel] = useState<Panel | null>(null)
+  const [example, setExample] = useState<string>()
   const { state, turns, confirm, micDisabled } = view
   // Nothing said yet: the orb holds the centre of the stage.
   const empty = turns.length === 0 && !confirm
@@ -158,6 +180,9 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
             debug={debug}
             latencyMs={view.latencyMs}
             backup={view.backup}
+            replay={view.replay}
+            connected={view.sessionOpen}
+            onSaveRecording={view.onSaveRecording}
             onSave={turns.length > 0 ? () => downloadTranscript(turns) : undefined}
           />
 
@@ -203,6 +228,33 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
                 <p className="text-transcript text-text-muted">I'll keep up.</p>
               </div>
             )}
+            {empty && !view.replay && (
+              <div className="flex flex-col items-center gap-3">
+                <p id="examples-label" className="font-mono text-label uppercase text-text-muted">
+                  Try saying
+                </p>
+                <ul aria-labelledby="examples-label" className="flex flex-wrap justify-center gap-2">
+                  {EXAMPLES.map(({ label, say }) => (
+                    <li key={label}>
+                      <button
+                        type="button"
+                        aria-pressed={example === say}
+                        onClick={() => {
+                          setExample(say)
+                          onExample?.()
+                        }}
+                        className="min-h-target rounded-pill border border-field-line bg-chrome px-4 text-body text-text transition-colors duration-(--dur-fast) hover:border-text-subtle aria-pressed:border-voice-assistant"
+                      >
+                        {label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <p aria-live="polite" className="min-h-[1lh] text-transcript text-text-muted">
+                  {example && <>Say: “{example}”</>}
+                </p>
+              </div>
+            )}
           </div>
 
           {!empty && (
@@ -216,6 +268,11 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
               // The translucent panel keeps captions readable where the field passes behind them.
               className="-mx-4 flex-1 overflow-y-auto rounded-panel bg-bg/80 px-4 pb-[calc(var(--mic-size)+var(--space-12))] sm:-mx-8 sm:px-8 lg:pb-8"
             >
+              {view.replay && (
+                <p className="pt-2 font-mono text-label uppercase text-text-muted">
+                  Sample conversation. Nothing here is live.
+                </p>
+              )}
               <ol className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-[max-content_minmax(0,1fr)] sm:gap-x-6">
                 {turns.map((turn, i) => (
                   // A user turn opens a new exchange: more space before it,
@@ -249,6 +306,7 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
             context={{
               memoryVersion: view.remembered?.id,
               sessionOpen: view.sessionOpen ?? false,
+              replay: view.replay ?? false,
               onSkillRan: (name) => setToast({ id: `skill-${name}-${Date.now()}`, message: `Running ${name}` }),
               activeModels: view.activeModels ?? {},
             }}

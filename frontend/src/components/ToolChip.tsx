@@ -30,6 +30,18 @@ const DONE_COPY: Record<Exclude<ToolCall['name'], 'web_search'>, string> = {
   skill_run: 'Skill finished',
 }
 
+/** The user said no, or the call stopped before it ran: nothing changed. */
+const DECLINED_COPY: Partial<Record<ToolCall['name'], string>> = {
+  memory_delete: 'Cancelled. Your memory was kept.',
+  memory_write: 'Cancelled. Nothing was saved.',
+}
+
+function outcomeCopy(call: ToolCall) {
+  if (call.status === 'cancelled') return 'Stopped before it ran. Nothing changed.'
+  if (call.status === 'expired') return 'No answer in time. Nothing changed.'
+  return DECLINED_COPY[call.name] ?? 'Cancelled. Nothing changed.'
+}
+
 function doneCopy(call: ToolCall) {
   if (call.name !== 'web_search') return DONE_COPY[call.name]
   const n = call.sources?.length ?? 0
@@ -64,6 +76,15 @@ export function ToolChip({ call }: { call: ToolCall }) {
       <span className={`${staticChip} border-danger text-danger`}>
         <Icon name="alert" className="size-4" />
         {FAILED_COPY[call.name]}
+      </span>
+    )
+  }
+
+  if (call.status === 'declined' || call.status === 'cancelled' || call.status === 'expired') {
+    return (
+      <span className={`${staticChip} border-border text-text-muted`}>
+        <Icon name="close" className="size-4" />
+        {outcomeCopy(call)}
       </span>
     )
   }

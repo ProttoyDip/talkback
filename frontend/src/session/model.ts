@@ -155,8 +155,11 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
         status: event.status,
         sources: event.sources,
       }
+      // Any final status answers the call, so its confirmation card closes.
+      const answered = event.status !== 'running' && model.confirm?.callId === event.call_id
       return {
         ...model,
+        confirm: answered ? undefined : model.confirm,
         turns: upsertTurn(model.turns, event.message_id, 'assistant', (turn) => ({
           ...turn,
           tools: turn.tools.some((t) => t.id === call.id)

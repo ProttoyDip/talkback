@@ -10,7 +10,8 @@ import { useSession, type SessionMode } from '../session/useSession'
 import type { ConversationState } from '../state/types'
 import { AccessCodeError, requestSession } from '../api/session'
 import { useEffectsSetting } from '../background/effects'
-import { rememberSessionToken } from '../api/client'
+import { api, rememberSessionToken } from '../api/client'
+import { downloadBlob } from '../state/exportTranscript'
 import { AccessGate } from './AccessGate'
 import { hasOnboarded } from './onboarded'
 import { Onboarding } from './Onboarding'
@@ -87,6 +88,7 @@ export function LiveConversation({
   const [starting, setStarting] = useState(false)
   const [micProblem, setMicProblem] = useState<MicProblem | null>(null)
   const [micSilent, setMicSilent] = useState(false)
+  const [recording, setRecording] = useState(false)
   // First run: onboarding (design.md 5.1). The replay needs none.
   const [onboarding, setOnboarding] = useState(() => mode === 'live' && !hasOnboarded())
   const [tip, setTip] = useState(false)
@@ -123,7 +125,18 @@ export function LiveConversation({
     try {
       await engine.start()
       // The replay does not listen, so it never asks for the microphone.
-      if (mode === 'live') await engine.startMic()
+      if (mode === 'live') {
+        await engine.startMic()
+        // Opt-in recording (Settings > Privacy): kept in this browser, never uploaded.
+        api
+          .getSettings()
+          .then((settings) => {
+            if (!settings.save_recordings) return
+            engine.startRecording()
+            setRecording(true)
+          })
+          .catch(() => {})
+      }
     } catch (error) {
       await engine.close()
       setMicProblem(error instanceof MicError ? error.problem : 'unavailable')
@@ -202,6 +215,13 @@ export function LiveConversation({
     backup: backupLabel(model),
     remembered: model.remembered,
     sessionOpen: model.connection === 'open',
+    replay: mode === 'replay',
+    onSaveRecording: recording
+      ? () => {
+          const wav = engineRef.current?.recording()
+          if (wav) downloadBlob(wav, 'wav')
+        }
+      : undefined,
     activeModels: model.models,
     levels: meters,
   }
@@ -217,6 +237,7 @@ export function LiveConversation({
           setTip(true)
           void begin()
         }}
+        onLater={() => setOnboarding(false)}
       />
     )
   }
@@ -229,6 +250,9 @@ export function LiveConversation({
       onAnswerConfirm={answerConfirm}
       onStop={session.stop}
       onHold={pushToTalk ? hold : undefined}
+      onExample={() => {
+        if (!started) void begin()
+      }}
     />
   )
 }

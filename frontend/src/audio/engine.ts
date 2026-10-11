@@ -3,6 +3,7 @@
  * Must be started from a user gesture (browser autoplay rules).
  */
 import { getMicDevice } from './device'
+import { wavFromPcm16 } from './wav'
 import captureUrl from './capture.worklet.ts?worker&url'
 import playbackUrl from './playback.worklet.ts?worker&url'
 import type { CaptureMessage } from './capture.worklet'
@@ -23,6 +24,8 @@ export type MicProblem = 'blocked' | 'not_found' | 'unavailable' | 'silent'
 
 /** 3 s of digital silence (150 frames of 20 ms) before warning. */
 const SILENT_FRAMES = 150
+/** The opt-in recording keeps at most 15 minutes (about 29 MB) in memory. */
+const MAX_RECORDED_FRAMES = 15 * 60 * 50
 
 /** Copy from design.md 5.6: plain, specific, with a next step. */
 export const MIC_PROBLEM_COPY: Record<MicProblem, string> = {
@@ -55,6 +58,8 @@ export class AudioEngine {
   private micStream?: MediaStream
   private element?: HTMLAudioElement
   private muted = false
+  /** Your own voice, kept in this browser only while recording is on (Settings > Privacy). */
+  private recorded: Int16Array[] | null = null
   private readonly callbacks: AudioCallbacks
 
   constructor(callbacks: AudioCallbacks) {
@@ -130,6 +135,9 @@ export class AudioEngine {
       if (this.muted) return // muted audio never leaves the page
       this.callbacks.onInputLevel(event.data.level)
       this.callbacks.onFrame(event.data.frame)
+      if (this.recorded && this.recorded.length < MAX_RECORDED_FRAMES) {
+        this.recorded.push(new Int16Array(event.data.frame.slice(0)))
+      }
       // A mic muted by the system still sends frames, but they are empty.
       if (event.data.silent || track?.muted) {
         if (++silentFrames === SILENT_FRAMES) this.callbacks.onSilentMic?.(true)
@@ -140,6 +148,16 @@ export class AudioEngine {
     }
     context.createMediaStreamSource(stream).connect(capture)
     this.capture = capture
+  }
+
+  /** Start keeping the mic audio in memory. Nothing is uploaded. */
+  startRecording() {
+    this.recorded ??= []
+  }
+
+  /** The recording so far as a WAV file, or null when there is none. */
+  recording(): Blob | null {
+    return this.recorded?.length ? wavFromPcm16(this.recorded, 16_000) : null
   }
 
   setMuted(muted: boolean) {

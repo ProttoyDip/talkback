@@ -195,5 +195,5 @@
 {"t_ms": 26400, "event": {"type": "transcript.delta", "message_id": "a4", "speaker": "assistant", "text": " first.", "final": false}}
 {"t_ms": 26500, "event": {"type": "audio.chunk", "seq": 87, "samples": 3528}}
 {"t_ms": 26660, "event": {"type": "transcript.delta", "message_id": "a4", "speaker": "assistant", "text": "", "final": true}}
-{"t_ms": 26710, "event": {"type": "tool.confirm_request", "call_id": "c3", "summary": "Delete the memory \u201cHome city is Lisbon\u201d?"}}
+{"t_ms": 26710, "event": {"type": "tool.confirm_request", "call_id": "c3", "message_id": "a4", "name": "memory_delete", "summary": "Delete the memory \u201cHome city is Lisbon\u201d?"}}
 {"t_ms": 26720, "event": {"type": "state", "state": "confirm"}}
