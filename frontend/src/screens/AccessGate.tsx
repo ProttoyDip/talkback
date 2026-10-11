@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { AccessCodeError, requestSession, saveAccessCode } from '../api/session'
+import { Icon } from '../components/Icon'
+import { secondaryButton } from '../components/panels/shared'
+
+/** The recorded demo plays in the browser and needs no code. */
+export const REPLAY_HREF = '?replay'
 
 /**
  * Public demo gate (SECURITY.md T8). Shown only when the server has an
@@ -34,6 +39,10 @@ export function AccessGate({ onPass }: { onPass: () => void }) {
           void submit()
         }}
       >
+        <p className="text-transcript text-text">
+          TalkBack is a voice assistant you can interrupt. Talk naturally, cut in any time, and it remembers what you
+          ask it to.
+        </p>
         <h1 className="font-display text-h1 font-extrabold">This demo needs an access code.</h1>
         <p className="text-body text-text-muted">
           It keeps the shared demo for the people it was sent to. Ask whoever shared the link.
@@ -65,6 +74,13 @@ export function AccessGate({ onPass }: { onPass: () => void }) {
         >
           {status === 'checking' ? 'Checking…' : 'Continue'}
         </button>
+        <div className="flex flex-col gap-2 border-t border-border pt-6">
+          <a href={REPLAY_HREF} className={`${secondaryButton} self-start`}>
+            <Icon name="play" className="size-4" />
+            Watch the recorded demo
+          </a>
+          <p className="text-data text-text-muted">No code needed. It plays a sample conversation.</p>
+        </div>
       </form>
     </main>
   )

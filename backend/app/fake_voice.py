@@ -75,6 +75,11 @@ class FakeVoiceEngine:
         if speaking and not busy and not self.playback_active():
             self.turn = asyncio.create_task(self._converse())
 
+    def submit_text(self, text: str) -> None:
+        # The demo script answers the next scripted question, typed or spoken.
+        if self.turn is None or self.turn.done():
+            self.turn = asyncio.create_task(self._converse())
+
     async def events(self) -> AsyncIterator[EngineEvent]:
         while True:
             yield await self.queue.get()

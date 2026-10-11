@@ -29,7 +29,12 @@ ConversationState = Literal[
 ]
 
 
-ToolName = Literal["weather", "web_search", "memory_read", "memory_write", "memory_delete", "skill_run"]
+ToolName = Literal[
+    "weather", "web_search", "memory_read", "memory_write", "memory_delete", "memory_suggest", "skill_run",
+    "task_list", "task_add", "task_update", "task_delete",
+    "calendar_list", "calendar_add", "calendar_update", "calendar_delete",
+    "reminder_set", "reminder_update",
+]
 
 # Ids are short opaque strings created by the server.
 Id = Annotated[str, Field(min_length=1, max_length=64)]
@@ -83,8 +88,15 @@ class ToolConfirm(Message):
     approved: bool
 
 
+class TextInput(Message):
+    """A typed turn: the same as speaking it (works while muted)."""
+
+    type: Literal["text.input"]
+    text: str = Field(min_length=1, max_length=2000)
+
+
 ClientMessage = Annotated[
-    SessionStart | PlaybackPosition | ControlMute | ControlStop | ToolConfirm,
+    SessionStart | PlaybackPosition | ControlMute | ControlStop | ToolConfirm | TextInput,
     Field(discriminator="type"),
 ]
 client_message = TypeAdapter(ClientMessage)
@@ -122,6 +134,8 @@ class TranscriptDelta(Message):
     # A short user sound ("mm-hm") that did not interrupt. The UI shows it
     # inside the assistant turn that was playing (design.md 5.2).
     backchannel: bool = False
+    # The user typed this turn instead of saying it (text.input).
+    typed: bool = False
 
 
 class TranscriptTrim(Message):
@@ -141,13 +155,26 @@ class Source(Message):
     url: HttpUrl
 
 
+ToolStatusReason = Literal[
+    "user_declined", "timeout", "superseded", "stopped", "interrupted", "session_closed", "already_done",
+]
+
+
 class ToolStatus(Message):
     type: Literal["tool.status"] = "tool.status"
     call_id: Id
     # The assistant turn the tool chip belongs to.
     message_id: Id
     name: ToolName
-    status: Literal["running", "done", "failed"]
+    # declined: the user said no or did not answer in time; cancelled: the
+    # call was stopped before it ran (interruption, Stop, a newer request);
+    # expired: a confirmation request ran out. Any final status for a call_id
+    # closes its confirmation card.
+    status: Literal["running", "done", "failed", "declined", "cancelled", "expired"]
+    reason: ToolStatusReason | None = None
+    # The change this call made (GET /api/actions), and whether it can be undone.
+    action_id: Id | None = None
+    undoable: bool = False
     # web_search results, shown as the expandable source list.
     sources: list[Source] = Field(default_factory=list, max_length=10)
 
@@ -156,6 +183,11 @@ class ToolConfirmRequest(Message):
     type: Literal["tool.confirm_request"] = "tool.confirm_request"
     call_id: Id
     summary: str = Field(max_length=300)
+    # The assistant turn and tool the request belongs to.
+    message_id: Id | None = None
+    name: ToolName | None = None
+    # More lines for the card when one summary is not enough (a day plan).
+    details: list[str] = Field(default_factory=list, max_length=10)
     # The request expires after 30 seconds (SECURITY.md T5).
     expires_in_ms: int = Field(default=30_000, gt=0)
 
@@ -164,6 +196,30 @@ class MemorySaved(Message):
     type: Literal["memory.saved"] = "memory.saved"
     id: Id
     text: str
+    # A suggestion waits for the user's OK; it is not used until confirmed.
+    status: MemoryStatus = "confirmed"
+    # A correction replaces an older memory ("Remembered: tea, instead of coffee").
+    replaced_id: Id | None = None
+    replaced_text: str | None = Field(default=None, max_length=500)
+    # Undo goes through POST /api/actions/{action_id}/undo.
+    action_id: Id | None = None
+
+
+DataKind = Literal["memories", "actions", "tasks", "calendar", "reminders", "skills"]
+
+
+class DataChanged(Message):
+    """Stored data changed outside the panel (by voice): open panels reload."""
+
+    type: Literal["data.changed"] = "data.changed"
+    kinds: list[DataKind] = Field(min_length=1, max_length=8)
+
+
+class ReminderDue(Message):
+    """A reminder is due now: the page shows it (and a notification if hidden)."""
+
+    type: Literal["reminder.due"] = "reminder.due"
+    reminder: "ReminderItem"
 
 
 class Metrics(Message):
@@ -215,6 +271,8 @@ ServerMessage = Annotated[
     | ToolStatus
     | ToolConfirmRequest
     | MemorySaved
+    | DataChanged
+    | ReminderDue
     | Metrics
     | ErrorEvent
     | ModelActive
@@ -232,7 +290,41 @@ class Rest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class SessionUser(Rest):
+    """Who the session belongs to. Without accounts (AUTH_MODE=off) everyone is "local"."""
+
+    id: str = Field(min_length=1, max_length=64)
+    email: str | None = Field(default=None, max_length=320)
+    # A guest who signed in with the access code instead of an email.
+    anonymous: bool = False
+
+
+class AuthConfig(Rest):
+    """GET /api/auth-config (no token needed): how this server signs people in.
+    The publishable key is public by design; Row Level Security protects data."""
+
+    mode: Literal["off", "optional", "required"]
+    supabase_url: str | None = None
+    publishable_key: str | None = None
+    # The server asks for an access code (SECURITY.md T8).
+    access_code: bool = False
+
+
+class SessionToken(Rest):
+    """POST /api/session. 401 details: sign_in_required, access_code_required."""
+
+    token: str
+    expires_at: int
+    user: SessionUser | None = None
+
+
 MemoryKind = Literal["preference", "fact", "reminder"]
+# confirmed: in use. suggested: proposed by TalkBack, waiting for the user's OK.
+# superseded: replaced by a correction (kept as history). dismissed: rejected.
+MemoryStatus = Literal["confirmed", "suggested", "superseded", "dismissed"]
+# Where the words came from (SECURITY.md T3): only the user's own words, or
+# their edit, create a memory in use; a suggestion stays one until confirmed.
+MemorySource = Literal["user_utterance", "user_text", "user_edit", "assistant_suggestion"]
 
 
 class MemoryItem(Rest):
@@ -241,6 +333,10 @@ class MemoryItem(Rest):
     kind: MemoryKind
     utterance: str = Field(max_length=1000)  # the user's exact words
     created_at: str  # ISO 8601, UTC
+    status: MemoryStatus = "confirmed"
+    source: MemorySource = "user_utterance"
+    updated_at: str | None = None  # ISO 8601, UTC; set when edited or replaced
+    superseded_by: Id | None = None  # the correction that replaced it
 
 
 class MemoryList(Rest):
@@ -250,6 +346,28 @@ class MemoryList(Rest):
 class MemoryUpdate(Rest):
     text: str | None = Field(default=None, min_length=1, max_length=500)
     kind: MemoryKind | None = None
+    # Confirm or dismiss a suggestion. Only suggestions can change status.
+    status: Literal["confirmed", "dismissed"] | None = None
+
+
+ActionStatus = Literal["done", "failed", "cancelled", "declined", "expired", "undone"]
+
+
+class ActionItem(Rest):
+    """One change TalkBack made, or was asked to make (action history)."""
+
+    id: Id
+    tool: str = Field(max_length=64)
+    status: ActionStatus
+    summary: str = Field(max_length=300)  # "Deleted the memory “Home city is Lisbon”"
+    created_at: str
+    finished_at: str | None = None
+    undoable: bool = False
+    undone_at: str | None = None
+
+
+class ActionList(Rest):
+    items: list[ActionItem]
 
 
 class SkillItem(Rest):
@@ -257,6 +375,128 @@ class SkillItem(Rest):
     name: str
     triggers: list[str]
     allowed_tools: list[ToolName]
+    # One plain sentence: what the skill does and what to say.
+    summary: str | None = Field(default=None, max_length=200)
+    # Built-in skills ship with TalkBack and cannot be edited (but can be copied).
+    builtin: bool = True
+    enabled: bool = True
+    # What TalkBack does when the skill runs (shown and editable for your own skills).
+    instructions: str | None = Field(default=None, max_length=2000)
+
+
+class SkillCreate(Rest):
+    name: str = Field(min_length=1, max_length=60)
+    triggers: list[Annotated[str, Field(min_length=4, max_length=60)]] = Field(min_length=1, max_length=10)
+    allowed_tools: list[ToolName] = Field(max_length=12)
+    instructions: str = Field(min_length=1, max_length=2000)
+    summary: str | None = Field(default=None, max_length=200)
+
+
+class SkillUpdate(Rest):
+    name: str | None = Field(default=None, min_length=1, max_length=60)
+    triggers: list[Annotated[str, Field(min_length=4, max_length=60)]] | None = Field(default=None, min_length=1, max_length=10)
+    allowed_tools: list[ToolName] | None = Field(default=None, max_length=12)
+    instructions: str | None = Field(default=None, min_length=1, max_length=2000)
+    summary: str | None = Field(default=None, max_length=200)
+    enabled: bool | None = None
+
+
+# Tasks, calendar and reminders (plan P5). Times are ISO 8601 with an offset;
+# the server works in the user's time zone (SettingsView.timezone).
+
+TaskStatus = Literal["open", "done", "cancelled"]
+Priority = Literal["low", "normal", "high"]
+
+
+class TaskItem(Rest):
+    id: Id
+    title: str = Field(max_length=200)
+    notes: str | None = Field(default=None, max_length=2000)
+    status: TaskStatus = "open"
+    due_at: str | None = None
+    priority: Priority = "normal"
+    created_at: str
+    updated_at: str | None = None
+    completed_at: str | None = None
+
+
+class TaskCreate(Rest):
+    title: str = Field(min_length=1, max_length=200)
+    notes: str | None = Field(default=None, max_length=2000)
+    due_at: str | None = None
+    priority: Priority = "normal"
+
+
+class TaskUpdate(Rest):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    notes: str | None = Field(default=None, max_length=2000)
+    status: TaskStatus | None = None
+    due_at: str | None = None
+    priority: Priority | None = None
+
+
+class TaskList(Rest):
+    items: list[TaskItem]
+
+
+EventKind = Literal["block", "meeting", "focus", "personal"]
+
+
+class EventItem(Rest):
+    id: Id
+    title: str = Field(max_length=200)
+    starts_at: str
+    ends_at: str
+    kind: EventKind = "block"
+    status: Literal["confirmed", "cancelled"] = "confirmed"
+    task_id: Id | None = None
+    created_at: str
+    updated_at: str | None = None
+
+
+class EventCreate(Rest):
+    title: str = Field(min_length=1, max_length=200)
+    starts_at: str
+    ends_at: str
+    kind: EventKind = "block"
+    task_id: Id | None = None
+
+
+class EventUpdate(Rest):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    starts_at: str | None = None
+    ends_at: str | None = None
+    kind: EventKind | None = None
+
+
+class EventList(Rest):
+    items: list[EventItem]
+
+
+ReminderStatus = Literal["scheduled", "delivered", "acknowledged", "cancelled", "missed"]
+
+
+class ReminderItem(Rest):
+    id: Id
+    text: str = Field(max_length=300)
+    due_at: str
+    status: ReminderStatus = "scheduled"
+    delivered_at: str | None = None
+    snooze_count: int = 0
+    created_at: str
+
+
+class ReminderCreate(Rest):
+    text: str = Field(min_length=1, max_length=300)
+    due_at: str
+
+
+class ReminderSnooze(Rest):
+    minutes: int = Field(ge=1, le=24 * 60)
+
+
+class ReminderList(Rest):
+    items: list[ReminderItem]
 
 
 class SkillList(Rest):
@@ -288,7 +528,10 @@ class ModelOption(Rest):
 
 
 class ModelsView(Rest):
-    voice_model: str  # fixed; cannot be changed
+    voice_model: str  # the engine serving voice now; cannot be changed
+    # True only for a full-duplex voice model (NVIDIA VoiceChat). The cascade
+    # engine is turn-based and handles interruptions with barge-in detection.
+    full_duplex: bool = False
     planner_model: Id  # selected ModelOption id
     planner_options: list[ModelOption]  # allowlist, NVIDIA models first
     providers: list[ProviderInfo]  # per role, in backup order
@@ -312,6 +555,8 @@ class SettingsView(Rest):
     # How long spoken answers are.
     answer_length: AnswerLength = "normal"
     models: ModelsView
+    # IANA time zone for tasks, calendar and reminders ("Asia/Dhaka").
+    timezone: str = "UTC"
 
 
 class SettingsUpdate(Rest):
@@ -322,3 +567,7 @@ class SettingsUpdate(Rest):
     answer_length: AnswerLength | None = None
     planner_model: Id | None = None  # must be an available ModelOption id
     providers: dict[ProviderId, bool] | None = None  # turn backups on or off
+    timezone: str | None = Field(default=None, min_length=1, max_length=64)  # IANA name, checked by the server
+
+
+ReminderDue.model_rebuild()

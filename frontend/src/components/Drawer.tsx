@@ -18,6 +18,8 @@ export interface DrawerContext {
   /** Changes when TalkBack saves a memory, so the open list refreshes. */
   memoryVersion?: string
   sessionOpen: boolean
+  /** The recorded demo: panels show sample data. */
+  replay: boolean
   onSkillRan: (name: string) => void
   activeModels: ConversationModel['models']
 }
@@ -48,9 +50,15 @@ export function Drawer({ panel, onClose, context }: { panel: Panel; onClose: () 
           <Icon name="close" className="size-6" />
         </button>
       </header>
-      <div className="flex-1 overflow-y-auto p-6">
+      {/* Focusable, so keyboard users can scroll a panel with no enabled controls. */}
+      <div tabIndex={0} role="region" aria-label={`${TITLES[panel]} content`} className="flex-1 overflow-y-auto p-6">
+        {context.replay && (
+          <p className="mb-6 rounded-card border border-border px-4 py-3 text-data text-text-muted">
+            Sample data. Start a live conversation to see yours.
+          </p>
+        )}
         {panel === 'memory' && <MemoryPanel refreshKey={context.memoryVersion} />}
-        {panel === 'skills' && <SkillsPanel sessionOpen={context.sessionOpen} onRan={context.onSkillRan} />}
+        {panel === 'skills' && <SkillsPanel sessionOpen={context.sessionOpen} replay={context.replay} onRan={context.onSkillRan} />}
         {panel === 'settings' && <SettingsPanel active={context.activeModels} />}
       </div>
     </motion.aside>

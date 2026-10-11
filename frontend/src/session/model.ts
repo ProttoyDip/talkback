@@ -2,6 +2,7 @@
  * Conversation model: a pure reducer from session events to what the screen
  * shows. No timers, no I/O, so it is easy to test against the shared fixture.
  */
+import type { ReminderItem } from '../api/types'
 import type { ConfirmRequest, ConversationState, Segment, ToolCall, Turn } from '../state/types'
 import type { ErrorCode, ModelRole, ProviderId, ServerEvent, SessionEndReason, ToolName } from './protocol'
 
@@ -24,6 +25,20 @@ interface TurnRecord {
   heardText?: string
   backchannels: Backchannel[]
   tools: ToolCall[]
+  /** The user typed this turn (text.input) instead of saying it. */
+  typed?: boolean
+}
+
+/** The last memory saved by voice, for the toast. */
+export interface Remembered {
+  id: string
+  text: string
+  /** A suggestion from TalkBack: the toast asks to keep it. */
+  suggested?: boolean
+  /** Undo goes through the action history. */
+  actionId?: string
+  /** A correction: what it replaced. */
+  replacedText?: string
 }
 
 export interface ConversationModel {
@@ -38,7 +53,11 @@ export interface ConversationModel {
   /** Times (ms, caller's clock) of audio.flush for interruptions. */
   interrupts: number[]
   /** Last memory saved, for the "Remembered" toast. */
-  remembered?: { id: string; text: string }
+  remembered?: Remembered
+  /** Bumped by data.changed: open panels reload. */
+  dataVersion: number
+  /** The last reminder that came due (reminder.due), for its toast. */
+  reminder?: ReminderItem
   /**
    * Where the user started talking over TalkBack: the playing turn and its
    * text length at that moment. A backchannel caption arrives after the
@@ -53,6 +72,7 @@ export const initialModel: ConversationModel = {
   connection: 'ready',
   state: 'idle',
   turns: [],
+  dataVersion: 0,
   interrupts: [],
   models: {},
 }
@@ -133,6 +153,7 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
           // User deltas carry the full text so far; assistant deltas append.
           text: event.speaker === 'user' ? event.text : turn.text + event.text,
           final: event.final,
+          typed: event.typed || turn.typed,
         })),
       }
     }
@@ -154,9 +175,14 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
         name: event.name,
         status: event.status,
         sources: event.sources,
+        actionId: event.action_id,
+        undoable: event.undoable,
       }
+      // Any final status answers the call, so its confirmation card closes.
+      const answered = event.status !== 'running' && model.confirm?.callId === event.call_id
       return {
         ...model,
+        confirm: answered ? undefined : model.confirm,
         turns: upsertTurn(model.turns, event.message_id, 'assistant', (turn) => ({
           ...turn,
           tools: turn.tools.some((t) => t.id === call.id)
@@ -175,10 +201,25 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
         : model
 
     case 'memory.saved':
-      return { ...model, remembered: { id: event.id, text: event.text } }
+      return {
+        ...model,
+        remembered: {
+          id: event.id,
+          text: event.text,
+          suggested: event.status === 'suggested',
+          actionId: event.action_id,
+          replacedText: event.replaced_text,
+        },
+      }
 
     case 'metrics':
       return { ...model, latencyMs: event.latency_ms }
+
+    case 'data.changed':
+      return { ...model, dataVersion: model.dataVersion + 1 }
+
+    case 'reminder.due':
+      return { ...model, reminder: event.reminder }
 
     case 'error':
       return {
@@ -228,6 +269,7 @@ export function toTurns(model: ConversationModel): Turn[] {
     .map((turn) => ({
       id: turn.id,
       speaker: turn.speaker,
+      typed: turn.typed || undefined,
       tools: turn.tools.length ? turn.tools : undefined,
       segments: turn.speaker === 'user' ? [{ kind: 'heard', text: turn.text }] : assistantSegments(turn),
     }))

@@ -11,7 +11,35 @@ export type ToolName =
   | 'memory_read'
   | 'memory_write'
   | 'memory_delete'
+  | 'memory_suggest'
   | 'skill_run'
+  | 'task_list'
+  | 'task_add'
+  | 'task_update'
+  | 'task_delete'
+  | 'calendar_list'
+  | 'calendar_add'
+  | 'calendar_update'
+  | 'calendar_delete'
+  | 'reminder_set'
+  | 'reminder_update'
+
+/**
+ * declined: the user said no or did not answer; cancelled: stopped before it ran;
+ * expired: the confirmation ran out. Any final status closes the call's confirm card.
+ */
+export type ToolCallStatus = 'running' | 'done' | 'failed' | 'declined' | 'cancelled' | 'expired'
+
+export type ToolStatusReason =
+  | 'user_declined'
+  | 'timeout'
+  | 'superseded'
+  | 'stopped'
+  | 'interrupted'
+  | 'session_closed'
+  | 'already_done'
+
+import type { ReminderItem } from '../api/types'
 
 export const CLIENT_SAMPLE_RATE = 16_000
 export const SERVER_SAMPLE_RATE = 22_050
@@ -25,6 +53,8 @@ export type ClientMessage =
   | { type: 'control.mute'; muted: boolean }
   | { type: 'control.stop' }
   | { type: 'tool.confirm'; call_id: string; approved: boolean }
+  /** A typed turn, handled like a spoken one; works while muted. */
+  | { type: 'text.input'; text: string }
 
 // Server -> client. Optional fields may be missing (missing means null).
 
@@ -71,6 +101,8 @@ export type ServerEvent =
       text: string
       final: boolean
       backchannel?: boolean
+      /** The user typed this turn (text.input). */
+      typed?: boolean
     }
   | { type: 'transcript.trim'; message_id: string; heard_text: string; unheard_text?: string }
   | {
@@ -78,11 +110,36 @@ export type ServerEvent =
       call_id: string
       message_id: string
       name: ToolName
-      status: 'running' | 'done' | 'failed'
+      status: ToolCallStatus
+      reason?: ToolStatusReason
+      /** The change this call made (Activity panel), and whether it can be undone. */
+      action_id?: string
+      undoable?: boolean
       sources?: Source[]
     }
-  | { type: 'tool.confirm_request'; call_id: string; summary: string; expires_in_ms?: number }
-  | { type: 'memory.saved'; id: string; text: string }
+  | {
+      type: 'tool.confirm_request'
+      call_id: string
+      summary: string
+      message_id?: string
+      name?: ToolName
+      /** More lines for the card (a day plan). */
+      details?: string[]
+      expires_in_ms?: number
+    }
+  | {
+      type: 'memory.saved'
+      id: string
+      text: string
+      status?: 'confirmed' | 'suggested'
+      replaced_id?: string
+      replaced_text?: string
+      action_id?: string
+    }
+  /** Stored data changed by voice: open panels reload. */
+  | { type: 'data.changed'; kinds: Array<'memories' | 'actions' | 'tasks' | 'calendar' | 'reminders' | 'skills'> }
+  /** A reminder is due now (plan P5). */
+  | { type: 'reminder.due'; reminder: ReminderItem }
   | { type: 'metrics'; latency_ms: number }
   | { type: 'error'; code: ErrorCode; message: string; retry_in_ms?: number }
   | { type: 'model.active'; role: ModelRole; provider: ProviderId; model: string; backup: boolean }
@@ -97,6 +154,8 @@ const SERVER_EVENT_TYPES = new Set<ServerEvent['type']>([
   'tool.status',
   'tool.confirm_request',
   'memory.saved',
+  'data.changed',
+  'reminder.due',
   'metrics',
   'error',
   'model.active',

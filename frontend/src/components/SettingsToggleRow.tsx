@@ -3,14 +3,17 @@ import { useId } from 'react'
 interface SettingsToggleRowProps {
   label: string
   description?: string
+  /** Extra status line, e.g. "Default: off · Now: on". */
+  status?: string
   checked: boolean
   onChange: (next: boolean) => void
   disabled?: boolean
 }
 
 /** Label, description and a switch (design.md 11). A real checkbox underneath. */
-export function SettingsToggleRow({ label, description, checked, onChange, disabled }: SettingsToggleRowProps) {
+export function SettingsToggleRow({ label, description, status, checked, onChange, disabled }: SettingsToggleRowProps) {
   const id = useId()
+  const describedBy = [description && `${id}-d`, status && `${id}-s`].filter(Boolean).join(' ') || undefined
   return (
     <div className="flex min-h-target items-start justify-between gap-4 py-2">
       <div className="flex min-w-0 flex-col">
@@ -22,6 +25,11 @@ export function SettingsToggleRow({ label, description, checked, onChange, disab
             {description}
           </p>
         )}
+        {status && (
+          <p id={`${id}-s`} className="font-mono text-label uppercase text-text-muted">
+            {status}
+          </p>
+        )}
       </div>
       <span className="relative mt-1 inline-flex h-6 w-12 shrink-0 items-center">
         <input
@@ -30,7 +38,7 @@ export function SettingsToggleRow({ label, description, checked, onChange, disab
           role="switch"
           checked={checked}
           disabled={disabled}
-          aria-describedby={description ? `${id}-d` : undefined}
+          aria-describedby={describedBy}
           onChange={(e) => onChange(e.target.checked)}
           className="peer absolute -inset-3 z-10 m-0 cursor-pointer opacity-0 disabled:cursor-not-allowed"
         />

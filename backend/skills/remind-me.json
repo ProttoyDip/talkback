@@ -1,7 +1,8 @@
 {
   "id": "remind-me",
   "name": "Remind me",
+  "summary": "Sets a reminder for a time you name. TalkBack checks the time with you first.",
   "triggers": ["remind me"],
-  "allowed_tools": ["memory_read"],
-  "instructions": "Ask what the user wants to be reminded of. Tell them that to save it they can say: remember that, followed by the reminder. Reminders are saved only when they say that, and they stay until deleted."
+  "allowed_tools": ["reminder_set", "reminder_update", "memory_read"],
+  "instructions": "Ask what the user wants to be reminded of and when, if they have not said. Then call reminder_set with the text and a local time. The user confirms it on screen or by saying yes. Say the time back plainly."
 }

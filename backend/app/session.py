@@ -13,6 +13,7 @@ only when the queued audio has finished playing.
 
 import asyncio
 import logging
+import uuid
 from collections import Counter
 from typing import Annotated
 
@@ -41,6 +42,7 @@ from .protocol import (
     TranscriptDelta,
     TranscriptTrim,
     client_message,
+    TextInput,
 )
 from .stores import prefs_store
 from .tokens import verify_token
@@ -61,6 +63,9 @@ from .voice_engine import (
 )
 
 log = logging.getLogger("talkback.session")
+# Conversation words, logged only when the user turns on Settings > Privacy >
+# "Show transcripts in logs" (off by default, SECURITY.md T10).
+transcript_log = logging.getLogger("talkback.transcript")
 router = APIRouter()
 
 MAX_CONNECTIONS_PER_IP = 3
@@ -122,9 +127,11 @@ class Session:
         session_id: str,
         settings: Settings | None = None,
         engine_factory: EngineFactory | None = None,
+        user_id: str = "local",
     ) -> None:
         self.websocket = websocket
         self.session_id = session_id
+        self.user_id = user_id  # whose memories and settings this session uses
         self.settings = settings
         self.engine_factory = engine_factory
         self.started = False
@@ -148,7 +155,9 @@ class Session:
         # Turn-taking (X2): barge-in and trimming at the playback position.
         self.vad = EnergyVad()
         self.decider = BargeInDecider()  # start_engine applies the user's setting
+        self.log_transcripts = False  # start_engine applies the user's setting
         self.interim_user_text = ""
+        self.last_text_input = -1.0  # loop time of the last typed turn (1 per second)
         self.overlapping = False
         self.words: dict[str, list[tuple[str, float, float]]] = {}
         self.message_order: list[str] = []
@@ -183,10 +192,11 @@ class Session:
             return
         # Settings may live in Supabase behind a blocking HTTP client, so these
         # run on a worker thread: on the event loop they froze every session.
-        prefs = await asyncio.to_thread(prefs_store(self.settings).load)
+        prefs = await asyncio.to_thread(prefs_store(self.settings, self.user_id).load)
         # The user's Interruptions setting applies when a session starts.
         self.decider = BargeInDecider.for_sensitivity(prefs.interrupt_sensitivity)
-        choice = await asyncio.to_thread(self.engine_factory, self.settings)
+        self.log_transcripts = self.settings.allow_transcript_logs and prefs.transcripts_in_logs
+        choice = await asyncio.to_thread(self.engine_factory, self.settings, self.user_id, prefs)
         self.engine_choice = choice
         if choice.problem:
             await self.send(ErrorEvent(code="voice_engine_offline", message=choice.problem))
@@ -230,12 +240,16 @@ class Session:
                     return
                 self.words.setdefault(message_id, []).append((word, start_s, end_s))
                 self.caption_queue(message_id).put_nowait(event)
-            case TurnEnded(message_id=message_id, ends_turn=ends_turn):
+            case TurnEnded(message_id=message_id, text=text, ends_turn=ends_turn):
                 if message_id in self.dropped:
                     return
+                if self.log_transcripts and text:
+                    transcript_log.info(f"assistant: {text}", extra={"session_id": self.session_id})
                 self.caption_queue(message_id).put_nowait(_FINISH if ends_turn else _FINISH_QUIET)
             case UserTranscript(message_id=message_id, text=text, final=final):
                 self.interim_user_text = "" if final else text
+                if final and self.log_transcripts:
+                    transcript_log.info(f"user: {text}", extra={"session_id": self.session_id})
                 # A short sound over TalkBack that did not interrupt it.
                 reaction = final and is_backchannel(text) and loop_time() < self.play_until
                 await self.send(
@@ -347,7 +361,11 @@ class Session:
         reply = getattr(self.engine, "reply", None)
         if self.engine is not None and reply_id and reply is not None and not reply.done():
             self.dropped.add(reply_id)
-            await self.engine.interrupt(reply_id, "")
+            cancel = getattr(self.engine, "cancel", None)
+            if cancel is not None:
+                await cancel("stopped")  # pending actions report "Stopped before it ran"
+            else:
+                await self.engine.interrupt(reply_id, "")
         self.turn_epoch += 1
         await self.send(StateEvent(state="idle"))
 
@@ -389,6 +407,9 @@ class Session:
             case ControlStop():
                 self.require_started()
                 await self.interrupt_assistant("stopped")
+            case TextInput(text=text):
+                self.require_started()
+                await self.on_text_input(text)
             case ToolConfirm():
                 self.require_started()
                 # Only a pending request can be answered; a confirmation never
@@ -397,6 +418,26 @@ class Session:
                     await self.engine.confirm_tool(message)
                 else:
                     log.info("tool.confirm with no pending call", extra={"session_id": self.session_id})
+
+    async def on_text_input(self, text: str) -> None:
+        """A typed turn: shown like speech, and it interrupts TalkBack the same way."""
+        now = loop_time()
+        if now - self.last_text_input < 1.0:
+            await self.send(ErrorEvent(code="rate_limited", message="One message a second, please."))
+            return
+        self.last_text_input = now
+        text = " ".join(text.split())
+        if not text:
+            return
+        if now < self.play_until:
+            await self.interrupt_assistant("stopped")
+        await self.send(TranscriptDelta(
+            message_id=f"t{uuid.uuid4().hex[:10]}", speaker="user", text=text, final=True, typed=True,
+        ))
+        if self.engine is not None and hasattr(self.engine, "submit_text"):
+            self.engine.submit_text(text)
+        if self.log_transcripts:
+            transcript_log.info(f"user (typed): {text}", extra={"session_id": self.session_id})
 
     async def on_audio(self, data: bytes) -> None:
         self.require_started()
@@ -457,7 +498,7 @@ async def session_endpoint(
 
     await websocket.accept()
     registry.add(claims.session_id, ip)
-    session = Session(websocket, claims.session_id, settings, engine_factory)
+    session = Session(websocket, claims.session_id, settings, engine_factory, claims.user_id)
     registry.live[claims.session_id] = session
     log.info("session opened", extra={"session_id": claims.session_id})
     try:

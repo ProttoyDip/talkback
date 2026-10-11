@@ -1,7 +1,7 @@
 /*
  * Settings kept in this browser only: the visual effects (the animated
  * background and the orb are heavy WebGL scenes; turning them off helps
- * slower laptops) and push-to-talk.
+ * slower laptops), push-to-talk and the opt-in recording of your own voice.
  */
 import { useSyncExternalStore } from 'react'
 
@@ -12,10 +12,12 @@ export interface Effects {
   orbMotion: boolean
   /** Hold Space (or the mic button) to talk; muted otherwise. */
   pushToTalk: boolean
+  /** Keep your own mic audio in this browser for download (SECURITY.md T10). */
+  saveRecordings: boolean
 }
 
 const KEY = 'talkback.effects'
-const DEFAULTS: Effects = { background: true, orbMotion: true, pushToTalk: false }
+const DEFAULTS: Effects = { background: true, orbMotion: true, pushToTalk: false, saveRecordings: false }
 const listeners = new Set<() => void>()
 
 function read(): Effects {
@@ -25,6 +27,7 @@ function read(): Effects {
       background: typeof raw.background === 'boolean' ? raw.background : DEFAULTS.background,
       orbMotion: typeof raw.orbMotion === 'boolean' ? raw.orbMotion : DEFAULTS.orbMotion,
       pushToTalk: typeof raw.pushToTalk === 'boolean' ? raw.pushToTalk : DEFAULTS.pushToTalk,
+      saveRecordings: typeof raw.saveRecordings === 'boolean' ? raw.saveRecordings : DEFAULTS.saveRecordings,
     }
   } catch {
     return DEFAULTS

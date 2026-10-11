@@ -8,10 +8,13 @@ import { PROVIDER_NAMES } from '../session/protocol'
 import { useLevelHistory, type LevelMeters } from '../session/useLevelHistory'
 import { useSession, type SessionMode } from '../session/useSession'
 import type { ConversationState } from '../state/types'
-import { AccessCodeError, requestSession } from '../api/session'
+import { authConfig } from '../api/auth'
+import { AccessCodeError, SignInRequiredError, requestSession } from '../api/session'
 import { useEffectsSetting } from '../background/effects'
 import { rememberSessionToken } from '../api/client'
+import { downloadBlob } from '../state/exportTranscript'
 import { AccessGate } from './AccessGate'
+import { SignIn } from './SignIn'
 import { hasOnboarded } from './onboarded'
 import { Onboarding } from './Onboarding'
 import { ConversationScreen, type ConversationView } from './ConversationScreen'
@@ -83,31 +86,58 @@ export function LiveConversation({
   const meters = useRef<LevelMeters>({ user: 0, assistant: 0 })
   const timeline = useLevelHistory(meters, model.interrupts)
 
+  const effects = useEffectsSetting()
   const engineRef = useRef<AudioEngine | null>(null)
   const [starting, setStarting] = useState(false)
   const [micProblem, setMicProblem] = useState<MicProblem | null>(null)
   const [micSilent, setMicSilent] = useState(false)
+  const [recording, setRecording] = useState(false)
   // First run: onboarding (design.md 5.1). The replay needs none.
   const [onboarding, setOnboarding] = useState(() => mode === 'live' && !hasOnboarded())
   const [tip, setTip] = useState(false)
   // Public demo gate (SECURITY.md T8): ask once whether this browser may start a session.
-  const [access, setAccess] = useState<'checking' | 'open' | 'locked'>(mode === 'live' ? 'checking' : 'open')
+  // With accounts on (plan P2), the sign-in screen replaces the code-only gate.
+  const [access, setAccess] = useState<'checking' | 'open' | 'locked' | 'signin'>(
+    mode === 'live' ? 'checking' : 'open',
+  )
+  const [needsCode, setNeedsCode] = useState(false)
   useEffect(() => {
     if (access !== 'checking') return
-    requestSession().then(
-      (body) => {
-        rememberSessionToken(body.token, body.expires_at)
-        setAccess('open')
-      },
-      // Any other failure is shown by the connection banner later.
-      (error: unknown) => setAccess(error instanceof AccessCodeError ? 'locked' : 'open'),
-    )
+    void authConfig().then((config) => {
+      setNeedsCode(config.access_code)
+      const accounts = config.mode !== 'off'
+      return requestSession().then(
+        (body) => {
+          rememberSessionToken(body.token, body.expires_at)
+          setAccess('open')
+        },
+        (error: unknown) => {
+          if (error instanceof SignInRequiredError) setAccess('signin')
+          else if (error instanceof AccessCodeError) setAccess(accounts ? 'signin' : 'locked')
+          else setAccess('open') // any other failure is shown by the connection banner later
+        },
+      )
+    })
   }, [access])
 
   useEffect(() => () => void engineRef.current?.close(), [])
 
+  // Typing can start a conversation without the microphone (plan P3).
+  const [micOn, setMicOn] = useState(false)
+  const pendingText = useRef<string | null>(null)
+
+  const openMic = async (engine: AudioEngine) => {
+    await engine.startMic()
+    setMicOn(true)
+    // Opt-in recording (Settings > Privacy), chosen in this browser: never uploaded.
+    if (effects.saveRecordings) {
+      engine.startRecording()
+      setRecording(true)
+    }
+  }
+
   /** Runs on the user's click or key press (browsers require a gesture for audio). */
-  const begin = async () => {
+  const begin = async (withMic = true) => {
     if (starting || started) return
     setStarting(true)
     setMicProblem(null)
@@ -123,7 +153,7 @@ export function LiveConversation({
     try {
       await engine.start()
       // The replay does not listen, so it never asks for the microphone.
-      if (mode === 'live') await engine.startMic()
+      if (mode === 'live' && withMic) await openMic(engine)
     } catch (error) {
       await engine.close()
       setMicProblem(error instanceof MicError ? error.problem : 'unavailable')
@@ -146,16 +176,48 @@ export function LiveConversation({
     setMuted(next)
   }
 
+  /** The conversation started by typing; now the user wants to talk too. */
+  const startMicLater = async () => {
+    const engine = engineRef.current
+    if (!engine || micOn) return
+    setMicProblem(null)
+    try {
+      await openMic(engine)
+    } catch (error) {
+      setMicProblem(error instanceof MicError ? error.problem : 'unavailable')
+    }
+  }
+
+  /** A typed turn; starts the conversation (without the mic) if needed. */
+  const sendText = (text: string) => {
+    if (mode !== 'live') return
+    if (started && model.connection === 'open') {
+      session.sendText(text)
+      return
+    }
+    pendingText.current = text
+    if (!started) void begin(false)
+  }
+  useEffect(() => {
+    if (model.connection !== 'open' || !pendingText.current) return
+    session.sendText(pendingText.current)
+    pendingText.current = null
+  }, [model.connection, session])
+
   const toggleMute = () => {
     if (!started) {
       void begin()
+      return
+    }
+    if (!micOn) {
+      void startMicLater()
       return
     }
     setMicMuted(!muted)
   }
 
   // Push-to-talk (Settings > On this device): muted until Space or the mic is held.
-  const { pushToTalk } = useEffectsSetting()
+  const { pushToTalk } = effects
   useEffect(() => {
     if (started && pushToTalk) {
       engineRef.current?.setMuted(true)
@@ -167,16 +229,21 @@ export function LiveConversation({
       if (held) void begin()
       return
     }
+    if (!micOn) {
+      if (held) void startMicLater()
+      return
+    }
     if (muted === !held) return
     setMicMuted(!held)
   }
 
   const turns = useMemo(() => toTurns(model), [model])
   const state = displayState(model, muted)
-  const micMode: MicMode = !started ? 'off' : muted ? 'muted' : 'live'
+  // A conversation started by typing has no mic yet: the button offers to start it.
+  const micMode: MicMode = !started || (mode === 'live' && !micOn) ? 'off' : muted ? 'muted' : 'live'
 
   const banner: BannerProps | undefined = micProblem
-    ? { tone: 'danger', message: MIC_PROBLEM_COPY[micProblem], action: { label: 'Try again', onClick: () => void begin() } }
+    ? { tone: 'danger', message: MIC_PROBLEM_COPY[micProblem], action: { label: 'Try again', onClick: () => void (started ? startMicLater() : begin()) } }
     : (bannerFor(model, reconnect) ??
       (micSilent && !muted ? { tone: 'danger' as const, message: MIC_PROBLEM_COPY.silent } : undefined) ??
       (tip
@@ -201,12 +268,21 @@ export function LiveConversation({
     latencyMs: model.latencyMs,
     backup: backupLabel(model),
     remembered: model.remembered,
+    dataVersion: model.dataVersion,
     sessionOpen: model.connection === 'open',
+    replay: mode === 'replay',
+    onSaveRecording: recording
+      ? () => {
+          const wav = engineRef.current?.recording()
+          if (wav) downloadBlob(wav, 'wav')
+        }
+      : undefined,
     activeModels: model.models,
     levels: meters,
   }
 
   if (access === 'locked') return <AccessGate onPass={() => setAccess('open')} />
+  if (access === 'signin') return <SignIn needsCode={needsCode} onPass={() => setAccess('checking')} />
   if (access === 'checking') return null
 
   if (onboarding) {
@@ -217,6 +293,7 @@ export function LiveConversation({
           setTip(true)
           void begin()
         }}
+        onLater={() => setOnboarding(false)}
       />
     )
   }
@@ -229,6 +306,8 @@ export function LiveConversation({
       onAnswerConfirm={answerConfirm}
       onStop={session.stop}
       onHold={pushToTalk ? hold : undefined}
+      onExample={sendText}
+      onSendText={mode === 'live' ? sendText : undefined}
     />
   )
 }

@@ -73,7 +73,7 @@ def test_a_skill_cannot_call_a_tool_outside_its_list():
         def model_tools(self):
             return [{"name": "weather"}, {"name": "web_search"}]
 
-        async def execute(self, raw, turn_id):
+        async def execute(self, raw, turn_id, is_current=None):
             self.executed.append(raw)
             return "RESULT"
 
@@ -115,3 +115,23 @@ def test_answer_length_reaches_the_prompt():
     from app.cascade_engine import ANSWER_LENGTH
 
     assert "one short sentence" in ANSWER_LENGTH["short"] and ANSWER_LENGTH["normal"] == ""
+
+
+def test_settings_name_the_voice_engine_running_and_whether_it_is_full_duplex(client, authed, settings):
+    models = client.get("/api/settings", headers=authed).json()["models"]
+    assert models["voice_model"] == "No voice engine" and models["full_duplex"] is False
+    settings.voice_engine = "cascade"
+    assert client.get("/api/settings", headers=authed).json()["models"]["voice_model"] == "Speech is not set up on this server"
+    settings.nvidia_api_key = SecretStr("key")
+    models = client.get("/api/settings", headers=authed).json()["models"]
+    assert models["voice_model"] == "NVIDIA Parakeet speech-to-text + Magpie TTS" and models["full_duplex"] is False
+    settings.voice_engine = "voicechat"  # planned, not in this build
+    models = client.get("/api/settings", headers=authed).json()["models"]
+    assert models["voice_model"] == "Speech is not available on this server" and models["full_duplex"] is False
+
+
+def test_shipped_skills_carry_a_summary(client, authed):
+    items = client.get("/api/skills", headers=authed).json()["items"]
+    assert items and all(item["summary"] for item in items)
+    remind = next(item for item in items if item["id"] == "remind-me")
+    assert "Sets a reminder" in remind["summary"] and "reminder_set" in remind["allowed_tools"]

@@ -3,6 +3,7 @@
 import logging
 import secrets
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -30,6 +31,19 @@ class Settings(BaseSettings):
     skills_dir: str = "skills"
     # Built frontend (frontend/dist) served by this app, for one-URL deployment.
     frontend_dist: str = ""
+    # Settings are shared by every visitor until accounts exist, so the
+    # "Show transcripts in logs" switch only works where the operator allows
+    # it (local debugging). Off: no transcript text is ever logged (T10).
+    allow_transcript_logs: bool = False
+    # Accounts (Supabase Auth): "off" = everyone is one local user (local
+    # development); "required" = a live session needs a signed-in user or a
+    # guest with the access code; "optional" = sign-in is offered, and
+    # visitors without it share the local user.
+    auth_mode: Literal["off", "optional", "required"] = "off"
+    # How often the server looks for due reminders (plan P5). 0 turns it off.
+    reminder_poll_seconds: float = 30
+    # Public; the browser uses it to sign in. Safe to expose (RLS protects data).
+    supabase_publishable_key: str = ""
     # Public demo gate (SECURITY.md T8). Empty: no code needed.
     access_code: SecretStr = SecretStr("")
     perplexity_api_key: SecretStr = SecretStr("")

@@ -1,21 +1,53 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { currentAccount, signOut, type Account } from '../../api/auth'
 import { api } from '../../api/client'
 import type { SettingsUpdate, SettingsView } from '../../api/types'
 import { useResource } from '../../api/useResource'
 import type { ConversationModel } from '../../session/model'
 import { PROVIDER_NAMES, type ModelRole, type ToolName } from '../../session/protocol'
+import { Icon } from '../Icon'
 import { SettingsToggleRow } from '../SettingsToggleRow'
 import { ChoiceRow } from './ChoiceRow'
 import { setEffects, useEffectsSetting } from '../../background/effects'
 import { VoiceSection } from './VoiceSection'
-import { ResourceView, SectionTitle } from './shared'
+import { ResourceView, SectionTitle, secondaryButton } from './shared'
+import { TOOL_LABEL } from './toolLabels'
 
-const TOOL_TITLE: Partial<Record<ToolName, string>> = {
-  web_search: 'Web search',
-  weather: 'Weather',
-}
+/** Default and current value side by side, so "off by default" never reads as "off now". */
+const onOff = (now: boolean) => `Default: off · Now: ${now ? 'on' : 'off'}`
 
 const ROLE_TITLE: Record<ModelRole, string> = { voice: 'Voice', planner: 'Planner', search: 'Search' }
+
+/** Who is signed in (plan P2). Hidden when the server has no accounts. */
+function AccountSection() {
+  const [account, setAccount] = useState<Account | null>(null)
+  useEffect(() => {
+    let live = true
+    void currentAccount().then((found) => live && setAccount(found))
+    return () => {
+      live = false
+    }
+  }, [])
+  if (!account) return null
+  return (
+    <section aria-label="Account">
+      <SectionTitle>Account</SectionTitle>
+      <p className="mb-3 text-body text-text">
+        {account.guest ? 'Guest on this browser' : `Signed in as ${account.email ?? 'you'}`}
+      </p>
+      <button
+        type="button"
+        onClick={() => void signOut().then(() => window.location.reload())}
+        className={secondaryButton}
+      >
+        Sign out
+      </button>
+      {account.guest && (
+        <p className="mt-2 text-data text-text-muted">A guest's memories can't be reached again after signing out.</p>
+      )}
+    </section>
+  )
+}
 
 /** Kept in this browser only (src/background/effects.ts). */
 function VisualEffects() {
@@ -46,6 +78,7 @@ function VisualEffects() {
 }
 
 export function SettingsPanel({ active }: { active: ConversationModel['models'] }) {
+  const effects = useEffectsSetting()
   const { state, reload, set } = useResource(() => api.getSettings(), 'settings')
   const [failed, setFailed] = useState(false)
 
@@ -68,12 +101,14 @@ export function SettingsPanel({ active }: { active: ConversationModel['models'] 
             </p>
           )}
 
+          <AccountSection />
+
           <section aria-label="Tools">
             <SectionTitle>Tools</SectionTitle>
             {Object.entries(settings.tools).map(([name, tool]) => (
               <SettingsToggleRow
                 key={name}
-                label={TOOL_TITLE[name as ToolName] ?? name}
+                label={TOOL_LABEL[name as ToolName]?.label ?? name}
                 description={tool.description}
                 checked={tool.enabled}
                 onChange={(enabled) => void update({ tools: { [name]: enabled } })}
@@ -85,13 +120,15 @@ export function SettingsPanel({ active }: { active: ConversationModel['models'] 
             <SectionTitle>Privacy</SectionTitle>
             <SettingsToggleRow
               label="Save recordings on this device"
-              description="Off by default. Nothing is recorded unless you turn this on."
-              checked={settings.save_recordings}
-              onChange={(save_recordings) => void update({ save_recordings })}
+              description="Keeps up to 15 minutes of your own voice in this browser while the mic is on, so you can download it from the top bar. Never uploaded. Starts with the next conversation."
+              status={onOff(effects.saveRecordings)}
+              checked={effects.saveRecordings}
+              onChange={(saveRecordings) => setEffects({ saveRecordings })}
             />
             <SettingsToggleRow
               label="Show transcripts in logs"
-              description="Off by default. Logs then hold no words from your conversations."
+              description="Server logs include what you and TalkBack say. For local debugging: it works only on a server that allows it."
+              status={onOff(settings.transcripts_in_logs)}
               checked={settings.transcripts_in_logs}
               onChange={(transcripts_in_logs) => void update({ transcripts_in_logs })}
             />
@@ -129,64 +166,79 @@ export function SettingsPanel({ active }: { active: ConversationModel['models'] 
 
           <section aria-label="Models">
             <SectionTitle>Models</SectionTitle>
-            <dl className="mb-4 flex flex-col gap-2 text-body">
-              {(['voice', 'planner', 'search'] as const).map((role) => {
-                const current = active[role]
-                return (
-                  <div key={role} className="flex flex-wrap justify-between gap-x-4">
-                    <dt className="text-text-muted">{ROLE_TITLE[role]}</dt>
-                    <dd className="text-text">
-                      {current
-                        ? `${current.model} via ${PROVIDER_NAMES[current.provider]}${current.backup ? ' (backup)' : ''}`
-                        : role === 'voice'
-                          ? settings.models.voice_model
-                          : 'Not used yet'}
-                    </dd>
-                  </div>
-                )
-              })}
-            </dl>
-
-            <label htmlFor="planner-model" className="mb-1 block text-body font-medium text-text">
-              Planner model
-            </label>
-            <select
-              id="planner-model"
-              value={settings.models.planner_model}
-              onChange={(e) => void update({ planner_model: e.target.value })}
-              className="min-h-target w-full rounded-input border border-border bg-bg px-3 text-body text-text"
-            >
-              {settings.models.planner_options.map((option) => (
-                <option key={option.id} value={option.id} disabled={!option.available}>
-                  {option.model}
-                  {option.nvidia ? ' · NVIDIA' : ''}
-                  {option.available ? '' : ' (not set up)'}
-                </option>
-              ))}
-            </select>
-
-            <p className="mb-1 mt-4 text-data text-text-muted">
-              Backups receive your words only if the main provider fails. Turn off any you do not want.
+            <p className="text-body text-text-muted">Running now</p>
+            <p className="mb-1 text-body text-text">
+              {active.voice
+                ? `${active.voice.model} via ${PROVIDER_NAMES[active.voice.provider]}`
+                : settings.models.voice_model}
             </p>
-            {settings.models.providers
-              .filter((provider) => !provider.primary)
-              .map((provider) => (
-                <SettingsToggleRow
-                  key={`${provider.role}-${provider.id}`}
-                  label={provider.name}
-                  description={`${ROLE_TITLE[provider.role]} backup${provider.configured ? '' : ' · no key set up'}`}
-                  checked={provider.enabled}
-                  disabled={!provider.configured}
-                  onChange={(enabled) => void update({ providers: { [provider.id]: enabled } })}
-                />
-              ))}
+            <p className="mb-4 text-data text-text-muted">
+              {settings.models.full_duplex
+                ? 'Full-duplex: on. TalkBack listens and talks at the same time.'
+                : 'Full-duplex: off. TalkBack stops talking when it hears you talk over it.'}
+            </p>
+
+            <details className="group">
+              <summary className="flex min-h-target cursor-pointer list-none items-center justify-between gap-2 text-body font-medium text-text">
+                Advanced: models and providers
+                <Icon name="chevron" className="size-4 transition-transform duration-(--dur-fast) group-open:rotate-180" />
+              </summary>
+              <dl className="mb-4 mt-2 flex flex-col gap-2 text-body">
+                {(['voice', 'planner', 'search'] as const).map((role) => {
+                  const current = active[role]
+                  return (
+                    <div key={role} className="flex flex-wrap justify-between gap-x-4">
+                      <dt className="text-text-muted">{ROLE_TITLE[role]}</dt>
+                      <dd className="text-text">
+                        {current
+                          ? `${current.model} via ${PROVIDER_NAMES[current.provider]}${current.backup ? ' (backup)' : ''}`
+                          : role === 'voice'
+                            ? settings.models.voice_model
+                            : 'Not used yet'}
+                      </dd>
+                    </div>
+                  )
+                })}
+              </dl>
+
+              <label htmlFor="planner-model" className="mb-1 block text-body font-medium text-text">
+                Planner model
+              </label>
+              <select
+                id="planner-model"
+                value={settings.models.planner_model}
+                onChange={(e) => void update({ planner_model: e.target.value })}
+                className="min-h-target w-full rounded-input border border-border bg-bg px-3 text-body text-text"
+              >
+                {settings.models.planner_options.map((option) => (
+                  <option key={option.id} value={option.id} disabled={!option.available}>
+                    {option.model}
+                    {option.nvidia ? ' · NVIDIA' : ''}
+                    {option.available ? '' : ' (not set up)'}
+                  </option>
+                ))}
+              </select>
+
+              <p className="mb-1 mt-4 text-data text-text-muted">
+                Backups receive your words only if the main provider fails. Turn off any you do not want.
+              </p>
+              {settings.models.providers
+                .filter((provider) => !provider.primary)
+                .map((provider) => (
+                  <SettingsToggleRow
+                    key={`${provider.role}-${provider.id}`}
+                    label={provider.name}
+                    description={`${ROLE_TITLE[provider.role]} backup${provider.configured ? '' : ' · no key set up'}`}
+                    checked={provider.enabled}
+                    disabled={!provider.configured}
+                    onChange={(enabled) => void update({ providers: { [provider.id]: enabled } })}
+                  />
+                ))}
+            </details>
           </section>
 
           <section aria-label="About">
             <SectionTitle>About</SectionTitle>
-            <p className="text-body text-text-muted">
-              Voice model: <span className="text-text">{settings.models.voice_model}</span>. It cannot be changed.
-            </p>
             <a
               href="https://github.com/ProttoyDip/talkback"
               target="_blank"

@@ -167,7 +167,7 @@ def test_gateway_shows_the_tool_chip_and_state(client, settings):
     world = World()
     holder = {}
 
-    def factory(_settings: Settings) -> EngineChoice:
+    def factory(_settings: Settings, _user_id: str, _prefs) -> EngineChoice:
         http = httpx.AsyncClient(transport=httpx.MockTransport(world))
         holder["engine"] = make_engine(http)
         return EngineChoice(holder["engine"], http=http)

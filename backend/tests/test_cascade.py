@@ -13,6 +13,7 @@ from app.config import Settings
 from app.engines import EngineChoice, create_engine, get_engine_factory
 from app.llm import LlmClient, LlmProvider, LlmUnavailable, providers_from_settings
 from app.main import app
+from app.prefs import Prefs
 from app.speech import Speech, estimate_word_times
 from app.voice_engine import (
     AssistantAudio,
@@ -217,7 +218,7 @@ def test_language_model_failure_is_reported_not_crashed():
 
 
 def test_cascade_without_nvidia_key_explains_what_is_missing():
-    choice = create_engine(Settings(_env_file=None, voice_engine="cascade"))
+    choice = create_engine(Settings(_env_file=None, voice_engine="cascade"), "local", Prefs())
     assert choice.engine is None and "NVIDIA_API_KEY" in choice.problem
 
 
@@ -225,7 +226,7 @@ def test_gateway_streams_a_full_answer(client, settings):
     stt, tts = FakeSTT(), FakeTTS()
     holder = {}
 
-    def factory(_settings: Settings) -> EngineChoice:
+    def factory(_settings: Settings, _user_id: str, _prefs) -> EngineChoice:
         http = mock_client(lambda r: httpx.Response(200, content=sse("Both sides talk. ", "At once.")))
         holder["engine"] = CascadeEngine(stt, tts, LlmClient([provider("nebius", True)], http))
         return EngineChoice(holder["engine"], http=http)

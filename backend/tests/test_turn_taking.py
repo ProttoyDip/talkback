@@ -160,7 +160,7 @@ class ScriptedEngine:
 
 
 def drive(client, engine: ScriptedEngine, speech_frames: int) -> list[dict]:
-    app.dependency_overrides[get_engine_factory] = lambda: lambda _s: EngineChoice(engine)
+    app.dependency_overrides[get_engine_factory] = lambda: lambda *_: EngineChoice(engine)
     token = client.post("/api/session").json()["token"]
     received: list[dict] = []
     with client.websocket_connect(f"/ws/session?token={token}", headers={"origin": ORIGIN}) as ws:
@@ -235,7 +235,7 @@ def controller(playing: bool = False, wait: float = 0.05) -> CascadeEngine:
 def turns(engine: CascadeEngine) -> list[str]:
     out = []
     while not engine.user_turns.empty():
-        out.append(engine.user_turns.get_nowait())
+        out.append(engine.user_turns.get_nowait()[0])  # (text, typed)
     return out
 
 

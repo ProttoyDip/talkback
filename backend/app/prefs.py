@@ -21,13 +21,26 @@ class Prefs:
     interrupt_sensitivity: str = "normal"  # low, normal or high
     answer_length: str = "normal"  # short, normal or detailed
     planner_model: str = ""  # a ModelOption id; empty means the default order
+    timezone: str = "UTC"  # IANA name, set from the browser (plan P5)
     providers: dict[str, bool] = field(default_factory=dict)  # missing means on
 
     def tool_enabled(self, name: str) -> bool:
+        from .settings_routes import TOOL_GROUPS
+
+        # A group's tools follow its one switch (task_add covers every task tool).
+        for switch, members in TOOL_GROUPS.items():
+            if name in members:
+                return self.tools.get(switch, True)
         return self.tools.get(name, True)
 
     def provider_enabled(self, provider_id: str) -> bool:
         return self.providers.get(provider_id, True)
+
+
+def _zone(value: object) -> str:
+    from .timeutil import valid_zone
+
+    return value if isinstance(value, str) and len(value) <= 64 and valid_zone(value) else "UTC"
 
 
 def _choice(value: object, allowed: tuple[str, ...]) -> str:
@@ -51,6 +64,7 @@ class PrefsStore:
                 interrupt_sensitivity=_choice(raw.get("interrupt_sensitivity"), ("low", "normal", "high")),
                 answer_length=_choice(raw.get("answer_length"), ("short", "normal", "detailed")),
                 planner_model=str(raw.get("planner_model", ""))[:100],
+                timezone=_zone(raw.get("timezone")),
                 providers={str(k): bool(v) for k, v in dict(raw.get("providers", {})).items()},
             )
         except (AssertionError, ValueError, TypeError, AttributeError):
@@ -66,3 +80,35 @@ class PrefsStore:
         with self.lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self.path.write_text(json.dumps(asdict(prefs)), encoding="utf-8")
+
+
+class UserPrefsStore(PrefsStore):
+    """One user's settings: a row in user_settings (id = the user id).
+
+    `legacy` is where settings lived before accounts (one shared file or
+    row); the local user reads it until their first save.
+    """
+
+    def __init__(self, repo, legacy: PrefsStore | None = None) -> None:
+        self.repo = repo
+        self.user_id = repo.user_id
+        self.legacy = legacy
+        self.lock = threading.Lock()
+
+    def load(self) -> Prefs:
+        try:
+            row = self.repo.get(self.user_id)
+        except Exception:  # storage unreachable: the private defaults
+            log.warning("settings could not be read")
+            return Prefs()
+        if row is not None:
+            return self.from_raw(row["data"])
+        return self.legacy.load() if self.legacy else Prefs()
+
+    def save(self, prefs: Prefs) -> None:
+        with self.lock:
+            data = asdict(prefs)
+            if self.repo.get(self.user_id) is None:
+                self.repo.insert({"id": self.user_id, "data": data})
+            else:
+                self.repo.update(self.user_id, {"data": data})

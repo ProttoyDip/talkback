@@ -10,12 +10,35 @@ interface StatusBarProps {
   latencyMs?: number
   /** Set while a backup provider answers (plan.md 8.2): "Planner: model via provider". */
   backup?: string
+  /** The recorded demo is playing, not a live conversation. */
+  replay?: boolean
+  /** The live session is open (not just ready to start). */
+  connected?: boolean
   /** Saves the transcript as a Markdown file; missing until there is one. */
   onSave?: () => void
+  /** Downloads the opt-in recording of your voice; missing unless it is on. */
+  onSaveRecording?: () => void
 }
 
-export function StatusBar({ state, tool, debug, latencyMs, backup, onSave }: StatusBarProps) {
+export function StatusBar({
+  state,
+  tool,
+  debug,
+  latencyMs,
+  backup,
+  replay,
+  connected,
+  onSave,
+  onSaveRecording,
+}: StatusBarProps) {
   const offline = state === 'offline'
+  const connection = replay
+    ? "Playing a recorded demo. TalkBack isn't listening. "
+    : offline
+      ? 'Disconnected. '
+      : connected
+        ? 'Connected. '
+        : ''
 
   return (
     <header className="flex items-center justify-between gap-4">
@@ -25,6 +48,11 @@ export function StatusBar({ state, tool, debug, latencyMs, backup, onSave }: Sta
       </p>
 
       <div className="flex items-center gap-3 sm:gap-4">
+        {replay && (
+          <p className="flex h-8 items-center rounded-pill border border-voice-user px-3 font-mono text-label font-medium uppercase text-voice-user">
+            Recorded demo
+          </p>
+        )}
         {backup && (
           <p
             className="flex h-8 items-center rounded-pill border border-warning px-3 font-mono text-label font-medium uppercase text-warning"
@@ -43,6 +71,17 @@ export function StatusBar({ state, tool, debug, latencyMs, backup, onSave }: Sta
           </p>
         )}
 
+        {onSaveRecording && (
+          <button
+            type="button"
+            onClick={onSaveRecording}
+            aria-label="Save recording of your voice"
+            title="Save recording of your voice"
+            className="grid size-target place-items-center rounded-pill border border-field-line bg-chrome text-text-muted transition-colors duration-(--dur-fast) hover:text-text active:scale-[0.96]"
+          >
+            <Icon name="mic" className="size-4" />
+          </button>
+        )}
         {onSave && (
           <button
             type="button"
@@ -70,7 +109,7 @@ export function StatusBar({ state, tool, debug, latencyMs, backup, onSave }: Sta
             {statusLabel(state, tool)}
           </span>
           <span className="sr-only">
-            {offline ? 'Disconnected. ' : 'Connected. '}
+            {connection}
             {statusDescription(state)}
           </span>
         </div>

@@ -23,7 +23,7 @@ def unpack(payload):
 def bridge(handler=None, sensitive=False, **kwargs):
     handler = handler or AsyncMock(return_value=[ToolResult("Title", "https://example.com", "snippet")])
     emit, filler = AsyncMock(), AsyncMock()
-    instance = ToolBridge("session", [Tool("memory_delete", "Run test?", Arguments, handler, sensitive, lambda args: "Delete the test memory?")], emit, filler, **kwargs)
+    instance = ToolBridge("session", [Tool("memory_delete", "Run test?", Arguments, handler, sensitive, lambda args: "Delete the test memory?", mutates=sensitive)], emit, filler, **kwargs)
     return instance, handler, emit, filler
 
 
@@ -313,3 +313,48 @@ def test_sensitive_tool_without_summary_cannot_run():
     assert result[0]['error'] == 'confirmation_summary_missing'
     handler.assert_not_called()
     assert not any(isinstance(call.args[0], ToolConfirmRequest) for call in emit.await_args_list)
+
+
+@pytest.mark.parametrize("approved", [True, False])
+def test_a_no_is_reported_as_declined_not_failed(approved):
+    instance, _, emit, _ = bridge(sensitive=True)
+    async def event(message):
+        if isinstance(message, ToolConfirmRequest):
+            assert (message.message_id, message.name) == ("turn", "memory_delete")
+            instance.confirm(ToolConfirm(type='tool.confirm', call_id=message.call_id, approved=approved))
+    emit.side_effect = event
+    asyncio.run(instance.execute(request(), 'turn'))
+    final = emit.await_args_list[-1].args[0]
+    assert (final.status, final.reason) == (("done", None) if approved else ("declined", "user_declined"))
+
+
+def test_closing_the_session_cancels_a_pending_confirmation():
+    instance, handler, emit, _ = bridge(sensitive=True)
+    async def event(message):
+        if isinstance(message, ToolConfirmRequest):
+            instance.close()
+    emit.side_effect = event
+    asyncio.run(instance.execute(request(), 'turn'))
+    handler.assert_not_called()
+    final = emit.await_args_list[-1].args[0]
+    assert (final.status, final.reason) == ("cancelled", "session_closed")
+
+
+def test_a_yes_after_the_deadline_is_expired_not_declined():
+    now = [0.0]
+    instance, handler, emit, _ = bridge(sensitive=True, clock=lambda: now[0])
+    async def event(message):
+        if isinstance(message, ToolConfirmRequest):
+            now[0] = 31.0
+            assert not instance.confirm(ToolConfirm(type='tool.confirm', call_id=message.call_id, approved=True))
+    emit.side_effect = event
+    asyncio.run(instance.execute(request(), 'turn'))
+    handler.assert_not_called()
+    assert emit.await_args_list[-1].args[0].status == "expired"
+
+
+def test_an_unanswered_confirmation_is_reported_as_expired():
+    instance, _, emit, _ = bridge(sensitive=True, confirmation_timeout=0.001)
+    asyncio.run(instance.execute(request(), 'turn'))
+    final = emit.await_args_list[-1].args[0]
+    assert (final.status, final.reason) == ("expired", "timeout")

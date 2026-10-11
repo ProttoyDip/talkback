@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { type RefObject, useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
-import { api } from '../api/client'
+import { DATA_CHANGED, api } from '../api/client'
 import { Icon } from '../components/Icon'
 import { downloadTranscript } from '../state/exportTranscript'
 import { enter, exit } from '../styles/motion'
@@ -11,10 +11,11 @@ import { PresenceOrb } from '../components/PresenceOrb'
 import type { LevelMeters } from '../session/useLevelHistory'
 import { Drawer } from '../components/Drawer'
 import { Toast, type ToastData } from '../components/Toast'
-import type { ConversationModel } from '../session/model'
+import type { ConversationModel, Remembered } from '../session/model'
 import { MicButton, type MicMode } from '../components/MicButton'
 import { NavRail, TabBar, type Panel } from '../components/Navigation'
 import { StatusBar } from '../components/StatusBar'
+import { TextComposer } from '../components/TextComposer'
 import { TranscriptTurn } from '../components/TranscriptTurn'
 import type { ConfirmRequest, ConversationState, TimelineData, ToolName, Turn } from '../state/types'
 
@@ -34,9 +35,15 @@ export interface ConversationView {
   /** Set while a backup model answers, e.g. "Planner: nemotron via OpenRouter". */
   backup?: string
   /** Last memory TalkBack saved; shows the "Remembered" toast with Undo. */
-  remembered?: { id: string; text: string }
+  remembered?: Remembered
+  /** Bumped when stored data changes by voice (data.changed): open panels reload. */
+  dataVersion?: number
   /** True once the session is open, so skills can run. */
   sessionOpen?: boolean
+  /** The recorded demo (?replay): labelled everywhere, panels show sample data. */
+  replay?: boolean
+  /** Set while the opt-in recording runs: downloads it as a WAV file. */
+  onSaveRecording?: () => void
   activeModels?: ConversationModel['models']
   /** Live voice levels, so the presence orb can pulse with them. */
   levels?: RefObject<LevelMeters>
@@ -51,7 +58,18 @@ interface ConversationScreenProps {
   onStop?: () => void
   /** Push-to-talk is on: hold Space or the mic button to talk. */
   onHold?: (held: boolean) => void
+  /** An example chip on the empty screen was chosen: send its words as a typed turn. */
+  onExample?: (text: string) => void
+  /** Typed turns (plan P3); missing in the recorded demo. */
+  onSendText?: (text: string) => void
 }
+
+/** First-conversation guidance: what to try, and the words to say. */
+const EXAMPLES = [
+  { label: 'Remember a preference', say: 'Remember that I like short answers.' },
+  { label: 'Research a topic', say: 'Quick research on solar batteries.' },
+  { label: 'Prepare my day', say: 'Morning brief.' },
+]
 
 function isTyping(target: EventTarget | null) {
   return (
@@ -66,8 +84,25 @@ const FOLLOW_THRESHOLD_PX = 160
 /** TalkBack is answering, so Stop has something to stop. */
 const STOPPABLE = new Set(['assistant_speaking', 'overlap', 'thinking', 'tool'])
 
-export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm, onStop, onHold }: ConversationScreenProps) {
+export function ConversationScreen({
+  view,
+  debug,
+  onToggleMute,
+  onAnswerConfirm,
+  onStop,
+  onHold,
+  onExample,
+  onSendText,
+}: ConversationScreenProps) {
   const [panel, setPanel] = useState<Panel | null>(null)
+  // Undo from a chip or toast changes data without data.changed: reload panels.
+  const [localVersion, setLocalVersion] = useState(0)
+  useEffect(() => {
+    const bump = () => setLocalVersion((v) => v + 1)
+    window.addEventListener(DATA_CHANGED, bump)
+    return () => window.removeEventListener(DATA_CHANGED, bump)
+  }, [])
+  const [example, setExample] = useState<string>()
   const { state, turns, confirm, micDisabled } = view
   // Nothing said yet: the orb holds the centre of the stage.
   const empty = turns.length === 0 && !confirm
@@ -86,13 +121,25 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
   const dismissToast = useCallback(() => setToast(null), [])
   const [seenMemory, setSeenMemory] = useState(view.remembered?.id)
   if (view.remembered && view.remembered.id !== seenMemory) {
-    const { id, text } = view.remembered
+    const { id, text, suggested, actionId, replacedText } = view.remembered
     setSeenMemory(id)
-    setToast({
-      id,
-      message: `Remembered: ${text}`,
-      action: { label: 'Undo', onClick: () => void api.deleteMemory(id).catch(() => {}) },
-    })
+    setToast(
+      suggested
+        ? {
+            id,
+            message: `Suggested: ${text}`,
+            action: { label: 'Keep', onClick: () => void api.editMemory(id, { status: 'confirmed' }).catch(() => {}) },
+          }
+        : {
+            id,
+            message: replacedText ? `Remembered: ${text} (instead of ${replacedText})` : `Remembered: ${text}`,
+            action: {
+              label: 'Undo',
+              // Through the action history, so a correction puts the old memory back.
+              onClick: () => void (actionId ? api.undoAction(actionId) : api.deleteMemory(id)).catch(() => {}),
+            },
+          },
+    )
   }
 
   const togglePanel = (next: Panel) => setPanel((cur) => (cur === next ? null : next))
@@ -158,6 +205,9 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
             debug={debug}
             latencyMs={view.latencyMs}
             backup={view.backup}
+            replay={view.replay}
+            connected={view.sessionOpen}
+            onSaveRecording={view.onSaveRecording}
             onSave={turns.length > 0 ? () => downloadTranscript(turns) : undefined}
           />
 
@@ -169,7 +219,9 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
           <div
             className={
               empty
-                ? 'flex flex-1 flex-col items-center justify-center gap-8 pb-[calc(var(--mic-size)+var(--space-12))] lg:pb-0'
+                ? `flex flex-1 flex-col items-center justify-center gap-8 lg:pb-0 ${
+                    onSendText ? '' : 'pb-[calc(var(--mic-size)+var(--space-12))]'
+                  }`
                 : 'flex shrink-0 flex-col items-center gap-4'
             }
           >
@@ -203,6 +255,36 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
                 <p className="text-transcript text-text-muted">I'll keep up.</p>
               </div>
             )}
+            {empty && !view.replay && (
+              <div className="flex flex-col items-center gap-3">
+                <p id="examples-label" className="font-mono text-label uppercase text-text-muted">
+                  Try saying
+                </p>
+                <ul aria-labelledby="examples-label" className="flex flex-wrap justify-center gap-2">
+                  {EXAMPLES.map(({ label, say }) => (
+                    <li key={label}>
+                      <button
+                        type="button"
+                        aria-pressed={example === say}
+                        onClick={() => {
+                          setExample(say)
+                          onExample?.(say)
+                        }}
+                        className="min-h-target rounded-pill border border-field-line bg-chrome px-4 text-body text-text transition-colors duration-(--dur-fast) hover:border-text-subtle aria-pressed:border-voice-assistant"
+                      >
+                        {label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {/* Live, a chip sends its words; the static preview shows them instead. */}
+                {!onExample && (
+                  <p aria-live="polite" className="min-h-target text-transcript text-text-muted">
+                    {example && <>Say: “{example}”</>}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {!empty && (
@@ -214,8 +296,15 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
                 following.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX
               }}
               // The translucent panel keeps captions readable where the field passes behind them.
-              className="-mx-4 flex-1 overflow-y-auto rounded-panel bg-bg/80 px-4 pb-[calc(var(--mic-size)+var(--space-12))] sm:-mx-8 sm:px-8 lg:pb-8"
+              className={`-mx-4 flex-1 overflow-y-auto rounded-panel bg-bg/80 px-4 sm:-mx-8 sm:px-8 lg:pb-8 ${
+                onSendText ? 'pb-4' : 'pb-[calc(var(--mic-size)+var(--space-12))]'
+              }`}
             >
+              {view.replay && (
+                <p className="pt-2 font-mono text-label uppercase text-text-muted">
+                  Sample conversation. Nothing here is live.
+                </p>
+              )}
               <ol className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-[max-content_minmax(0,1fr)] sm:gap-x-6">
                 {turns.map((turn, i) => (
                   // A user turn opens a new exchange: more space before it,
@@ -236,7 +325,21 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
             </section>
           )}
 
-          <div className="hidden justify-center pb-8 lg:flex">{mic}</div>
+          {/* The bottom row: typing, and on desktop the mic beside it. On
+              phones the mic lives in the tab bar, so the row clears its
+              raised button. */}
+          <div
+            className={`flex items-end justify-center gap-6 lg:pb-8 ${
+              onSendText ? 'pb-[calc(var(--mic-size)+var(--space-4))]' : 'hidden lg:flex'
+            }`}
+          >
+            {onSendText && (
+              <div className="min-w-0 flex-1">
+                <TextComposer onSend={onSendText} disabled={state === 'offline'} />
+              </div>
+            )}
+            <div className="hidden lg:block">{mic}</div>
+          </div>
         </div>
       </main>
 
@@ -247,8 +350,9 @@ export function ConversationScreen({ view, debug, onToggleMute, onAnswerConfirm,
             panel={panel}
             onClose={() => setPanel(null)}
             context={{
-              memoryVersion: view.remembered?.id,
+              memoryVersion: `${view.remembered?.id ?? ''}|${view.dataVersion ?? 0}|${localVersion}`,
               sessionOpen: view.sessionOpen ?? false,
+              replay: view.replay ?? false,
               onSkillRan: (name) => setToast({ id: `skill-${name}-${Date.now()}`, message: `Running ${name}` }),
               activeModels: view.activeModels ?? {},
             }}

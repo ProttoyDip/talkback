@@ -30,11 +30,15 @@ export function transcriptMarkdown(turns: Turn[], when = new Date()): string {
 
 /** Starts a browser download of the transcript. Nothing leaves the device. */
 export function downloadTranscript(turns: Turn[]) {
-  const blob = new Blob([transcriptMarkdown(turns)], { type: 'text/markdown' })
+  downloadBlob(new Blob([transcriptMarkdown(turns)], { type: 'text/markdown' }), 'md')
+}
+
+/** Save a file named talkback-<date-time>.<extension>. */
+export function downloadBlob(blob: Blob, extension: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `talkback-${new Date().toISOString().slice(0, 16).replace(':', '-')}.md`
+  link.download = `talkback-${new Date().toISOString().slice(0, 16).replace(':', '-')}.${extension}`
   link.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

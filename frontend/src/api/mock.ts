@@ -1,16 +1,33 @@
 /*
- * Local sample data for ?mock, so the panels can be developed and shown
- * before the backend routes exist. Never used unless the URL asks for it.
+ * Local sample data for ?mock and for the recorded demo (?replay), so the
+ * panels can be shown without a backend session. Never used otherwise.
+ * It mirrors what the real backend returns (backend/skills, settings_routes).
  */
-import type { MemoryItem, SettingsView, SkillItem } from './types'
+import type { ActionItem, MemoryItem, SettingsView, SkillItem } from './types'
 
 let memories: MemoryItem[] = [
+  {
+    id: 'm0',
+    text: 'Home city is Lisbon',
+    kind: 'fact',
+    utterance: 'Remember that my home city is Lisbon.',
+    created_at: '2026-10-03T08:05:00Z',
+  },
   {
     id: 'm1',
     text: 'Prefers Celsius',
     kind: 'preference',
     utterance: 'Remember that I prefer Celsius.',
     created_at: '2026-10-02T09:12:00Z',
+  },
+  {
+    id: 'm3',
+    text: 'Likes jazz while working',
+    kind: 'preference',
+    utterance: '(suggested by TalkBack)',
+    created_at: '2026-10-04T10:00:00Z',
+    status: 'suggested',
+    source: 'assistant_suggestion',
   },
   {
     id: 'm2',
@@ -21,23 +38,55 @@ let memories: MemoryItem[] = [
   },
 ]
 
+let actions: ActionItem[] = [
+  {
+    id: 'act1',
+    tool: 'memory_write',
+    status: 'done',
+    summary: 'Remembered “Prefers Celsius”',
+    created_at: '2026-10-02T09:12:00Z',
+    undoable: true,
+  },
+]
+
 const skills: SkillItem[] = [
-  { id: 'morning-brief', name: 'Morning brief', triggers: ['morning brief', 'start my day'], allowed_tools: ['weather', 'web_search'] },
-  { id: 'quick-research', name: 'Quick research', triggers: ['research', 'look into'], allowed_tools: ['web_search'] },
-  { id: 'remind-me', name: 'Remind me', triggers: ['remind me'], allowed_tools: ['memory_write'] },
+  {
+    id: 'morning-brief',
+    name: 'Morning brief',
+    triggers: ['morning brief', 'start my day', 'brief me'],
+    allowed_tools: ['weather', 'memory_read'],
+    summary: "Today's weather for your city and anything you asked TalkBack to remember for today.",
+  },
+  {
+    id: 'quick-research',
+    name: 'Quick research',
+    triggers: ['quick research', 'research this', 'look into'],
+    allowed_tools: ['web_search'],
+    summary: 'One web search, answered in two or three sentences with the source named.',
+  },
+  {
+    id: 'remind-me',
+    name: 'Remind me',
+    triggers: ['remind me'],
+    allowed_tools: ['memory_read'],
+    summary: 'Saves a note that TalkBack reads back when you ask. It does not send alerts yet.',
+  },
 ]
 
 let settings: SettingsView = {
   tools: {
     web_search: { enabled: true, description: 'Searches the web with your question. It sees only that text.' },
     weather: { enabled: true, description: 'Looks up the weather for a place you name.' },
+    memory_read: { enabled: true, description: 'Reads what you asked TalkBack to remember.' },
+    memory_delete: { enabled: true, description: 'Deletes a saved memory, only after you say yes.' },
   },
   save_recordings: false,
   transcripts_in_logs: false,
   interrupt_sensitivity: 'normal',
   answer_length: 'normal',
   models: {
-    voice_model: 'NVIDIA NemotronLabs VoiceChat',
+    voice_model: 'NVIDIA Parakeet speech-to-text + Magpie TTS',
+    full_duplex: false,
     planner_model: 'nebius:nemotron-3-nano',
     planner_options: [
       { id: 'nebius:nemotron-3-nano', provider: 'nebius', model: 'Nemotron 3 Nano', nvidia: true, available: true },
@@ -68,10 +117,20 @@ export async function mockRequest<T>(method: string, path: string, body?: unknow
   const [route, query = ''] = path.split('?')
   const id = route.split('/')[3]
   let result: unknown
-  if (route.startsWith('/api/memories')) {
+  if (route === '/api/actions') {
+    result = { items: actions }
+  } else if (route.startsWith('/api/actions/')) {
+    actions = actions.map((a) => (a.id === id ? { ...a, status: 'undone' as const, undoable: false } : a))
+    result = actions.find((a) => a.id === id)
+  } else if (route.startsWith('/api/memories')) {
     if (method === 'GET') {
       const q = new URLSearchParams(query).get('q')?.toLowerCase() ?? ''
-      result = { items: memories.filter((m) => m.text.toLowerCase().includes(q)) }
+      const history = new URLSearchParams(query).has('history')
+      result = {
+        items: memories.filter(
+          (m) => m.text.toLowerCase().includes(q) && (history || (m.status ?? 'confirmed') !== 'superseded'),
+        ),
+      }
     } else if (method === 'PATCH') {
       memories = memories.map((m) => (m.id === id ? { ...m, ...(body as object) } : m))
       result = memories.find((m) => m.id === id)

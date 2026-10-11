@@ -8,7 +8,7 @@ from pydantic import SecretStr
 
 from app.config import Settings
 from app.memory import MemoryStore, MemoryWrite
-from app.prefs import Prefs, PrefsStore
+from app.prefs import Prefs, PrefsStore, UserPrefsStore
 from app.protocol import MemoryUpdate
 from app.stores import memory_store, prefs_store, uses_supabase
 from app.supabase_store import SupabaseError, SupabaseMemoryStore, SupabasePrefsStore
@@ -80,7 +80,7 @@ def write(text: str, utterance: str = "Remember this") -> MemoryWrite:
 
 
 def test_memories_round_trip(fake):
-    store = SupabaseMemoryStore(URL, KEY, httpx.MockTransport(fake))
+    store = SupabaseMemoryStore(URL, KEY, transport=httpx.MockTransport(fake))
     item = store.create(write("I prefer Celsius", "Remember that I prefer Celsius"))
     store.create(write("Likes short answers"))
     assert [m.text for m in store.list()] == ["I prefer Celsius", "Likes short answers"]
@@ -97,7 +97,7 @@ def test_memories_round_trip(fake):
 
 
 def test_only_the_users_own_words_can_create_a_memory(fake):
-    store = SupabaseMemoryStore(URL, KEY, httpx.MockTransport(fake))
+    store = SupabaseMemoryStore(URL, KEY, transport=httpx.MockTransport(fake))
     forged = MemoryWrite.model_construct(
         text="x", kind="fact", source="tool_result", utterance="y", confidence=0.5
     )
@@ -107,7 +107,7 @@ def test_only_the_users_own_words_can_create_a_memory(fake):
 
 
 def test_secret_key_header_and_no_leaks_in_errors(fake):
-    store = SupabaseMemoryStore(URL, KEY, httpx.MockTransport(fake))
+    store = SupabaseMemoryStore(URL, KEY, transport=httpx.MockTransport(fake))
     store.list()
     request = fake.seen[0]
     assert request.headers["apikey"] == "sb_secret_test"
@@ -119,7 +119,7 @@ def test_secret_key_header_and_no_leaks_in_errors(fake):
 
 
 def test_legacy_service_role_key_also_goes_in_authorization(fake):
-    store = SupabaseMemoryStore(URL, SecretStr("eyJhbGciOi.test"), httpx.MockTransport(fake))
+    store = SupabaseMemoryStore(URL, SecretStr("eyJhbGciOi.test"), transport=httpx.MockTransport(fake))
     store.list()
     assert fake.seen[0].headers["authorization"] == "Bearer eyJhbGciOi.test"
 
@@ -137,9 +137,13 @@ def test_settings_round_trip_and_private_defaults(fake):
 def test_store_choice_follows_configuration(tmp_path):
     local = Settings(_env_file=None, memory_db_path=str(tmp_path / "m.sqlite3"), settings_path=str(tmp_path / "s.json"))
     assert not uses_supabase(local)
-    assert isinstance(memory_store(local), MemoryStore)
-    assert type(prefs_store(local)) is PrefsStore
+    assert isinstance(memory_store(local, "local"), MemoryStore)
+    assert type(prefs_store(local, "local")) is PrefsStore
     cloud = Settings(_env_file=None, supabase_url=URL, supabase_secret_key="sb_secret_x")
     assert uses_supabase(cloud)
-    assert isinstance(memory_store(cloud), SupabaseMemoryStore)
-    assert isinstance(prefs_store(cloud), SupabasePrefsStore)
+    assert isinstance(memory_store(cloud, "u1"), SupabaseMemoryStore)
+    cloud_prefs = prefs_store(cloud, "local")
+    assert isinstance(cloud_prefs, UserPrefsStore) and isinstance(cloud_prefs.legacy, SupabasePrefsStore)
+    assert prefs_store(cloud, "u1").legacy is None  # accounts never read the shared row
+    with pytest.raises(ValueError):
+        memory_store(local, "")

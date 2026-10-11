@@ -60,3 +60,4 @@ def test_interrupting_the_fake_engine_trims_and_stops_it(client, settings):
     trim = events[-1]
     assert trim["heard_text"].startswith("Tomorrow in Lisbon") and trim["unheard_text"]
     assert {"type": "audio.flush", "reason": "interrupted"} in events
+

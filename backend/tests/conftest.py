@@ -9,8 +9,12 @@ SECRET = "test-secret-" + "x" * 40
 
 
 @pytest.fixture
-def settings() -> Settings:
-    return Settings(_env_file=None, session_secret=SECRET, allowed_origins=ORIGIN, voice_engine="none")
+def settings(tmp_path) -> Settings:
+    # Each test gets its own files, so tests never touch backend/data.
+    return Settings(
+        _env_file=None, session_secret=SECRET, allowed_origins=ORIGIN, voice_engine="none",
+        memory_db_path=str(tmp_path / "memories.sqlite3"), settings_path=str(tmp_path / "settings.json"),
+    )
 
 
 @pytest.fixture

@@ -8,6 +8,9 @@ test('replay plays the full demo conversation', async ({ page }) => {
   // Nothing starts until the user starts it (SECURITY.md T2).
   await expect(status(page)).toContainText('READY')
   await expect(page.getByText('Interrupt me any time.')).toBeVisible()
+  // It is labelled as a recording, never as a live connection.
+  await expect(page.locator('header').getByText('Recorded demo', { exact: true })).toBeVisible()
+  await expect(status(page)).toContainText("Playing a recorded demo. TalkBack isn't listening.")
   const quietInk = await laneInk(page, 1)
   await micButton(page, 'Start talking').click()
 
@@ -33,6 +36,9 @@ test('replay plays the full demo conversation', async ({ page }) => {
   await card.getByRole('button', { name: 'No' }).click()
   await expect(card).toBeHidden()
   await expect(status(page)).toContainText('READY')
+  // Saying no has a visible outcome, not a failure.
+  await expect(page.getByText('Cancelled. Your memory was kept.')).toBeVisible()
+  await expect(page.getByText('Sample conversation. Nothing here is live.')).toBeVisible()
 
   await expectNoHorizontalScroll(page)
 })

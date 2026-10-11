@@ -135,7 +135,8 @@ state(t + 1500, "listening")
 t = user_says(t + 1500, "u5", "Forget my home city.")
 state(t + 100, "assistant_speaking")
 t = assistant_says(t + 100, "a4", "Okay. I need your OK first.")
-emit(t + 50, {"type": "tool.confirm_request", "call_id": "c3", "summary": "Delete the memory “Home city is Lisbon”?"})
+emit(t + 50, {"type": "tool.confirm_request", "call_id": "c3", "message_id": "a4", "name": "memory_delete",
+              "summary": "Delete the memory “Home city is Lisbon”?"})
 state(t + 60, "confirm")
 
 events.sort(key=lambda pair: pair[0])

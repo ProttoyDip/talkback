@@ -5,6 +5,7 @@
  * creates a quiet voice-like tone for each audio.chunk.
  */
 import fixture from '../../../docs/fixtures/demo_session.jsonl?raw'
+import { mockRequest } from '../api/mock'
 import { SERVER_SAMPLE_RATE, type ClientMessage, type ServerEvent } from './protocol'
 import type { Transport, TransportHandlers } from './transport'
 
@@ -37,6 +38,8 @@ export class ReplayTransport implements Transport {
   private handlers?: TransportHandlers
   private timers: ReturnType<typeof setTimeout>[] = []
   private readonly speed: number
+  /** The confirmation the script is waiting on, answered locally. */
+  private pending?: Extract<ServerEvent, { type: 'tool.confirm_request' }>
 
   /** speed > 1 plays the script faster (end-to-end tests use ?speed=). */
   constructor(speed = 1) {
@@ -54,6 +57,7 @@ export class ReplayTransport implements Transport {
       this.timers.push(
         setTimeout(() => {
           this.handlers?.onEvent(event)
+          if (event.type === 'tool.confirm_request') this.pending = event
           if (event.type === 'audio.chunk') this.handlers?.onAudio(event.seq, tone(event.seq, event.samples))
         }, t_ms / this.speed),
       )
@@ -65,6 +69,21 @@ export class ReplayTransport implements Transport {
     if (message.type === 'control.mute') {
       emit({ type: 'state', state: message.muted ? 'muted' : 'idle' })
     } else if (message.type === 'tool.confirm') {
+      const pending = this.pending
+      this.pending = undefined
+      // Show the outcome the live server would: done, or declined ("Cancelled").
+      if (pending?.message_id && pending.name && pending.call_id === message.call_id) {
+        emit({
+          type: 'tool.status',
+          call_id: pending.call_id,
+          message_id: pending.message_id,
+          name: pending.name,
+          status: message.approved ? 'done' : 'declined',
+          reason: message.approved ? undefined : 'user_declined',
+        })
+      }
+      // The sample Memory panel agrees with the answer (m0 is "Home city is Lisbon").
+      if (message.approved && pending?.name === 'memory_delete') void mockRequest('DELETE', '/api/memories/m0')
       emit({ type: 'state', state: 'idle' })
     }
   }

@@ -6,7 +6,18 @@ export const TOOL_STATUS_NAME: Record<ToolName, string> = {
   memory_read: 'MEMORY',
   memory_write: 'MEMORY',
   memory_delete: 'MEMORY',
+  memory_suggest: 'MEMORY',
   skill_run: 'SKILL',
+  task_list: 'TASKS',
+  task_add: 'TASKS',
+  task_update: 'TASKS',
+  task_delete: 'TASKS',
+  calendar_list: 'CALENDAR',
+  calendar_add: 'CALENDAR',
+  calendar_update: 'CALENDAR',
+  calendar_delete: 'CALENDAR',
+  reminder_set: 'REMINDERS',
+  reminder_update: 'REMINDERS',
 }
 
 /** Status labels from docs/design.md, section 6. */

@@ -71,6 +71,7 @@ export function TranscriptTurn({ turn, startsExchange }: { turn: Turn; startsExc
         }`}
       >
         {isUser ? 'You' : 'TalkBack'}
+        {turn.typed && <span className="ml-2 text-text-muted normal-case">typed</span>}
       </p>
 
       <div className="flex flex-col items-start gap-3">

@@ -44,6 +44,8 @@ export function useSession(mode: SessionMode, replaySpeed = 1) {
 
   const send = useCallback((message: ClientMessage) => transportRef.current?.send(message), [])
   const sendAudio = useCallback((frame: ArrayBuffer) => transportRef.current?.sendAudio(frame), [])
+  /** A typed turn (text.input). Only sent while the connection is open. */
+  const sendText = useCallback((text: string) => transportRef.current?.send({ type: 'text.input', text }), [])
 
   const setMuted = useCallback((next: boolean) => {
     setMutedState(next)
@@ -81,6 +83,7 @@ export function useSession(mode: SessionMode, replaySpeed = 1) {
     stop,
     send,
     sendAudio,
+    sendText,
     attachAudio,
   }
 }
