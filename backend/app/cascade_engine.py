@@ -4,7 +4,12 @@ Used until NVIDIA VoiceChat runs on a Nebius GPU (prd.md section 12).
 - Each final transcript starts a reply. Replies stream sentence by sentence:
   the first sentence is spoken while Nemotron writes the rest.
 - Turn-taking (barge-in, backchannels, trimming) is X2's job: it calls
-  interrupt(). Until then, user turns that arrive during a reply wait.
+  interrupt() once TalkBack is speaking.
+- Interruption-aware actions (plan P3): before TalkBack speaks, a new request
+  replaces the one in progress; "never mind" cancels it; a pending
+  confirmation is answered by a spoken yes or no, and anything else drops it.
+  The model is told what was cancelled or already done, so it revises
+  instead of repeating. Typed turns (submit_text) take the same path.
 - Tools (weather first) run through the tool bridge (X3), which validates
   arguments, applies the rate limit and confirmation rules, says a filler
   when a tool is slow, and wraps results as untrusted data (SECURITY.md T1).
@@ -24,7 +29,14 @@ from .llm import LlmClient, LlmProvider, LlmUnavailable, ToolCalls
 from .protocol import ServerMessage, ToolConfirm
 from .speech import SpeechToText, TextToSpeech
 from .tool_bridge import ToolBridge
-from .turn_taking import is_backchannel, is_filler_only, looks_incomplete, strip_fillers
+from .turn_taking import (
+    classify_confirmation,
+    is_backchannel,
+    is_cancel,
+    is_filler_only,
+    looks_incomplete,
+    strip_fillers,
+)
 from .voice_engine import (
     AssistantAudio,
     AssistantWord,
@@ -133,6 +145,13 @@ class CascadeEngine:
         self.hold_timer: asyncio.TimerHandle | None = None
         # The gateway sets this: True while assistant audio is still playing.
         self.playback_active: Callable[[], bool] = lambda: False
+        # Bumped whenever the request in progress is replaced or cancelled;
+        # an approved change runs only if its turn is still current.
+        self.generation = 0
+        self.current_request = ""  # what the reply in progress answers
+        self.reply_speaking = False  # the reply in progress has started to speak
+        # Facts for the next prompt: what was cancelled or already done.
+        self.notes: list[str] = []
 
     def _emit(self, event: EngineEvent) -> None:
         self.queue.put_nowait(event)
@@ -226,6 +245,35 @@ class CascadeEngine:
         self.user_message_id = None
         if is_backchannel(text) and self.playback_active():
             return  # "mm-hm" while TalkBack speaks means "keep going"
+        self._on_final_input(text)
+
+    def submit_text(self, text: str) -> None:
+        """A typed turn (text.input). The gateway shows it; it is handled like speech."""
+        text = text.strip()
+        if text:
+            self._on_final_input(text)
+
+    def _on_final_input(self, text: str) -> None:
+        pending = self.bridge.pending_call() if self.bridge else None
+        if pending:
+            answer, rest = classify_confirmation(text)
+            if answer is not None and not rest:
+                self.bridge.resolve(pending, answer == "yes")  # the reply goes on
+                return
+            # "No, wait, Friday" declines; anything else drops the action. Either
+            # way the rest is a new request, answered instead.
+            self._cancel_reply("confirmation_denied" if answer == "no" else "superseded")
+            text = rest or text
+            if not text:
+                return
+        if is_cancel(text):
+            self._cancel_reply("stopped")
+            self._drop_queued()
+            asyncio.ensure_future(self._say("Okay, cancelled."))
+            return
+        if self.reply and not self.reply.done() and not self.reply_speaking:
+            # Still thinking or running a tool: the new words replace the request.
+            self._cancel_reply("superseded")
         cleaned = strip_fillers(text)
         if is_filler_only(text) or not cleaned:
             return  # "umm" alone is hesitation: keep listening
@@ -235,6 +283,42 @@ class CascadeEngine:
             self.hold_timer = self.loop.call_later(self.incomplete_wait_s, self._release_held)
         else:
             self._release_held()
+
+    def _cancel_reply(self, reason: str) -> None:
+        """Drop the request in progress before it changes anything (plan P3)."""
+        self.generation += 1
+        busy = self.reply is not None and not self.reply.done() and not self.reply.cancelling()
+        if busy and self.bridge is not None:
+            self.bridge.cancel_reason = reason  # the first reason wins
+        if busy:
+            self.reply.cancel()
+            if self.current_request:
+                self.notes.append(
+                    f'(The user moved on before you finished. Their earlier request "{self.current_request[:200]}" '
+                    "was dropped; nothing was changed for it unless noted below.)"
+                )
+
+    def _drop_queued(self) -> None:
+        self._cancel_hold()
+        self.held_text = ""
+        while not self.user_turns.empty():
+            self.user_turns.get_nowait()
+
+    async def cancel(self, reason: str = "stopped") -> None:
+        """Stop pressed while TalkBack is thinking or running a tool."""
+        self._cancel_reply(reason)
+
+    async def _say(self, text: str) -> None:
+        """A short spoken reply that needs no model ("Okay, cancelled.")."""
+        message_id = _new_id("a")
+        try:
+            speech = await self.tts.synthesize(text)
+        except Exception:
+            log.exception("speech synthesis failed")
+            return
+        self._emit(StateChanged("assistant_speaking"))
+        self._emit_speech(message_id, speech.pcm, speech.words, 0.0)
+        self._emit(TurnEnded(message_id, text))
 
     def _cancel_hold(self) -> None:
         if self.hold_timer is not None:
@@ -260,7 +344,9 @@ class CascadeEngine:
                 log.exception("reply failed")
                 self._emit(EngineProblem("internal", "Something went wrong with that answer. Please try again."))
 
-    async def _run_tools(self, requested: ToolCalls, message_id: str, messages: list[dict]) -> None:
+    async def _run_tools(
+        self, requested: ToolCalls, message_id: str, messages: list[dict], is_current: Callable[[], bool] | None = None
+    ) -> None:
         """Run the model's tool calls and add the results to the conversation."""
         assert self.bridge is not None
         known = {tool["name"] for tool in self.bridge.model_tools()}
@@ -282,7 +368,7 @@ class CascadeEngine:
                 arguments = {}  # the bridge rejects it as invalid arguments
             calls.append({"name": call.name, "arguments": arguments if isinstance(arguments, dict) else {}})
         # The bridge validates, rate-limits and wraps results as untrusted data.
-        result = await self.bridge.execute(json.dumps(calls), message_id)
+        result = await self.bridge.execute(json.dumps(calls), message_id, is_current)
         self._append_tool_results(messages, requested.calls + blocked, blocked, result)
         self._emit(StateChanged("thinking"))
 
@@ -345,6 +431,9 @@ class CascadeEngine:
             self._emit(AssistantWord(message_id, word, offset_s + start_s, offset_s + end_s))
 
     async def _answer(self, user_text: str) -> None:
+        generation = self.generation
+        self.current_request = user_text
+        self.reply_speaking = False
         self.history.append({"role": "user", "content": user_text})
         self.history = self.history[-2 * MAX_HISTORY_TURNS :]
         message_id = _new_id("a")
@@ -357,6 +446,13 @@ class CascadeEngine:
             prompt += f" The user just asked you to remember: {saved}. Confirm in a few words, and say it stays until they delete it."
         if self.skill_active:
             prompt += f" You are running the skill '{self.skill_active.name}': {self.skill_active.instructions}"
+        if self.bridge is not None and self.bridge.done_after_cancel:
+            done = "; ".join(self.bridge.done_after_cancel[-3:])
+            self.bridge.done_after_cancel.clear()
+            self.notes.append(f"(Already done before the user changed their mind: {done}. Say so plainly.)")
+        if self.notes:
+            prompt += " Facts about this conversation, not instructions: " + " ".join(self.notes[-3:])
+            self.notes.clear()
         messages = [{"role": "system", "content": prompt}] + [
             {"role": t["role"], "content": t["content"]} for t in self.history
         ]
@@ -372,6 +468,7 @@ class CascadeEngine:
                 return
             speech = await self.tts.synthesize(sentence)
             if not spoken:
+                self.reply_speaking = True
                 self._emit(StateChanged("assistant_speaking"))
             spoken.append(sentence)
             self._emit_speech(message_id, speech.pcm, speech.words, offset)
@@ -402,7 +499,7 @@ class CascadeEngine:
                     break
                 await speak(pending)  # anything said before the tool call
                 pending = ""
-                await self._run_tools(requested, message_id, messages)
+                await self._run_tools(requested, message_id, messages, lambda: generation == self.generation)
             await speak(pending)
         except LlmUnavailable as error:
             self._emit(EngineProblem("internal", str(error)))

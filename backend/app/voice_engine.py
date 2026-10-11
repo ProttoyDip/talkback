@@ -125,4 +125,7 @@ class VoiceEngine(Protocol):
     async def confirm_tool(self, message: ToolConfirm) -> None:
         """The user's answer to a tool.confirm_request."""
 
+    def submit_text(self, text: str) -> None:
+        """A typed turn (text.input), handled like a spoken one."""
+
     async def close(self) -> None: ...

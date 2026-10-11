@@ -73,7 +73,7 @@ def test_a_skill_cannot_call_a_tool_outside_its_list():
         def model_tools(self):
             return [{"name": "weather"}, {"name": "web_search"}]
 
-        async def execute(self, raw, turn_id):
+        async def execute(self, raw, turn_id, is_current=None):
             self.executed.append(raw)
             return "RESULT"
 

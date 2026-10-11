@@ -13,6 +13,7 @@ only when the queued audio has finished playing.
 
 import asyncio
 import logging
+import uuid
 from collections import Counter
 from typing import Annotated
 
@@ -41,6 +42,7 @@ from .protocol import (
     TranscriptDelta,
     TranscriptTrim,
     client_message,
+    TextInput,
 )
 from .stores import prefs_store
 from .tokens import verify_token
@@ -155,6 +157,7 @@ class Session:
         self.decider = BargeInDecider()  # start_engine applies the user's setting
         self.log_transcripts = False  # start_engine applies the user's setting
         self.interim_user_text = ""
+        self.last_text_input = -1.0  # loop time of the last typed turn (1 per second)
         self.overlapping = False
         self.words: dict[str, list[tuple[str, float, float]]] = {}
         self.message_order: list[str] = []
@@ -358,7 +361,11 @@ class Session:
         reply = getattr(self.engine, "reply", None)
         if self.engine is not None and reply_id and reply is not None and not reply.done():
             self.dropped.add(reply_id)
-            await self.engine.interrupt(reply_id, "")
+            cancel = getattr(self.engine, "cancel", None)
+            if cancel is not None:
+                await cancel("stopped")  # pending actions report "Stopped before it ran"
+            else:
+                await self.engine.interrupt(reply_id, "")
         self.turn_epoch += 1
         await self.send(StateEvent(state="idle"))
 
@@ -400,6 +407,9 @@ class Session:
             case ControlStop():
                 self.require_started()
                 await self.interrupt_assistant("stopped")
+            case TextInput(text=text):
+                self.require_started()
+                await self.on_text_input(text)
             case ToolConfirm():
                 self.require_started()
                 # Only a pending request can be answered; a confirmation never
@@ -408,6 +418,26 @@ class Session:
                     await self.engine.confirm_tool(message)
                 else:
                     log.info("tool.confirm with no pending call", extra={"session_id": self.session_id})
+
+    async def on_text_input(self, text: str) -> None:
+        """A typed turn: shown like speech, and it interrupts TalkBack the same way."""
+        now = loop_time()
+        if now - self.last_text_input < 1.0:
+            await self.send(ErrorEvent(code="rate_limited", message="One message a second, please."))
+            return
+        self.last_text_input = now
+        text = " ".join(text.split())
+        if not text:
+            return
+        if now < self.play_until:
+            await self.interrupt_assistant("stopped")
+        await self.send(TranscriptDelta(
+            message_id=f"t{uuid.uuid4().hex[:10]}", speaker="user", text=text, final=True, typed=True,
+        ))
+        if self.engine is not None and hasattr(self.engine, "submit_text"):
+            self.engine.submit_text(text)
+        if self.log_transcripts:
+            transcript_log.info(f"user (typed): {text}", extra={"session_id": self.session_id})
 
     async def on_audio(self, data: bytes) -> None:
         self.require_started()

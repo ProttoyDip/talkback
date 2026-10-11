@@ -172,3 +172,42 @@ def looks_incomplete(text: str) -> bool:
         return True
     words = _words(stripped)
     return bool(words) and words[-1] in DANGLING and not stripped.endswith(("?", "!"))
+
+
+# Answers to a pending confirmation (SECURITY.md T5: "by voice or button").
+YES = frozenset({
+    "yes", "yeah", "yep", "yup", "sure", "ok", "okay", "confirm", "correct", "do it", "go ahead",
+    "yes please", "please do", "yes do it", "yes go ahead", "sure go ahead", "ok do it", "okay do it",
+})
+NO = frozenset({"no", "nope", "nah", "don't", "do not", "dont", "cancel", "keep it", "no thanks", "no thank you"})
+# Words that call off the request in progress, said on their own.
+CANCEL = frozenset({
+    "never mind", "nevermind", "cancel", "cancel that", "forget it", "forget that", "scratch that",
+    "stop", "stop that", "no stop", "don't do that", "do not do that",
+})
+
+
+def classify_confirmation(text: str) -> tuple[str | None, str]:
+    """('yes' | 'no' | None, what is left to handle as a new request).
+
+    Only a plain answer approves: "yes" or "go ahead". "No, wait, Friday"
+    declines and leaves "wait, Friday" to be answered as a new request.
+    Anything else is not an answer, so the pending action is not run.
+    """
+    words = _words(text)
+    phrase = " ".join(words)
+    if phrase in YES:
+        return "yes", ""
+    if phrase in NO or phrase in CANCEL:
+        return "no", ""
+    for size in (3, 2, 1):
+        head = " ".join(words[:size])
+        if len(words) > size and (head in NO or head in CANCEL):
+            rest = text.split(None, size)[-1] if len(text.split()) > size else ""
+            return "no", rest.lstrip(" ,.;:-").strip()
+    return None, text
+
+
+def is_cancel(text: str) -> bool:
+    """The user calls off what TalkBack is doing ("never mind", "cancel that")."""
+    return " ".join(_words(text)) in CANCEL
