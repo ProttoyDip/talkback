@@ -11,3 +11,5 @@ nvidia-riva-client==2.27.0
 grpcio==1.84.0
 grpcio-tools==1.81.1
 protobuf==6.33.5
+# Time zones for reminders and the calendar (zoneinfo); Windows and slim images have none.
+tzdata==2026.4

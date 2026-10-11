@@ -22,7 +22,10 @@ Store = Annotated[MemoryStore, Depends(get_memory_store)]
 
 
 def get_ledger(settings: Annotated[Settings, Depends(get_settings)], claims: Claims, store: Store) -> ActionLedger:
-    return ActionLedger(repo(settings, "actions", claims.user_id), store, claims.session_id)
+    return ActionLedger(
+        repo(settings, "actions", claims.user_id), store, claims.session_id,
+        tables=lambda table: repo(settings, table, claims.user_id),
+    )
 
 
 Ledger = Annotated[ActionLedger, Depends(get_ledger)]

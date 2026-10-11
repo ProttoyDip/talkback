@@ -50,7 +50,7 @@ def test_cancel_phrases_must_stand_alone():
 def sensitive_bridge(handler=None, **kwargs):
     handler = handler or AsyncMock(return_value=[ToolResult("Memory", "", "Memory deleted.")])
     emit = AsyncMock()
-    tool = Tool("memory_delete", "Delete.", Arguments, handler, True, lambda args: "Delete the test memory?")
+    tool = Tool("memory_delete", "Delete.", Arguments, handler, True, lambda args: "Delete the test memory?", mutates=True)
     return ToolBridge("session", [tool], emit, AsyncMock(), **kwargs), handler, emit
 
 
@@ -145,7 +145,7 @@ class ScriptedLLM:
 async def engine_with_pending_confirmation():
     llm = ScriptedLLM()
     handler = AsyncMock(return_value=[ToolResult("Memory", "", "Memory deleted.")])
-    tool = Tool("memory_delete", "Delete.", Arguments, handler, True, lambda args: "Delete the test memory?")
+    tool = Tool("memory_delete", "Delete.", Arguments, handler, True, lambda args: "Delete the test memory?", mutates=True)
     engine = CascadeEngine(
         FakeSTT(), FakeTTS(), llm,  # type: ignore[arg-type]
         bridge_factory=lambda sid, emit, filler: ToolBridge(sid, [tool], emit, filler),

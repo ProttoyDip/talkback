@@ -21,6 +21,7 @@ log = logging.getLogger("talkback.actions")
 # (SECURITY.md T10: forgetting means forgetting).
 UNDO_WINDOW = timedelta(hours=24)
 REDACTED = {"memory_delete": "Forgot a memory", "memory_write": "Changed a memory", "memory_suggest": "Suggested a memory"}
+# Plan entries keep their titles: the user can read them in the Plan panel anyway.
 
 # How each kind of change is reversed: undo["op"] -> handler(memory store, undo).
 
@@ -71,11 +72,33 @@ def _undo_memory(memory, undo: dict) -> None:
         raise NotUndoable(op)
 
 
+ROW_TABLES = {"tasks", "events", "reminders"}
+
+
+def _undo_row(tables, undo: dict) -> None:
+    """Tasks, calendar blocks, reminders (plan P5): soft-deleted rows make this simple."""
+    if undo["table"] not in ROW_TABLES:
+        raise NotUndoable(undo["table"])
+    repo = tables(undo["table"])
+    current = repo.get(undo["id"])
+    # Changed since? Only the fields this action changed matter, so undoing
+    # newer actions first (a stack) still works.
+    if current is None or any(current.get(k) != v for k, v in undo["after"].items()):
+        raise UndoConflict("it changed since")
+    if undo["op"] == "row.unadd":
+        repo.update(undo["id"], {"deleted_at": now()}, expect_updated_at=current["updated_at"])
+    else:
+        allowed = repo.table.columns - {"created_at", "updated_at"}
+        before = {key: value for key, value in undo["before"].items() if key in allowed}
+        repo.update(undo["id"], before, expect_updated_at=current["updated_at"])
+
+
 class ActionLedger:
-    def __init__(self, repo: Repo, memory=None, session_id: str | None = None) -> None:
+    def __init__(self, repo: Repo, memory=None, session_id: str | None = None, tables=None) -> None:
         self.repo = repo  # one user's actions
         self.memory = memory  # that user's memory store, for undo
         self.session_id = session_id
+        self.tables = tables  # table name -> that user's Repo (tasks, events, reminders)
 
     def find(self, key: str) -> dict | None:
         rows = self.repo.select({"idempotency_key": key}, limit=1)
@@ -129,9 +152,20 @@ class ActionLedger:
         row = self.repo.get(action_id)
         if row is None or row["status"] != "done" or not row.get("undo"):
             raise NotUndoable(action_id)
-        if self.memory is None:
-            raise NotUndoable("no store")
-        _undo_memory(self.memory, row["undo"])
+        undo = row["undo"]
+        if undo["op"].startswith("row."):
+            if self.tables is None:
+                raise NotUndoable("no store")
+            try:
+                _undo_row(self.tables, undo)
+            except Exception as error:  # Conflict from the repo: changed since
+                if isinstance(error, (UndoConflict, NotUndoable)):
+                    raise
+                raise UndoConflict(str(type(error).__name__)) from None
+        else:
+            if self.memory is None:
+                raise NotUndoable("no store")
+            _undo_memory(self.memory, undo)
         updated = self.repo.update(action_id, {"status": "undone", "undone_at": now()})
         log.info("action undone", extra={"event": row["tool"]})
         return self.item(updated)

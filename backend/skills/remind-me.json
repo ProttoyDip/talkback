@@ -1,8 +1,8 @@
 {
   "id": "remind-me",
   "name": "Remind me",
-  "summary": "Saves a note that TalkBack reads back when you ask. It does not send alerts yet.",
+  "summary": "Sets a reminder for a time you name. TalkBack checks the time with you first.",
   "triggers": ["remind me"],
-  "allowed_tools": ["memory_read"],
-  "instructions": "Ask what the user wants to be reminded of. Explain that TalkBack cannot send alerts at a set time yet: it can keep a note and read it back when they ask. To save it they say: remember that, followed by the reminder. Notes stay until they delete them."
+  "allowed_tools": ["reminder_set", "reminder_update", "memory_read"],
+  "instructions": "Ask what the user wants to be reminded of and when, if they have not said. Then call reminder_set with the text and a local time. The user confirms it on screen or by saying yes. Say the time back plainly."
 }

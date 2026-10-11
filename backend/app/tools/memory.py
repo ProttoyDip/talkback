@@ -91,9 +91,9 @@ def memory_tools(store: MemoryStore, ledger: "ActionLedger | None" = None) -> li
     return [
         Tool("memory_read", "Find saved memories.", ReadArguments, read, sensitive=False),
         Tool("memory_delete", "Delete saved memories.", DeleteArguments, delete,
-             confirmation_summary=summary),
+             confirmation_summary=summary, mutates=True),
         Tool("memory_suggest",
              "Suggest saving a lasting preference the user stated but did not ask you to remember. "
              "The user confirms it in the Memory panel; it is not used until then.",
-             SuggestArguments, suggest, sensitive=False),
+             SuggestArguments, suggest, sensitive=False, mutates=True),
     ]

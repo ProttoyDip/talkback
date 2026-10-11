@@ -83,7 +83,13 @@ class UserStores:
         """This user's action history, with undo (plan P4)."""
         from .actions import ActionLedger
 
-        return ActionLedger(self.repo("actions"), self.memory, session_id)
+        return ActionLedger(self.repo("actions"), self.memory, session_id, tables=self.repo)
+
+    def planner(self, timezone: str, ledger=None):
+        """This user's tasks, calendar and reminders (plan P5)."""
+        from .planner import Planner
+
+        return Planner(self.repo, timezone, ledger if ledger is not None else self.ledger())
 
 
 def stores_for(settings: Settings, user_id: str) -> UserStores:

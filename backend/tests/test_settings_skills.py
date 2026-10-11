@@ -134,4 +134,4 @@ def test_shipped_skills_carry_a_summary(client, authed):
     items = client.get("/api/skills", headers=authed).json()["items"]
     assert items and all(item["summary"] for item in items)
     remind = next(item for item in items if item["id"] == "remind-me")
-    assert "does not send alerts" in remind["summary"]
+    assert "Sets a reminder" in remind["summary"] and "reminder_set" in remind["allowed_tools"]

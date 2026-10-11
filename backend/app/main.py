@@ -1,5 +1,7 @@
 """TalkBack orchestrator: FastAPI app and HTTP routes (architecture.md 2.2)."""
 
+import asyncio
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 import hmac
@@ -10,7 +12,9 @@ from .auth import Claims, supabase_user
 from .protocol import AuthConfig, SessionToken, SessionUser
 from .config import Settings, get_settings
 from .logs import setup_logging
+from . import scheduler
 from .action_routes import router as action_router
+from .planner_routes import router as planner_router
 from .memory_routes import router as memory_router
 from .session import router as session_router
 from .settings_routes import settings_router, skills_router
@@ -18,10 +22,24 @@ from .tokens import LOCAL_USER, issue_token
 
 setup_logging()
 
-app = FastAPI(title="TalkBack orchestrator")
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Start the reminder check (plan P5) with the app, and stop it with it."""
+    settings_source = lambda: application.dependency_overrides.get(get_settings, get_settings)()  # noqa: E731
+    task = None
+    if settings_source().reminder_poll_seconds > 0:
+        task = asyncio.create_task(scheduler.run(settings_source))
+    yield
+    if task is not None:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+app = FastAPI(title="TalkBack orchestrator", lifespan=lifespan)
 app.include_router(session_router)
 app.include_router(memory_router)
 app.include_router(action_router)
+app.include_router(planner_router)
 app.include_router(settings_router)
 app.include_router(skills_router)
 

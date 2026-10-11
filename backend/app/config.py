@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     # guest with the access code; "optional" = sign-in is offered, and
     # visitors without it share the local user.
     auth_mode: Literal["off", "optional", "required"] = "off"
+    # How often the server looks for due reminders (plan P5). 0 turns it off.
+    reminder_poll_seconds: float = 30
     # Public; the browser uses it to sign in. Safe to expose (RLS protects data).
     supabase_publishable_key: str = ""
     # Public demo gate (SECURITY.md T8). Empty: no code needed.

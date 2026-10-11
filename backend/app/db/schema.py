@@ -21,6 +21,24 @@ TABLES: dict[str, Table] = {
         }),
         frozenset({"undo"}),
     ),
+    # Plan P5. Times are UTC ISO 8601 strings ("2026-10-12T09:00:00+00:00"),
+    # so they sort and compare the same in SQLite and Postgres. Rows are
+    # soft-deleted (deleted_at), which makes undo simple.
+    "tasks": Table("tasks", frozenset({
+        "title", "notes", "status", "due_at", "priority", "completed_at", "deleted_at", "created_at", "updated_at",
+    })),
+    "events": Table("events", frozenset({
+        "title", "starts_at", "ends_at", "kind", "status", "task_id", "deleted_at", "created_at", "updated_at",
+    })),
+    "reminders": Table("reminders", frozenset({
+        "text", "due_at", "status", "delivered_at", "delivered_via", "ack_at", "snooze_count", "deleted_at",
+        "created_at", "updated_at",
+    })),
+    "user_skills": Table(
+        "user_skills",
+        frozenset({"name", "triggers", "allowed_tools", "instructions", "summary", "enabled", "created_at", "updated_at"}),
+        frozenset({"triggers", "allowed_tools"}),
+    ),
 }
 
 # Run in order, once each (PRAGMA user_version). Append only.
@@ -93,5 +111,37 @@ SQLITE_MIGRATIONS: list[str] = [
         UNIQUE (user_id, idempotency_key)
     );
     CREATE INDEX actions_user ON actions (user_id, created_at);
+    """,
+    # 4: tasks, calendar, reminders and your own skills (plan P5).
+    """
+    CREATE TABLE tasks (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, title TEXT NOT NULL, notes TEXT,
+        status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'done', 'cancelled')),
+        due_at TEXT, priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low', 'normal', 'high')),
+        completed_at TEXT, deleted_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE INDEX tasks_user ON tasks (user_id, status, due_at);
+    CREATE TABLE events (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, title TEXT NOT NULL,
+        starts_at TEXT NOT NULL, ends_at TEXT NOT NULL CHECK(ends_at > starts_at),
+        kind TEXT NOT NULL DEFAULT 'block' CHECK(kind IN ('block', 'meeting', 'focus', 'personal')),
+        status TEXT NOT NULL DEFAULT 'confirmed' CHECK(status IN ('confirmed', 'cancelled')),
+        task_id TEXT, deleted_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE INDEX events_user ON events (user_id, starts_at);
+    CREATE TABLE reminders (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, text TEXT NOT NULL, due_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'scheduled'
+            CHECK(status IN ('scheduled', 'delivered', 'acknowledged', 'cancelled', 'missed')),
+        delivered_at TEXT, delivered_via TEXT, ack_at TEXT, snooze_count INTEGER NOT NULL DEFAULT 0,
+        deleted_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE INDEX reminders_due ON reminders (status, due_at);
+    CREATE TABLE user_skills (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL, triggers TEXT NOT NULL,
+        allowed_tools TEXT NOT NULL, instructions TEXT NOT NULL, summary TEXT,
+        enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE INDEX user_skills_user ON user_skills (user_id);
     """,
 ]

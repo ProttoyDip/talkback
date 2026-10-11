@@ -40,5 +40,12 @@ class Tool:
     description: str
     arguments: type[Arguments]
     run: Callable[[Arguments], Awaitable["list[ToolResult] | ToolOutcome"]]
-    sensitive: bool = True
+    sensitive: bool = True  # asks the user first (SECURITY.md T5)
     confirmation_summary: Callable[[Arguments], str] | None = None
+    # Changes data: recorded with undo, run once per turn, never left half done.
+    mutates: bool = False
+    # A reversible change that runs without asking, except in a turn that saw
+    # web results, where it asks like a sensitive one (plan P5, T5).
+    confirm_when_tainted: bool = False
+    # What open panels reload after it changes something.
+    data_kinds: tuple[str, ...] = ("memories", "actions")

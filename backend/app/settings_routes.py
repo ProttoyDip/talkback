@@ -3,9 +3,10 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from .config import Settings, get_settings
+from .timeutil import valid_zone
 from .llm import providers_from_settings
 from .auth import Claims, session_claims
 from .prefs import Prefs, PrefsStore
@@ -20,15 +21,29 @@ from .protocol import (
     SkillList,
     SkillRunAccepted,
     ToolSetting,
+    SkillCreate,
+    SkillItem,
+    SkillUpdate,
 )
 from .session import registry
-from .skills import load_skills
+from .skills import MAX_USER_SKILLS, SkillProblem, check_user_skill, load_skills, user_skill
+from .stores import repo
 
 TOOL_DESCRIPTIONS = {
     "weather": "Looks up the forecast for a place you name. It sends only that place name.",
     "web_search": "Searches the web with your question. It sends only that text to the search provider.",
     "memory_read": "Reads the memories you asked TalkBack to keep.",
     "memory_delete": "Deletes memories, only after you say yes.",
+    "memory_suggest": "Suggests a memory you can keep or dismiss. Not used until you keep it.",
+    "task_add": "Adds and changes your tasks. Each change can be undone.",
+    "calendar_add": "Adds and moves blocks in your calendar. Each change can be undone.",
+    "reminder_set": "Sets reminders that notify you later, only after you say yes.",
+}
+# One switch covers a group: turning off task_add turns off every task tool.
+TOOL_GROUPS = {
+    "task_add": ("task_list", "task_add", "task_update", "task_delete"),
+    "calendar_add": ("calendar_list", "calendar_add", "calendar_update", "calendar_delete"),
+    "reminder_set": ("reminder_set", "reminder_update"),
 }
 def voice_engine_view(settings: Settings) -> tuple[str, bool]:
     """What can actually serve voice now (engines.py), and whether it is full-duplex."""
@@ -109,6 +124,7 @@ def build_view(settings: Settings, prefs: Prefs) -> SettingsView:
         transcripts_in_logs=prefs.transcripts_in_logs,
         interrupt_sensitivity=prefs.interrupt_sensitivity,
         answer_length=prefs.answer_length,
+        timezone=prefs.timezone,
         models=ModelsView(
             voice_model=voice_model, full_duplex=full_duplex,
             planner_model=selected, planner_options=options, providers=providers,
@@ -144,6 +160,10 @@ def update_settings(
         prefs.interrupt_sensitivity = update.interrupt_sensitivity
     if update.answer_length is not None:
         prefs.answer_length = update.answer_length
+    if update.timezone is not None:
+        if not valid_zone(update.timezone):
+            raise HTTPException(422, "Unknown time zone")
+        prefs.timezone = update.timezone
     for name, enabled in (update.providers or {}).items():
         prefs.providers[name] = enabled
     if update.planner_model is not None:
@@ -156,13 +176,81 @@ def update_settings(
     return build_view(settings, prefs)
 
 
-def get_skills(settings: Annotated[Settings, Depends(get_settings)]):
-    return load_skills(settings.skills_dir)
+def get_skills(settings: Annotated[Settings, Depends(get_settings)], claims: Claims):
+    """Built-in skills, then this user's own."""
+    rows = repo(settings, "user_skills", claims.user_id).select(order="created_at.asc", limit=MAX_USER_SKILLS)
+    return load_skills(settings.skills_dir) + [user_skill(row) for row in rows]
 
 
 @skills_router.get("", response_model=SkillList)
 def list_skills(skills: Annotated[list, Depends(get_skills)]) -> SkillList:
     return SkillList(items=[s.item() for s in skills])
+
+
+def _reload_live_skills(settings: Settings, user_id: str) -> None:
+    """Open conversations of this user pick up the change at once."""
+    skills = None
+    for session in list(registry.live.values()):
+        if session.user_id == user_id and hasattr(session.engine, "skills"):
+            if skills is None:
+                rows = repo(settings, "user_skills", user_id).select(order="created_at.asc", limit=MAX_USER_SKILLS)
+                skills = load_skills(settings.skills_dir) + [s for s in map(user_skill, rows) if s.enabled]
+            session.engine.skills = skills
+
+
+@skills_router.post("", response_model=SkillItem, status_code=201)
+def create_skill(
+    body: SkillCreate, settings: Annotated[Settings, Depends(get_settings)], claims: Claims,
+    skills: Annotated[list, Depends(get_skills)],
+) -> SkillItem:
+    if sum(not s.builtin for s in skills) >= MAX_USER_SKILLS:
+        raise HTTPException(422, f"You can have up to {MAX_USER_SKILLS} skills.")
+    try:
+        triggers = check_user_skill(body.name, body.triggers, body.allowed_tools, skills)
+    except SkillProblem as problem:
+        raise HTTPException(422, str(problem)) from None
+    row = repo(settings, "user_skills", claims.user_id).insert({
+        "id": f"u-{uuid.uuid4().hex[:12]}", "name": body.name.strip(), "triggers": triggers,
+        "allowed_tools": body.allowed_tools, "instructions": body.instructions, "summary": body.summary,
+        "enabled": True,
+    })
+    _reload_live_skills(settings, claims.user_id)
+    return user_skill(row).item()
+
+
+@skills_router.patch("/{skill_id}", response_model=SkillItem)
+def update_skill(
+    skill_id: Id, body: SkillUpdate, settings: Annotated[Settings, Depends(get_settings)], claims: Claims,
+    skills: Annotated[list, Depends(get_skills)],
+) -> SkillItem:
+    current = next((s for s in skills if s.id == skill_id), None)
+    if current is None:
+        raise HTTPException(404, "Skill not found")
+    if current.builtin:
+        raise HTTPException(409, "Built-in skills can't be changed. Make a copy instead")
+    changes = body.model_dump(exclude_none=True)
+    try:
+        if "triggers" in changes or "allowed_tools" in changes or "name" in changes:
+            others = [s for s in skills if s.id != skill_id]
+            changes["triggers"] = check_user_skill(
+                changes.get("name", current.name), changes.get("triggers", current.triggers),
+                changes.get("allowed_tools", current.allowed_tools), others,
+            )
+    except SkillProblem as problem:
+        raise HTTPException(422, str(problem)) from None
+    row = repo(settings, "user_skills", claims.user_id).update(skill_id, changes)
+    if row is None:
+        raise HTTPException(404, "Skill not found")
+    _reload_live_skills(settings, claims.user_id)
+    return user_skill(row).item()
+
+
+@skills_router.delete("/{skill_id}", status_code=204)
+def delete_skill(skill_id: Id, settings: Annotated[Settings, Depends(get_settings)], claims: Claims) -> Response:
+    if not repo(settings, "user_skills", claims.user_id).delete(skill_id):
+        raise HTTPException(404, "Skill not found")  # built-ins are files: never here
+    _reload_live_skills(settings, claims.user_id)
+    return Response(status_code=204)
 
 
 @skills_router.post("/{skill_id}/run", response_model=SkillRunAccepted, status_code=202)

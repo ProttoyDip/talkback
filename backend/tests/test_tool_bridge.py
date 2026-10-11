@@ -23,7 +23,7 @@ def unpack(payload):
 def bridge(handler=None, sensitive=False, **kwargs):
     handler = handler or AsyncMock(return_value=[ToolResult("Title", "https://example.com", "snippet")])
     emit, filler = AsyncMock(), AsyncMock()
-    instance = ToolBridge("session", [Tool("memory_delete", "Run test?", Arguments, handler, sensitive, lambda args: "Delete the test memory?")], emit, filler, **kwargs)
+    instance = ToolBridge("session", [Tool("memory_delete", "Run test?", Arguments, handler, sensitive, lambda args: "Delete the test memory?", mutates=sensitive)], emit, filler, **kwargs)
     return instance, handler, emit, filler
 
 
