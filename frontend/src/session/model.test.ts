@@ -110,3 +110,22 @@ describe('interruption-aware actions (plan P3)', () => {
     expect(toTurns(typed)[0]).toMatchObject({ id: 't1', typed: true })
   })
 })
+
+describe('memory changes by voice (plan P4)', () => {
+  const step = (model: ConversationModel, event: ServerEvent) => reduce(model, { kind: 'event', event, at: 0 })
+
+  it('keeps what the toast needs: suggestion, undo and what a correction replaced', () => {
+    const saved = step(initialModel, {
+      type: 'memory.saved', id: 'm2', text: 'I live in Rome', status: 'confirmed',
+      action_id: 'act9', replaced_id: 'm1', replaced_text: 'I live in Lisbon',
+    })
+    expect(saved.remembered).toEqual({
+      id: 'm2', text: 'I live in Rome', suggested: false, actionId: 'act9', replacedText: 'I live in Lisbon',
+    })
+  })
+
+  it('counts data.changed so open panels reload', () => {
+    const once = step(initialModel, { type: 'data.changed', kinds: ['memories', 'actions'] })
+    expect(step(once, { type: 'data.changed', kinds: ['actions'] }).dataVersion).toBe(2)
+  })
+})

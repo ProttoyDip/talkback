@@ -11,7 +11,7 @@ import { PresenceOrb } from '../components/PresenceOrb'
 import type { LevelMeters } from '../session/useLevelHistory'
 import { Drawer } from '../components/Drawer'
 import { Toast, type ToastData } from '../components/Toast'
-import type { ConversationModel } from '../session/model'
+import type { ConversationModel, Remembered } from '../session/model'
 import { MicButton, type MicMode } from '../components/MicButton'
 import { NavRail, TabBar, type Panel } from '../components/Navigation'
 import { StatusBar } from '../components/StatusBar'
@@ -35,7 +35,9 @@ export interface ConversationView {
   /** Set while a backup model answers, e.g. "Planner: nemotron via OpenRouter". */
   backup?: string
   /** Last memory TalkBack saved; shows the "Remembered" toast with Undo. */
-  remembered?: { id: string; text: string }
+  remembered?: Remembered
+  /** Bumped when stored data changes by voice (data.changed): open panels reload. */
+  dataVersion?: number
   /** True once the session is open, so skills can run. */
   sessionOpen?: boolean
   /** The recorded demo (?replay): labelled everywhere, panels show sample data. */
@@ -112,13 +114,25 @@ export function ConversationScreen({
   const dismissToast = useCallback(() => setToast(null), [])
   const [seenMemory, setSeenMemory] = useState(view.remembered?.id)
   if (view.remembered && view.remembered.id !== seenMemory) {
-    const { id, text } = view.remembered
+    const { id, text, suggested, actionId, replacedText } = view.remembered
     setSeenMemory(id)
-    setToast({
-      id,
-      message: `Remembered: ${text}`,
-      action: { label: 'Undo', onClick: () => void api.deleteMemory(id).catch(() => {}) },
-    })
+    setToast(
+      suggested
+        ? {
+            id,
+            message: `Suggested: ${text}`,
+            action: { label: 'Keep', onClick: () => void api.editMemory(id, { status: 'confirmed' }).catch(() => {}) },
+          }
+        : {
+            id,
+            message: replacedText ? `Remembered: ${text} (instead of ${replacedText})` : `Remembered: ${text}`,
+            action: {
+              label: 'Undo',
+              // Through the action history, so a correction puts the old memory back.
+              onClick: () => void (actionId ? api.undoAction(actionId) : api.deleteMemory(id)).catch(() => {}),
+            },
+          },
+    )
   }
 
   const togglePanel = (next: Panel) => setPanel((cur) => (cur === next ? null : next))
@@ -329,7 +343,7 @@ export function ConversationScreen({
             panel={panel}
             onClose={() => setPanel(null)}
             context={{
-              memoryVersion: view.remembered?.id,
+              memoryVersion: `${view.remembered?.id ?? ''}|${view.dataVersion ?? 0}`,
               sessionOpen: view.sessionOpen ?? false,
               replay: view.replay ?? false,
               onSkillRan: (name) => setToast({ id: `skill-${name}-${Date.now()}`, message: `Running ${name}` }),

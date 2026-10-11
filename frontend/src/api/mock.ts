@@ -3,7 +3,7 @@
  * panels can be shown without a backend session. Never used otherwise.
  * It mirrors what the real backend returns (backend/skills, settings_routes).
  */
-import type { MemoryItem, SettingsView, SkillItem } from './types'
+import type { ActionItem, MemoryItem, SettingsView, SkillItem } from './types'
 
 let memories: MemoryItem[] = [
   {
@@ -21,11 +21,31 @@ let memories: MemoryItem[] = [
     created_at: '2026-10-02T09:12:00Z',
   },
   {
+    id: 'm3',
+    text: 'Likes jazz while working',
+    kind: 'preference',
+    utterance: '(suggested by TalkBack)',
+    created_at: '2026-10-04T10:00:00Z',
+    status: 'suggested',
+    source: 'assistant_suggestion',
+  },
+  {
     id: 'm2',
     text: 'Likes short answers',
     kind: 'preference',
     utterance: 'I like short answers.',
     created_at: '2026-10-01T18:40:00Z',
+  },
+]
+
+let actions: ActionItem[] = [
+  {
+    id: 'act1',
+    tool: 'memory_write',
+    status: 'done',
+    summary: 'Remembered “Prefers Celsius”',
+    created_at: '2026-10-02T09:12:00Z',
+    undoable: true,
   },
 ]
 
@@ -97,10 +117,20 @@ export async function mockRequest<T>(method: string, path: string, body?: unknow
   const [route, query = ''] = path.split('?')
   const id = route.split('/')[3]
   let result: unknown
-  if (route.startsWith('/api/memories')) {
+  if (route === '/api/actions') {
+    result = { items: actions }
+  } else if (route.startsWith('/api/actions/')) {
+    actions = actions.map((a) => (a.id === id ? { ...a, status: 'undone' as const, undoable: false } : a))
+    result = actions.find((a) => a.id === id)
+  } else if (route.startsWith('/api/memories')) {
     if (method === 'GET') {
       const q = new URLSearchParams(query).get('q')?.toLowerCase() ?? ''
-      result = { items: memories.filter((m) => m.text.toLowerCase().includes(q)) }
+      const history = new URLSearchParams(query).has('history')
+      result = {
+        items: memories.filter(
+          (m) => m.text.toLowerCase().includes(q) && (history || (m.status ?? 'confirmed') !== 'superseded'),
+        ),
+      }
     } else if (method === 'PATCH') {
       memories = memories.map((m) => (m.id === id ? { ...m, ...(body as object) } : m))
       result = memories.find((m) => m.id === id)

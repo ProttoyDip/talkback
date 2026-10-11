@@ -42,6 +42,9 @@ export interface ToolCall {
   name: ToolName
   status: ToolStatus
   sources?: Source[]
+  /** The change this call made, and whether it can be undone (Activity). */
+  actionId?: string
+  undoable?: boolean
 }
 
 /**

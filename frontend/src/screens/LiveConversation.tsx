@@ -268,6 +268,7 @@ export function LiveConversation({
     latencyMs: model.latencyMs,
     backup: backupLabel(model),
     remembered: model.remembered,
+    dataVersion: model.dataVersion,
     sessionOpen: model.connection === 'open',
     replay: mode === 'replay',
     onSaveRecording: recording

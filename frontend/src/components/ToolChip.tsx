@@ -2,7 +2,8 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useId, useState } from 'react'
 import type { ToolCall } from '../state/types'
 import { enter, exit } from '../styles/motion'
-import { Icon } from './Icon'
+import { api } from '../api/client'
+import { Icon, type IconName } from './Icon'
 
 const RUNNING_COPY: Record<ToolCall['name'], string> = {
   web_search: 'Searching the web…',
@@ -57,6 +58,45 @@ const chip = 'inline-flex items-center gap-2 rounded-input border px-3 font-mono
 const staticChip = `${chip} h-8`
 const buttonChip = `${chip} relative h-8 after:absolute after:inset-x-0 after:-inset-y-2`
 
+/** A chip for a change that can be undone (plan P4): "Memory deleted · Undo". */
+function UndoableChip({ call, label, icon }: { call: ToolCall; label: string; icon: IconName }) {
+  const [state, setState] = useState<'idle' | 'undoing' | 'undone' | 'failed'>('idle')
+  const undo = async () => {
+    if (!call.actionId) return
+    setState('undoing')
+    try {
+      await api.undoAction(call.actionId)
+      setState('undone')
+    } catch {
+      setState('failed')
+    }
+  }
+  if (state === 'undone') {
+    return (
+      <span className={`${staticChip} border-border text-text-muted`}>
+        <Icon name="retry" className="size-4" />
+        Undone
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <span className={`${staticChip} border-border text-text-muted`}>
+        <Icon name={icon} className="size-4 text-voice-assistant" />
+        {label}
+      </span>
+      <button
+        type="button"
+        onClick={() => void undo()}
+        disabled={state === 'undoing'}
+        className={`${buttonChip} cursor-pointer border-border text-text transition-colors duration-(--dur-fast) hover:border-text-subtle disabled:opacity-60`}
+      >
+        {state === 'failed' ? "Couldn't undo. Try again" : 'Undo'}
+      </button>
+    </span>
+  )
+}
+
 export function ToolChip({ call }: { call: ToolCall }) {
   const [open, setOpen] = useState(false)
   const listId = useId()
@@ -93,6 +133,9 @@ export function ToolChip({ call }: { call: ToolCall }) {
   }
 
   const sources = call.sources ?? []
+  if (call.status === 'done' && call.undoable && call.actionId) {
+    return <UndoableChip call={call} label={doneCopy(call)} icon={toolIcon} />
+  }
   if (sources.length === 0) {
     return (
       <span className={`${staticChip} border-border text-text-muted`}>

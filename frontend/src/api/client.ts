@@ -6,7 +6,7 @@
  */
 import { mockRequest } from './mock'
 import { requestSession } from './session'
-import type { MemoryItem, MemoryUpdate, SettingsUpdate, SettingsView, SkillItem } from './types'
+import type { ActionItem, MemoryItem, MemoryUpdate, SettingsUpdate, SettingsView, SkillItem } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -58,19 +58,28 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (!response.ok) {
     throw new ApiError(
       response.status,
-      response.status === 404 ? 'The server does not offer this yet.' : 'The server could not do that.',
+      response.status === 404
+        ? 'The server does not offer this yet.'
+        : response.status === 409
+          ? "It changed since, so it can't be undone."
+          : 'The server could not do that.',
     )
   }
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T)
 }
 
 export const api = {
-  listMemories: (q: string) =>
-    request<{ items: MemoryItem[] }>('GET', `/api/memories?q=${encodeURIComponent(q)}`).then((r) => r.items),
+  listMemories: (q: string, history = false) =>
+    request<{ items: MemoryItem[] }>(
+      'GET',
+      `/api/memories?q=${encodeURIComponent(q)}${history ? '&history=1' : ''}`,
+    ).then((r) => r.items),
   editMemory: (id: string, update: MemoryUpdate) =>
     request<MemoryItem>('PATCH', `/api/memories/${encodeURIComponent(id)}`, update),
   deleteMemory: (id: string) => request<void>('DELETE', `/api/memories/${encodeURIComponent(id)}`),
   forgetEverything: () => request<void>('DELETE', '/api/memories'),
+  listActions: () => request<{ items: ActionItem[] }>('GET', '/api/actions?limit=50').then((r) => r.items),
+  undoAction: (id: string) => request<ActionItem>('POST', `/api/actions/${encodeURIComponent(id)}/undo`),
   listSkills: () => request<{ items: SkillItem[] }>('GET', '/api/skills').then((r) => r.items),
   runSkill: (id: string) => request<{ run_id: string }>('POST', `/api/skills/${encodeURIComponent(id)}/run`),
   getSettings: () => request<SettingsView>('GET', '/api/settings'),

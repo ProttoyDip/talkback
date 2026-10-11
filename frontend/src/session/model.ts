@@ -28,6 +28,18 @@ interface TurnRecord {
   typed?: boolean
 }
 
+/** The last memory saved by voice, for the toast. */
+export interface Remembered {
+  id: string
+  text: string
+  /** A suggestion from TalkBack: the toast asks to keep it. */
+  suggested?: boolean
+  /** Undo goes through the action history. */
+  actionId?: string
+  /** A correction: what it replaced. */
+  replacedText?: string
+}
+
 export interface ConversationModel {
   connection: Connection
   state: ConversationState
@@ -40,7 +52,9 @@ export interface ConversationModel {
   /** Times (ms, caller's clock) of audio.flush for interruptions. */
   interrupts: number[]
   /** Last memory saved, for the "Remembered" toast. */
-  remembered?: { id: string; text: string }
+  remembered?: Remembered
+  /** Bumped by data.changed: open panels reload. */
+  dataVersion: number
   /**
    * Where the user started talking over TalkBack: the playing turn and its
    * text length at that moment. A backchannel caption arrives after the
@@ -55,6 +69,7 @@ export const initialModel: ConversationModel = {
   connection: 'ready',
   state: 'idle',
   turns: [],
+  dataVersion: 0,
   interrupts: [],
   models: {},
 }
@@ -157,6 +172,8 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
         name: event.name,
         status: event.status,
         sources: event.sources,
+        actionId: event.action_id,
+        undoable: event.undoable,
       }
       // Any final status answers the call, so its confirmation card closes.
       const answered = event.status !== 'running' && model.confirm?.callId === event.call_id
@@ -181,13 +198,22 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
         : model
 
     case 'memory.saved':
-      return { ...model, remembered: { id: event.id, text: event.text } }
+      return {
+        ...model,
+        remembered: {
+          id: event.id,
+          text: event.text,
+          suggested: event.status === 'suggested',
+          actionId: event.action_id,
+          replacedText: event.replaced_text,
+        },
+      }
 
     case 'metrics':
       return { ...model, latencyMs: event.latency_ms }
 
     case 'data.changed':
-      return model // the panels reload themselves (plan P4)
+      return { ...model, dataVersion: model.dataVersion + 1 }
 
     case 'error':
       return {
