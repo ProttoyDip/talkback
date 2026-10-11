@@ -262,3 +262,51 @@ def test_your_own_skill_is_checked_saved_and_listed(client, settings):
     off = client.patch(f"/api/skills/{made['id']}", headers=headers, json={"enabled": False}).json()
     assert off["enabled"] is False
     assert client.delete(f"/api/skills/{made['id']}", headers=headers).status_code == 204
+
+
+# Review fixes
+
+
+def test_a_stale_page_timer_cannot_bring_back_a_cancelled_or_moved_reminder(planner):
+    first = planner.set_reminder("Call mom", local_in(0.01)).item
+    planner.update_reminder(first.id, cancel=True)
+    assert planner.mark(first.id, "delivered", "page") is None
+    assert planner.snooze(first.id, 10) is None
+    second = planner.set_reminder("Stretch", local_in(0.01)).item
+    planner.update_reminder(second.id, due_at=local_in(3))  # moved later
+    assert planner.mark(second.id, "delivered", "page") is None
+
+
+def test_a_reminder_cannot_be_moved_into_the_past(planner):
+    reminder = planner.set_reminder("Stretch", local_in(1)).item
+    with pytest.raises(ValueError):
+        planner.update_reminder(reminder.id, due_at=local_in(-2))
+
+
+def test_people_who_are_away_do_not_crowd_out_a_live_conversation(settings):
+    past = iso(now_utc() - timedelta(hours=2))
+    away = stores_for(settings, "away").repo("reminders")
+    for i in range(60):
+        away.insert({"text": f"old {i}", "due_at": past, "status": "scheduled", "snooze_count": 0})
+    stores_for(settings, "u1").repo("reminders").insert(
+        {"text": "Now", "due_at": iso(now_utc() - timedelta(seconds=5)), "status": "scheduled", "snooze_count": 0})
+    live = LiveSession("u1")
+    registry.live["live"] = live
+    try:
+        assert asyncio.run(deliver_due(settings)) == 1
+    finally:
+        registry.live.pop("live", None)
+    assert [m.reminder.text for m in live.sent] == ["Now"]
+
+
+def test_list_phrases_count_as_talking_about_plans():
+    from app.cascade_engine import PLAN_WORDS
+
+    assert PLAN_WORDS.search("Put buy milk on my list")
+
+
+def test_a_change_card_says_exactly_what_changes(planner):
+    from app.tools.planner import TaskUpdateArguments, describe_task_update
+
+    args = TaskUpdateArguments(id="t1", title="Call dad", status="done")
+    assert describe_task_update(args, lambda t, end=False: t) == "Change the task: rename it to “Call dad”, mark it done?"

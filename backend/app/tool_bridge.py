@@ -226,8 +226,6 @@ class ToolBridge:
             error = "superseded"  # approved, but the user has since asked for something else
         if error is None and tool.name == "memory_suggest" and turn_id in self.tainted:
             error = "not_after_web_results"
-        if error is None and tool.mutates and not asks:
-            summary = tool.confirmation_summary(arguments) if tool.confirmation_summary else tool.name
         key = None
         if error is None and self.ledger is not None and tool.mutates:
             from .actions import idempotency_key

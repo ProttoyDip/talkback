@@ -15,7 +15,10 @@ import type { ConversationModel, Remembered } from '../session/model'
 import { MicButton, type MicMode } from '../components/MicButton'
 import { NavRail, TabBar, type Panel } from '../components/Navigation'
 import { StatusBar } from '../components/StatusBar'
+import { ReminderBanner } from '../components/ReminderBanner'
 import { TextComposer } from '../components/TextComposer'
+import type { ReminderItem } from '../api/types'
+import type { DueReminder } from '../session/useReminders'
 import { TranscriptTurn } from '../components/TranscriptTurn'
 import type { ConfirmRequest, ConversationState, TimelineData, ToolName, Turn } from '../state/types'
 
@@ -42,6 +45,9 @@ export interface ConversationView {
   sessionOpen?: boolean
   /** The recorded demo (?replay): labelled everywhere, panels show sample data. */
   replay?: boolean
+  /** Due or missed reminders (plan P5), until the user answers each. */
+  reminders?: DueReminder[]
+  onDismissReminder?: (reminder: ReminderItem) => void
   /** Set while the opt-in recording runs: downloads it as a WAV file. */
   onSaveRecording?: () => void
   activeModels?: ConversationModel['models']
@@ -163,6 +169,8 @@ export function ConversationScreen({
         else if (!e.repeat) holdToTalk(true)
       } else if (e.key === 'm' || e.key === 'M') {
         togglePanel('memory')
+      } else if (e.key === 'p' || e.key === 'P') {
+        togglePanel('plan')
       } else if (e.key === 'k' || e.key === 'K') {
         togglePanel('skills')
       } else if (e.key === ',') {
@@ -212,6 +220,9 @@ export function ConversationScreen({
           />
 
           {view.banner && <Banner {...view.banner} />}
+          {view.reminders && view.onDismissReminder && (
+            <ReminderBanner due={view.reminders} onDismiss={view.onDismissReminder} />
+          )}
 
           {/* TalkBack's presence: a 3D orb in the middle of the stage. It reacts
               when you speak and when TalkBack answers. Before the first words it

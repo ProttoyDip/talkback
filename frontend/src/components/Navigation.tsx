@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
 
-export type Panel = 'memory' | 'skills' | 'settings'
+export type Panel = 'memory' | 'plan' | 'skills' | 'settings'
 
 interface NavProps {
   openPanel: Panel | null
@@ -18,6 +18,7 @@ interface Item {
 const ITEMS: Item[] = [
   { id: 'conversation', label: 'Conversation', icon: 'conversation' },
   { id: 'memory', label: 'Memory', icon: 'memory', shortcut: 'M' },
+  { id: 'plan', label: 'Plan', icon: 'calendar', shortcut: 'P' },
   { id: 'skills', label: 'Skills', icon: 'skills', shortcut: 'K' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ]
@@ -94,7 +95,7 @@ export function NavRail(props: NavProps) {
  * fixed at the bottom with its 72 px target.
  */
 export function TabBar({ mic, ...props }: NavProps & { mic: ReactNode }) {
-  const [left, right] = [ITEMS.slice(0, 2), ITEMS.slice(2)]
+  const [left, right] = [ITEMS.slice(0, 3), ITEMS.slice(3)]
   return (
     <nav
       aria-label="Main"

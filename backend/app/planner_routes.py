@@ -109,7 +109,7 @@ def set_reminder(body: ReminderCreate, plan: Plan) -> ReminderItem:
 def _mark(plan: Planner, identifier: str, status: str, via: str | None = None) -> ReminderItem:
     item = plan.mark(identifier, status, via)
     if item is None:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(409, "This reminder was cancelled, moved or already answered")
     return item
 
 
@@ -128,7 +128,7 @@ def reminder_done(identifier: Id, plan: Plan) -> ReminderItem:
 def reminder_snooze(identifier: Id, body: ReminderSnooze, plan: Plan) -> ReminderItem:
     item = plan.snooze(identifier, body.minutes)
     if item is None:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(409, "This reminder was cancelled or already answered")
     return item
 
 

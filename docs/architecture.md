@@ -114,13 +114,15 @@ One WebSocket: `wss://<host>/ws/session?token=<session-token>`. The token comes 
 | S → C | `tool.confirm_request` | `{call_id, summary, message_id?, name?, details[], expires_in_ms}` | Ask the user before a sensitive action (30 s); `details` adds up to 10 lines (a day plan) |
 | S → C | `memory.saved` | `{id, text, status, replaced_id?, replaced_text?, action_id?}` | Show the "Remembered" toast with Undo (through `action_id`). `status: suggested` is a suggestion waiting for the user's OK; `replaced_*` names the memory a correction replaced |
 | S → C | `data.changed` | `{kinds: [memories \| actions \| tasks \| calendar \| reminders \| skills]}` | Stored data changed by voice: open panels reload |
+| S → C | `plan.proposed` | `{proposal_id, message_id, date, items: [{index, op: create_block, title, starts_at, ends_at, task_id?, reason}], expires_at}` | "Prepare my day": a plan card to accept (all or some) or decline. Nothing changes until accepted |
+| S → C | `plan.updated` | `{proposal_id, status, applied[], action_id?}` | The plan was accepted, partly applied, declined, replaced by a newer one, or expired |
 | S → C | `reminder.due` | `{reminder: ReminderItem}` | A reminder is due: show it (a notification when the page is hidden) |
 | S → C | `metrics` | `{latency_ms}` | Live latency readout (debug mode) |
 | S → C | `error` | `{code, message, retry_in_ms?}` | A problem to show the user (`voice_engine_offline`, `tool_failed`, `rate_limited`, `internal`). The session stays open |
 | S → C | `model.active` | `{role, provider, model, backup}` | Which model serves `voice`, `planner` or `search`. Sent at session start and on every switch; `backup: true` shows the "Backup model" label (plan.md section 8) |
 | S → C | `session.end` | `{reason}` | Sent just before the server closes (`idle`, `time_limit`, `server_shutdown`, `protocol_error`) |
 
-Tool names: `weather`, `web_search`, `memory_read`, `memory_write`, `memory_delete`, `memory_suggest`, `skill_run`, `task_list`, `task_add`, `task_update`, `task_delete`, `calendar_list`, `calendar_add`, `calendar_update`, `calendar_delete`, `reminder_set`, `reminder_update`.
+Tool names: `weather`, `web_search`, `memory_read`, `memory_write`, `memory_delete`, `memory_suggest`, `skill_run`, `task_list`, `task_add`, `task_update`, `task_delete`, `calendar_list`, `calendar_add`, `calendar_update`, `calendar_delete`, `reminder_set`, `reminder_update`, `day_plan_propose`, `day_plan_apply`.
 
 ### 3.2 REST API
 
@@ -145,6 +147,8 @@ All routes except `/health`, `GET /api/auth-config` and `POST /api/session` need
 | `POST /api/reminders` | `ReminderCreate {text, due_at}` | `ReminderItem` | Set a reminder |
 | `POST /api/reminders/{id}/delivered`, `/ack`, `/snooze` (`{minutes}`), `DELETE /api/reminders/{id}` | — | `ReminderItem`, `204` | Shown, done, snooze, cancel |
 | `POST /api/skills`, `PATCH /api/skills/{id}`, `DELETE /api/skills/{id}` | `SkillCreate`, `SkillUpdate` | `SkillItem`, `204` | Your own skills; built-ins are read-only |
+| `POST /api/plans/{id}/apply` | `PlanApply {items?}` | `{proposal_id, status, applied[], action_id?}` | Accept a day plan (the button is the confirmation); undo reverts the whole plan |
+| `POST /api/plans/{id}/reject` | — | `204` | "Not now" |
 | `GET /api/actions?limit=` | — | `ActionList` (newest first: `id, tool, status, summary, created_at, finished_at?, undoable, undone_at?`) | Activity panel |
 | `POST /api/actions/{id}/undo` | optional `Idempotency-Key` header | `ActionItem` (`status: undone`); `409` if the target changed since, `404` if not undoable | Undo in the Activity panel and toasts |
 | `DELETE /api/memories/{id}` | — | `204` | Delete a memory |

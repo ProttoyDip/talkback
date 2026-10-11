@@ -101,7 +101,8 @@ PLAN_TOOLS = {
 PLAN_WORDS = re.compile(
     r"\b(?:tasks?|to-?dos?|calendar|schedul\w*|remind\w*|meetings?|appointments?|block|plan\w*|agenda|"
     r"deadlines?|due|today|tonight|tomorrow|week|monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
-    r"morning|afternoon|evening|at \d|\d ?(?:am|pm)|o'clock|move|reschedule|cancel|done|finished|complete\w*)\b",
+    r"morning|afternoon|evening|at \d|\d ?(?:am|pm)|o'clock|move|reschedule|cancel|done|finished|complete\w*|"
+    r"my list|to my|add|remove|book|errands?)\b",
     re.IGNORECASE,
 )
 MAX_HISTORY_TURNS = 20
@@ -154,6 +155,7 @@ class CascadeEngine:
         self.memory_store = memory_store
         self.ledger = ledger  # the user's action history: saves can be undone
         self.timezone = timezone  # for "tomorrow at 3" (plan P5)
+        self.plan_turns_left = 0  # turns that still offer the planning tools
         self.next_typed = False  # the input being handled was typed, not said
         self.held_typed = False  # the held (unfinished) turn includes typed words
         self.skills = skills or []
@@ -555,10 +557,15 @@ class CascadeEngine:
         tools = self.bridge.model_tools() if self.bridge else []
         if self.skill_active is not None:
             tools = [t for t in tools if t["name"] in self.skill_active.allowed_tools]
-        elif not PLAN_WORDS.search(user_text):
+        else:
             # Small models pick tools better from a short list: planning tools
-            # are offered only when the user talks about plans.
-            tools = [t for t in tools if t["name"] not in PLAN_TOOLS]
+            # are offered when the user talks about plans, and for two more
+            # turns ("actually make it 6").
+            if PLAN_WORDS.search(user_text):
+                self.plan_turns_left = 3
+            if self.plan_turns_left <= 0:
+                tools = [t for t in tools if t["name"] not in PLAN_TOOLS]
+            self.plan_turns_left -= 1
         try:
             for round_ in range(MAX_TOOL_ROUNDS + 1):
                 requested: ToolCalls | None = None

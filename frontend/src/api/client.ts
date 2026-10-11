@@ -6,7 +6,18 @@
  */
 import { mockRequest } from './mock'
 import { requestSession } from './session'
-import type { ActionItem, MemoryItem, MemoryUpdate, SettingsUpdate, SettingsView, SkillItem } from './types'
+import type {
+  ActionItem,
+  EventItem,
+  MemoryItem,
+  MemoryUpdate,
+  ReminderItem,
+  SettingsUpdate,
+  SettingsView,
+  SkillCreate,
+  SkillItem,
+  TaskItem,
+} from './types'
 
 export class ApiError extends Error {
   status: number
@@ -98,5 +109,38 @@ export const api = {
   listSkills: () => request<{ items: SkillItem[] }>('GET', '/api/skills').then((r) => r.items),
   runSkill: (id: string) => request<{ run_id: string }>('POST', `/api/skills/${encodeURIComponent(id)}/run`),
   getSettings: () => request<SettingsView>('GET', '/api/settings'),
+  // Your own skills (plan P5)
+  createSkill: (skill: SkillCreate) => request<SkillItem>('POST', '/api/skills', skill),
+  updateSkill: (id: string, update: Partial<SkillCreate> & { enabled?: boolean }) =>
+    request<SkillItem>('PATCH', `/api/skills/${encodeURIComponent(id)}`, update),
+  deleteSkill: (id: string) => request<void>('DELETE', `/api/skills/${encodeURIComponent(id)}`),
+  // Tasks, calendar, reminders (plan P5). Times are local: "2026-10-12T15:00".
+  listTasks: (status: 'open' | 'done' | 'all' = 'open') =>
+    request<{ items: TaskItem[] }>('GET', `/api/tasks?status=${status}`).then((r) => r.items),
+  addTask: (task: { title: string; due_at?: string; priority?: TaskItem['priority'] }) =>
+    request<TaskItem>('POST', '/api/tasks', task),
+  updateTask: (id: string, update: Partial<Pick<TaskItem, 'title' | 'status' | 'due_at' | 'priority'>>) =>
+    request<TaskItem>('PATCH', `/api/tasks/${encodeURIComponent(id)}`, update),
+  deleteTask: (id: string) => request<void>('DELETE', `/api/tasks/${encodeURIComponent(id)}`),
+  listEvents: (from: string, to: string) =>
+    request<{ items: EventItem[] }>(
+      'GET',
+      `/api/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    ).then((r) => r.items),
+  addEvent: (event: { title: string; starts_at: string; ends_at: string; kind?: EventItem['kind'] }) =>
+    request<EventItem>('POST', '/api/calendar', event),
+  deleteEvent: (id: string) => request<void>('DELETE', `/api/calendar/${encodeURIComponent(id)}`),
+  listReminders: (dueBefore?: string) =>
+    request<{ items: ReminderItem[] }>(
+      'GET',
+      `/api/reminders${dueBefore ? `?due_before=${encodeURIComponent(dueBefore)}` : ''}`,
+    ).then((r) => r.items),
+  setReminder: (reminder: { text: string; due_at: string }) => request<ReminderItem>('POST', '/api/reminders', reminder),
+  reminderDelivered: (id: string) =>
+    request<ReminderItem>('POST', `/api/reminders/${encodeURIComponent(id)}/delivered`),
+  reminderDone: (id: string) => request<ReminderItem>('POST', `/api/reminders/${encodeURIComponent(id)}/ack`),
+  snoozeReminder: (id: string, minutes: number) =>
+    request<ReminderItem>('POST', `/api/reminders/${encodeURIComponent(id)}/snooze`, { minutes }),
+  cancelReminder: (id: string) => request<void>('DELETE', `/api/reminders/${encodeURIComponent(id)}`),
   updateSettings: (update: SettingsUpdate) => request<SettingsView>('PATCH', '/api/settings', update),
 }

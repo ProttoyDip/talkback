@@ -35,14 +35,16 @@
 | Corrections: "Actually, I live in Rome now" replaces the old memory | Working; replaced memories stay as history | — |
 | Suggested memories that wait for your OK | Working | Sample data |
 | Activity history with Undo (24 hours for deletions) | Working | Sample data |
-| Skills: Morning brief, Quick research, Remind me | Working; "Remind me" keeps a note, it does not send alerts yet | Shown, but run only in a live conversation |
+| Skills: Morning brief, Quick research, Remind me, and your own | Working; make, edit and turn off your own skills | Shown, but run only in a live conversation |
+| Tasks and calendar blocks by voice or in the Plan panel | Working; adding or moving one shows Undo, deleting asks first | Sample data |
+| Reminders that notify you | Working while TalkBack is open (spoken in a conversation, a notification otherwise); shown as missed if it was closed | Sample data |
 | Settings: tools, privacy, interruptions, answer length, models | Working | Sample data |
 | Opt-in recording of your own voice | Working, kept in your browser only | — |
 | Changing your mind mid-request: "no, wait…", "never mind", a new request while it thinks | Working: the old action is dropped, an action already running finishes once and is reported | — |
 | Answering "yes" or "no" by voice to a confirmation | Working | Simulated (buttons) |
 | Typing instead of talking | Working, also without a microphone | — |
 | Accounts: email sign-in link or guest, private memories and settings | Built; turned on with `AUTH_MODE` and Supabase Auth (see `backend/.env.example`) | — |
-| Tasks, calendar, timed reminders, documents | Planned | — |
+| "Prepare my day", documents, research projects | Planned | — |
 
 ## The problem
 

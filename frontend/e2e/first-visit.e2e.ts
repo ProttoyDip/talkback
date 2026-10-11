@@ -40,7 +40,7 @@ test('in the recorded demo, skills explain they need a live conversation', async
   await expect(panel.getByText('Sample data. Start a live conversation to see yours.')).toBeVisible()
   await expect(panel.getByText('Skills run in a live conversation.')).toBeVisible()
   await expect(panel.getByRole('button', { name: /^Run / })).toHaveCount(0)
-  await expect(panel.getByText('It does not send alerts yet.', { exact: false })).toBeVisible()
+  await expect(panel.getByText('Sets a reminder for a time you name.', { exact: false })).toBeVisible()
 })
 
 test('settings use plain tool names, show the running engine and hide model IDs', async ({ page }) => {

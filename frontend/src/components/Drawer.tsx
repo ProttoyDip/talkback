@@ -4,11 +4,12 @@ import { enter, exit } from '../styles/motion'
 import { Icon } from './Icon'
 import type { ConversationModel } from '../session/model'
 import { MemoryPanel } from './panels/MemoryPanel'
+import { PlanPanel } from './panels/PlanPanel'
 import { SettingsPanel } from './panels/SettingsPanel'
 import { SkillsPanel } from './panels/SkillsPanel'
 import type { Panel } from './Navigation'
 
-const TITLES: Record<Panel, string> = { memory: 'Memory', skills: 'Skills', settings: 'Settings' }
+const TITLES: Record<Panel, string> = { memory: 'Memory', plan: 'Plan', skills: 'Skills', settings: 'Settings' }
 
 /**
  * Right drawer, 360 px on desktop; a full-height sheet below 1024 px
@@ -58,6 +59,7 @@ export function Drawer({ panel, onClose, context }: { panel: Panel; onClose: () 
           </p>
         )}
         {panel === 'memory' && <MemoryPanel refreshKey={context.memoryVersion} />}
+        {panel === 'plan' && <PlanPanel refreshKey={context.memoryVersion} />}
         {panel === 'skills' && <SkillsPanel sessionOpen={context.sessionOpen} replay={context.replay} onRan={context.onSkillRan} />}
         {panel === 'settings' && <SettingsPanel active={context.activeModels} />}
       </div>

@@ -219,6 +219,8 @@ class Planner:
             changes["text"] = text
         if due_at is not None:
             changes["due_at"] = to_storage(due_at, self.tz)
+            if changes["due_at"] < iso(now_utc() - timedelta(minutes=1)):
+                raise ValueError("that time has passed")
             changes["status"] = "scheduled"
         if cancel:
             changes["status"] = "cancelled"
@@ -228,7 +230,18 @@ class Planner:
         return Change(self.reminder(row), action)
 
     def mark(self, identifier: str, status: str, via: str | None = None) -> ReminderItem | None:
-        """Delivered, acknowledged: bookkeeping, not an undoable action."""
+        """Delivered, acknowledged: bookkeeping, not an undoable action.
+
+        Checks the reminder as it is now: a page timer set before the user
+        cancelled or moved it must not bring it back (None: nothing to do).
+        """
+        current = self.repo("reminders").get(identifier)
+        if current is None or current.get("deleted_at") or current["status"] in ("cancelled", "acknowledged"):
+            return None
+        if status == "delivered" and (
+            current["status"] != "scheduled" or current["due_at"] > iso(now_utc() + timedelta(minutes=1))
+        ):
+            return None  # moved later, or already shown
         changes: dict = {"status": status}
         if status == "delivered":
             changes |= {"delivered_at": iso(now_utc()), "delivered_via": via}
@@ -239,7 +252,7 @@ class Planner:
 
     def snooze(self, identifier: str, minutes: int) -> ReminderItem | None:
         current = self.repo("reminders").get(identifier)
-        if current is None:
+        if current is None or current.get("deleted_at") or current["status"] in ("cancelled", "acknowledged"):
             return None
         row = self.repo("reminders").update(identifier, {
             "status": "scheduled", "due_at": iso(now_utc() + timedelta(minutes=minutes)),

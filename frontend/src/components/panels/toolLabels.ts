@@ -20,4 +20,6 @@ export const TOOL_LABEL: Record<ToolName, { icon: IconName; label: string }> = {
   calendar_delete: { icon: 'calendar', label: 'Delete calendar blocks' },
   reminder_set: { icon: 'bell', label: 'Set reminders' },
   reminder_update: { icon: 'bell', label: 'Change reminders' },
+  day_plan_propose: { icon: 'calendar', label: 'Plan your day' },
+  day_plan_apply: { icon: 'calendar', label: 'Apply a day plan' },
 }

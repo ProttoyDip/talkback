@@ -3,6 +3,7 @@
  * shows. No timers, no I/O, so it is easy to test against the shared fixture.
  */
 import type { ReminderItem } from '../api/types'
+import type { PlanItem } from './protocol'
 import type { ConfirmRequest, ConversationState, Segment, ToolCall, Turn } from '../state/types'
 import type { ErrorCode, ModelRole, ProviderId, ServerEvent, SessionEndReason, ToolName } from './protocol'
 
@@ -27,6 +28,17 @@ interface TurnRecord {
   tools: ToolCall[]
   /** The user typed this turn (text.input) instead of saying it. */
   typed?: boolean
+}
+
+/** A day plan card: proposed, then accepted, partly applied, declined or replaced. */
+export interface DayPlan {
+  id: string
+  messageId: string
+  date: string
+  items: PlanItem[]
+  status: 'proposed' | 'accepted' | 'partially_applied' | 'rejected' | 'superseded' | 'expired'
+  applied?: number[]
+  actionId?: string
 }
 
 /** The last memory saved by voice, for the toast. */
@@ -56,8 +68,10 @@ export interface ConversationModel {
   remembered?: Remembered
   /** Bumped by data.changed: open panels reload. */
   dataVersion: number
-  /** The last reminder that came due (reminder.due), for its toast. */
-  reminder?: ReminderItem
+  /** The latest "Prepare my day" plan (plan P6), for its card. */
+  plan?: DayPlan
+  /** Reminders the server sent as due during this conversation (reminder.due). */
+  reminders: ReminderItem[]
   /**
    * Where the user started talking over TalkBack: the playing turn and its
    * text length at that moment. A backchannel caption arrives after the
@@ -73,6 +87,7 @@ export const initialModel: ConversationModel = {
   state: 'idle',
   turns: [],
   dataVersion: 0,
+  reminders: [],
   interrupts: [],
   models: {},
 }
@@ -218,8 +233,19 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
     case 'data.changed':
       return { ...model, dataVersion: model.dataVersion + 1 }
 
+    case 'plan.proposed':
+      return {
+        ...model,
+        plan: { id: event.proposal_id, messageId: event.message_id, date: event.date, items: event.items, status: 'proposed' },
+      }
+
+    case 'plan.updated':
+      return model.plan?.id === event.proposal_id
+        ? { ...model, plan: { ...model.plan, status: event.status, applied: event.applied, actionId: event.action_id } }
+        : model
+
     case 'reminder.due':
-      return { ...model, reminder: event.reminder }
+      return { ...model, reminders: [...model.reminders, event.reminder] }
 
     case 'error':
       return {

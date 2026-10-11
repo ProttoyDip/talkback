@@ -3,7 +3,31 @@
  * panels can be shown without a backend session. Never used otherwise.
  * It mirrors what the real backend returns (backend/skills, settings_routes).
  */
-import type { ActionItem, MemoryItem, SettingsView, SkillItem } from './types'
+import type { ActionItem, EventItem, MemoryItem, ReminderItem, SettingsView, SkillItem, TaskItem } from './types'
+
+/** Local "YYYY-MM-DDTHH:MM" for today at a given hour (sample data stays current). */
+function today(hour: number, minute = 0, days = 0) {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  d.setHours(hour, minute, 0, 0)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(hour)}:${pad(minute)}`
+}
+
+let tasks: TaskItem[] = [
+  { id: 't1', title: 'Send the slides to Mira', status: 'open', due_at: today(17), priority: 'high', created_at: '2026-10-10T09:00:00Z' },
+  { id: 't2', title: 'Book the dentist', status: 'open', due_at: today(12, 0, 2), priority: 'normal', created_at: '2026-10-10T09:05:00Z' },
+  { id: 't3', title: 'Water the plants', status: 'open', priority: 'low', created_at: '2026-10-10T09:10:00Z' },
+]
+let events: EventItem[] = [
+  { id: 'e1', title: 'Team standup', starts_at: today(9, 30), ends_at: today(9, 45), kind: 'meeting', status: 'confirmed', created_at: '2026-10-10T09:00:00Z' },
+  { id: 'e2', title: 'Focus: slides', starts_at: today(14), ends_at: today(16), kind: 'focus', status: 'confirmed', created_at: '2026-10-10T09:00:00Z' },
+]
+let reminders: ReminderItem[] = [
+  // Always three hours ahead, so sample pages never show it as due or missed.
+  { id: 'r1', text: 'Call mom', due_at: new Date(Date.now() + 3 * 3600_000).toISOString(), status: 'scheduled', snooze_count: 0, created_at: '2026-10-10T09:00:00Z' },
+]
+let mockId = 100
 
 let memories: MemoryItem[] = [
   {
@@ -49,7 +73,7 @@ let actions: ActionItem[] = [
   },
 ]
 
-const skills: SkillItem[] = [
+let skills: SkillItem[] = [
   {
     id: 'morning-brief',
     name: 'Morning brief',
@@ -68,8 +92,8 @@ const skills: SkillItem[] = [
     id: 'remind-me',
     name: 'Remind me',
     triggers: ['remind me'],
-    allowed_tools: ['memory_read'],
-    summary: 'Saves a note that TalkBack reads back when you ask. It does not send alerts yet.',
+    allowed_tools: ['reminder_set', 'reminder_update', 'memory_read'],
+    summary: 'Sets a reminder for a time you name. TalkBack checks the time with you first.',
   },
 ]
 
@@ -117,7 +141,49 @@ export async function mockRequest<T>(method: string, path: string, body?: unknow
   const [route, query = ''] = path.split('?')
   const id = route.split('/')[3]
   let result: unknown
-  if (route === '/api/actions') {
+  if (route.startsWith('/api/tasks')) {
+    if (method === 'GET') {
+      const status = new URLSearchParams(query).get('status') ?? 'open'
+      result = { items: tasks.filter((t) => status === 'all' || t.status === status) }
+    } else if (method === 'POST') {
+      const task = { id: `t${mockId++}`, status: 'open', priority: 'normal', created_at: new Date().toISOString(), ...(body as object) } as TaskItem
+      tasks = [...tasks, task]
+      result = task
+    } else if (method === 'PATCH') {
+      tasks = tasks.map((t) => (t.id === id ? { ...t, ...(body as object) } : t))
+      result = tasks.find((t) => t.id === id)
+    } else {
+      tasks = tasks.filter((t) => t.id !== id)
+    }
+  } else if (route.startsWith('/api/calendar')) {
+    if (method === 'GET') {
+      const params = new URLSearchParams(query)
+      const [from, to] = [params.get('from') ?? '', params.get('to') ?? '']
+      const at = (iso: string) => new Date(iso).getTime()
+      result = { items: events.filter((e) => at(e.starts_at) < at(to) && at(e.ends_at) > at(from)) }
+    } else if (method === 'POST') {
+      const event = { id: `e${mockId++}`, kind: 'block', status: 'confirmed', created_at: new Date().toISOString(), ...(body as object) } as EventItem
+      events = [...events, event].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
+      result = event
+    } else {
+      events = events.filter((e) => e.id !== id)
+    }
+  } else if (route.startsWith('/api/reminders')) {
+    const action = route.split('/')[4]
+    if (method === 'GET') {
+      result = { items: reminders.filter((r) => r.status === 'scheduled') }
+    } else if (method === 'POST' && !action) {
+      const reminder = { id: `r${mockId++}`, status: 'scheduled', snooze_count: 0, created_at: new Date().toISOString(), ...(body as object) } as ReminderItem
+      reminders = [...reminders, reminder]
+      result = reminder
+    } else if (method === 'DELETE') {
+      reminders = reminders.filter((r) => r.id !== id)
+    } else {
+      const status = action === 'ack' ? 'acknowledged' : action === 'delivered' ? 'delivered' : 'scheduled'
+      reminders = reminders.map((r) => (r.id === id ? { ...r, status } : r))
+      result = reminders.find((r) => r.id === id)
+    }
+  } else if (route === '/api/actions') {
     result = { items: actions }
   } else if (route.startsWith('/api/actions/')) {
     actions = actions.map((a) => (a.id === id ? { ...a, status: 'undone' as const, undoable: false } : a))
@@ -140,9 +206,19 @@ export async function mockRequest<T>(method: string, path: string, body?: unknow
       memories = []
     }
   } else if (route === '/api/skills') {
-    result = { items: skills }
-  } else if (route.startsWith('/api/skills/')) {
+    if (method === 'POST') {
+      const skill = { id: `u-${mockId++}`, builtin: false, enabled: true, ...(body as object) } as SkillItem
+      skills = [...skills, skill]
+      result = skill
+    } else {
+      result = { items: skills }
+    }
+  } else if (route.endsWith('/run')) {
     result = { run_id: 'run1' }
+  } else if (route.startsWith('/api/skills/')) {
+    if (method === 'DELETE') skills = skills.filter((s) => s.id !== id)
+    else skills = skills.map((s) => (s.id === id ? { ...s, ...(body as object) } : s))
+    result = skills.find((s) => s.id === id)
   } else if (route === '/api/settings') {
     if (method === 'PATCH') {
       const update = body as SettingsPatch
