@@ -266,6 +266,12 @@ class Session:
                 await self.send(
                     TranscriptDelta(message_id=message_id, speaker="user", text=text, final=final, backchannel=reaction)
                 )
+                # Short commands ("Wait, stop.") can be under the 250 ms minimum
+                # each, with a pause between them, so the frame rule never fires.
+                # A finished turn of real words while TalkBack talks is an
+                # interruption all the same (found with real audio, plan P9).
+                if final and text.strip() and not reaction and loop_time() < self.play_until:
+                    await self.interrupt_assistant()
             case StateChanged(state=state, tool=tool):
                 if state in ("listening", "thinking", "tool"):
                     self.turn_epoch += 1

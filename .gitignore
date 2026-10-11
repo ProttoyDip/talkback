@@ -18,8 +18,8 @@ dist/
 build/
 .vite/
 
-# Evaluation output
-eval/results/
+# Evaluation: spoken fixtures are made by eval/audio_fixtures.py; results are committed
+eval/fixtures/
 *.wav
 !docs/**/*.wav
 

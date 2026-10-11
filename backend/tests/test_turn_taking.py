@@ -212,6 +212,37 @@ def test_a_backchannel_does_not_interrupt(client):
     assert engine.interrupted == []
 
 
+def test_a_finished_short_command_interrupts(client):
+    # "Wait." is about 240 ms: too short for the frame rule, but the
+    # recognizer finished a real word while TalkBack talked.
+    engine = ScriptedEngine("")
+    original = engine.send_audio
+
+    async def send_audio(frame):
+        await original(frame)
+        if engine.heard_frames == 1:
+            engine.queue.put_nowait(UserTranscript("u1", "Wait.", True))
+
+    engine.send_audio = send_audio
+    received = drive(client, engine, speech_frames=8)  # 160 ms
+    assert {"type": "audio.flush", "reason": "interrupted"} in received
+    assert engine.interrupted == [("m1", "one two")]
+
+
+def test_a_finished_backchannel_does_not_interrupt(client):
+    engine = ScriptedEngine("")
+    original = engine.send_audio
+
+    async def send_audio(frame):
+        await original(frame)
+        if engine.heard_frames == 1:
+            engine.queue.put_nowait(UserTranscript("u1", "Mm-hm.", True))
+
+    engine.send_audio = send_audio
+    received = drive(client, engine, speech_frames=8)
+    assert not [e for e in received if e["type"] in ("audio.flush", "transcript.trim")]
+
+
 def test_speech_under_250_ms_does_not_interrupt(client):
     engine = ScriptedEngine("stop")
     received = drive(client, engine, speech_frames=8)  # 160 ms
