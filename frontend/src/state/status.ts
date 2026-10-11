@@ -20,6 +20,10 @@ export const TOOL_STATUS_NAME: Record<ToolName, string> = {
   reminder_update: 'REMINDERS',
   day_plan_propose: 'YOUR DAY',
   day_plan_apply: 'YOUR DAY',
+  docs_search: 'YOUR DOCUMENTS',
+  project_list: 'PROJECTS',
+  project_search: 'PROJECTS',
+  project_save: 'PROJECTS',
 }
 
 /** Status labels from docs/design.md, section 6. */

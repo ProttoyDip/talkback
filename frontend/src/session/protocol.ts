@@ -25,6 +25,10 @@ export type ToolName =
   | 'reminder_update'
   | 'day_plan_propose'
   | 'day_plan_apply'
+  | 'docs_search'
+  | 'project_list'
+  | 'project_search'
+  | 'project_save'
 
 /**
  * declined: the user said no or did not answer; cancelled: stopped before it ran;
@@ -76,6 +80,17 @@ export type ClientMessage =
 export interface Source {
   title: string
   url: string
+}
+
+/** Where a document or project-note answer came from (plan P8). */
+export interface Citation {
+  kind: 'document' | 'project_note'
+  /** The document or the project. */
+  id: string
+  title: string
+  /** "page 3" */
+  locator?: string | null
+  quote: string
 }
 
 export type ProviderId =
@@ -131,6 +146,8 @@ export type ServerEvent =
       action_id?: string
       undoable?: boolean
       sources?: Source[]
+      /** docs_search and project_search: the passages used. */
+      citations?: Citation[]
     }
   | {
       type: 'tool.confirm_request'
@@ -152,7 +169,10 @@ export type ServerEvent =
       action_id?: string
     }
   /** Stored data changed by voice: open panels reload. */
-  | { type: 'data.changed'; kinds: Array<'memories' | 'actions' | 'tasks' | 'calendar' | 'reminders' | 'skills'> }
+  | {
+      type: 'data.changed'
+      kinds: Array<'memories' | 'actions' | 'tasks' | 'calendar' | 'reminders' | 'skills' | 'documents' | 'projects'>
+    }
   /** "Prepare my day" (plan P6): a plan card. Nothing changes until accepted. */
   | {
       type: 'plan.proposed'

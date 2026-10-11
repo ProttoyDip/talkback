@@ -34,6 +34,7 @@ ToolName = Literal[
     "task_list", "task_add", "task_update", "task_delete",
     "calendar_list", "calendar_add", "calendar_update", "calendar_delete",
     "reminder_set", "reminder_update", "day_plan_propose", "day_plan_apply",
+    "docs_search", "project_list", "project_search", "project_save",
 ]
 
 # Ids are short opaque strings created by the server.
@@ -163,6 +164,16 @@ class Source(Message):
     url: HttpUrl
 
 
+class Citation(Message):
+    """Where a document or project-note answer came from (plan P8)."""
+
+    kind: Literal["document", "project_note"]
+    id: Id  # the document or the project
+    title: str = Field(max_length=300)
+    locator: str | None = Field(default=None, max_length=60)  # "page 3"
+    quote: str = Field(max_length=400)  # the passage, shortened
+
+
 ToolStatusReason = Literal[
     "user_declined", "timeout", "superseded", "stopped", "interrupted", "session_closed", "already_done",
 ]
@@ -185,6 +196,8 @@ class ToolStatus(Message):
     undoable: bool = False
     # web_search results, shown as the expandable source list.
     sources: list[Source] = Field(default_factory=list, max_length=10)
+    # docs_search and project_search results: the passages used.
+    citations: list[Citation] = Field(default_factory=list, max_length=10)
 
 
 class ToolConfirmRequest(Message):
@@ -213,7 +226,7 @@ class MemorySaved(Message):
     action_id: Id | None = None
 
 
-DataKind = Literal["memories", "actions", "tasks", "calendar", "reminders", "skills"]
+DataKind = Literal["memories", "actions", "tasks", "calendar", "reminders", "skills", "documents", "projects"]
 
 
 class DataChanged(Message):
@@ -559,6 +572,61 @@ class ReminderSnooze(Rest):
 
 class ReminderList(Rest):
     items: list[ReminderItem]
+
+
+# Documents and research projects (plan P8). Document text is untrusted
+# data: it is searched and quoted, never followed (SECURITY.md T1).
+
+DocumentStatus = Literal["processing", "ready", "failed"]
+
+
+class DocumentItem(Rest):
+    id: Id
+    title: str = Field(max_length=200)
+    filename: str = Field(max_length=200)
+    kind: Literal["pdf", "txt", "md"]
+    size_bytes: int
+    pages: int | None = None
+    chunks: int = 0
+    status: DocumentStatus = "processing"
+    # Why it failed, in plain words ("No text found: is it a scan?").
+    error: str | None = Field(default=None, max_length=200)
+    created_at: str
+
+
+class DocumentList(Rest):
+    items: list[DocumentItem]
+
+
+class ProjectItem(Rest):
+    id: Id
+    name: str = Field(max_length=100)
+    description: str | None = Field(default=None, max_length=300)
+    notes: int = 0
+    created_at: str
+    updated_at: str | None = None
+
+
+class ProjectCreate(Rest):
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=300)
+
+
+class ProjectNote(Rest):
+    id: Id
+    text: str = Field(max_length=2000)
+    # Only links found in that turn's web results (never made up).
+    sources: list[Source] = Field(default_factory=list, max_length=10)
+    created_at: str
+
+
+class ProjectList(Rest):
+    items: list[ProjectItem]
+
+
+class ProjectDetail(Rest):
+    project: ProjectItem
+    notes: list[ProjectNote]
 
 
 class SkillList(Rest):

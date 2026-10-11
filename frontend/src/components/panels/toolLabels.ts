@@ -22,4 +22,8 @@ export const TOOL_LABEL: Record<ToolName, { icon: IconName; label: string }> = {
   reminder_update: { icon: 'bell', label: 'Change reminders' },
   day_plan_propose: { icon: 'calendar', label: 'Plan your day' },
   day_plan_apply: { icon: 'calendar', label: 'Apply a day plan' },
+  docs_search: { icon: 'document', label: 'Search your documents' },
+  project_list: { icon: 'folder', label: 'Read research projects' },
+  project_search: { icon: 'folder', label: 'Search project notes' },
+  project_save: { icon: 'folder', label: 'Save project notes' },
 }

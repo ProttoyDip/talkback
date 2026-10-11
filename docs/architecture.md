@@ -111,10 +111,10 @@ One WebSocket: `wss://<host>/ws/session?token=<session-token>`. The token comes 
 | S → C | `audio.flush` | `{reason}` | Stop playback now (`interrupted` or `stopped`) |
 | S → C | `transcript.delta` | `{message_id, speaker, text, final, backchannel, typed}` | Live captions. Deltas with the same `message_id` form one turn: user deltas carry the full text so far, assistant deltas append words as they start playing. `backchannel: true` marks a "mm-hm" that did not interrupt |
 | S → C | `transcript.trim` | `{message_id, heard_text, unheard_text}` | After an interruption, the message keeps `heard_text` in history. `unheard_text` (what it had planned to say) is only shown, faded |
-| S → C | `tool.status` | `{call_id, message_id, name, status, reason?, action_id?, undoable, sources}` | Tool chip under assistant turn `message_id`; `sources` lists web results. `status` is `running`, `done`, `failed`, `declined` (the user said no or did not answer), `cancelled` (stopped before it ran) or `expired`. `reason`: `user_declined`, `timeout`, `superseded`, `stopped`, `interrupted`, `session_closed`, `already_done`. Any final status closes the call's confirmation card |
+| S → C | `tool.status` | `{call_id, message_id, name, status, reason?, action_id?, undoable, sources, citations}` | Tool chip under assistant turn `message_id`; `sources` lists web results; `citations` (`{kind: document \| project_note, id, title, locator?, quote}`) lists the document or project passages used. `status` is `running`, `done`, `failed`, `declined` (the user said no or did not answer), `cancelled` (stopped before it ran) or `expired`. `reason`: `user_declined`, `timeout`, `superseded`, `stopped`, `interrupted`, `session_closed`, `already_done`. Any final status closes the call's confirmation card |
 | S → C | `tool.confirm_request` | `{call_id, summary, message_id?, name?, details[], expires_in_ms}` | Ask the user before a sensitive action (30 s); `details` adds up to 10 lines (a day plan) |
 | S → C | `memory.saved` | `{id, text, status, replaced_id?, replaced_text?, action_id?}` | Show the "Remembered" toast with Undo (through `action_id`). `status: suggested` is a suggestion waiting for the user's OK; `replaced_*` names the memory a correction replaced |
-| S → C | `data.changed` | `{kinds: [memories \| actions \| tasks \| calendar \| reminders \| skills]}` | Stored data changed by voice: open panels reload |
+| S → C | `data.changed` | `{kinds: [memories \| actions \| tasks \| calendar \| reminders \| skills \| documents \| projects]}` | Stored data changed by voice: open panels reload |
 | S → C | `plan.proposed` | `{proposal_id, message_id, date, items: [{index, op: create_block, title, starts_at, ends_at, task_id?, reason}], expires_at}` | "Prepare my day": a plan card to accept (all or some) or decline. Nothing changes until accepted |
 | S → C | `plan.updated` | `{proposal_id, status, applied[], action_id?}` | The plan was accepted, partly applied, declined, replaced by a newer one, or expired |
 | S → C | `session.resumable` | `{state_id, goal, decisions[], pending[], updated_at}` | Right after `session.start`: an unfinished conversation from the last 24 hours. Facts only; open items are asked again, never run automatically |
@@ -124,7 +124,7 @@ One WebSocket: `wss://<host>/ws/session?token=<session-token>`. The token comes 
 | S → C | `model.active` | `{role, provider, model, backup}` | Which model serves `voice`, `planner` or `search`. Sent at session start and on every switch; `backup: true` shows the "Backup model" label (plan.md section 8) |
 | S → C | `session.end` | `{reason}` | Sent just before the server closes (`idle`, `time_limit`, `server_shutdown`, `protocol_error`) |
 
-Tool names: `weather`, `web_search`, `memory_read`, `memory_write`, `memory_delete`, `memory_suggest`, `skill_run`, `task_list`, `task_add`, `task_update`, `task_delete`, `calendar_list`, `calendar_add`, `calendar_update`, `calendar_delete`, `reminder_set`, `reminder_update`, `day_plan_propose`, `day_plan_apply`.
+Tool names: `weather`, `web_search`, `memory_read`, `memory_write`, `memory_delete`, `memory_suggest`, `skill_run`, `task_list`, `task_add`, `task_update`, `task_delete`, `calendar_list`, `calendar_add`, `calendar_update`, `calendar_delete`, `reminder_set`, `reminder_update`, `day_plan_propose`, `day_plan_apply`, `docs_search`, `project_list`, `project_search`, `project_save`.
 
 ### 3.2 REST API
 
@@ -152,6 +152,13 @@ All routes except `/health`, `GET /api/auth-config` and `POST /api/session` need
 | `POST /api/plans/{id}/apply` | `PlanApply {items?}` | `{proposal_id, status, applied[], action_id?}` | Accept a day plan (the button is the confirmation); undo reverts the whole plan |
 | `POST /api/plans/{id}/choose` | `PlanApply {items}` | `204` | The card's ticks; a spoken yes then applies just these |
 | `POST /api/plans/{id}/reject` | — | `204`; `409` if already answered | "Not now" |
+| `GET /api/documents` | — | `DocumentList` (`id, title, filename, kind: pdf \| txt \| md, size_bytes, pages?, chunks, status: processing \| ready \| failed, error?, created_at`) | Documents panel |
+| `POST /api/documents` | `multipart/form-data` with one `file` (PDF, TXT or MD; at most 5 MB, 50 pages, 20 documents per user) | `DocumentItem` (`201`, `status: processing`); `413` too large, `415` wrong type, `409` too many documents | Upload; reading and indexing run in the background |
+| `DELETE /api/documents/{id}` | — | `204` | Delete a document and its passages |
+| `GET /api/projects` | — | `ProjectList` (`id, name, description?, notes, created_at, updated_at?`) | Projects panel |
+| `POST /api/projects` | `ProjectCreate {name, description?}` | `ProjectItem` (`201`) | Start a research project |
+| `GET /api/projects/{id}` | — | `ProjectDetail {project, notes: [{id, text, sources[], created_at}]}` | A project's notes with their sources |
+| `DELETE /api/projects/{id}`, `DELETE /api/projects/{id}/notes/{note_id}` | — | `204` | Delete a project or one note |
 | `GET /api/actions?limit=` | — | `ActionList` (newest first: `id, tool, status, summary, created_at, finished_at?, undoable, undone_at?`) | Activity panel |
 | `POST /api/actions/{id}/undo` | optional `Idempotency-Key` header | `ActionItem` (`status: undone`); `409` if the target changed since, `404` if not undoable | Undo in the Activity panel and toasts |
 | `DELETE /api/memories/{id}` | — | `204` | Delete a memory |
