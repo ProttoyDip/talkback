@@ -13,7 +13,7 @@ from .auth import Claims, session_claims
 from .config import Settings, get_settings
 from .planner import Planner
 from .protocol import (
-    EventCreate, EventItem, EventList, EventUpdate, Id, ReminderCreate, ReminderItem, ReminderList,
+    EventCreate, EventItem, EventList, EventUpdate, Id, PlanApply, ReminderCreate, ReminderItem, ReminderList,
     ReminderSnooze, TaskCreate, TaskItem, TaskList, TaskUpdate,
 )
 from .stores import stores_for
@@ -88,6 +88,22 @@ def update_event(identifier: Id, body: EventUpdate, plan: Plan) -> EventItem:
 @router.delete("/calendar/{identifier}", status_code=204)
 def delete_event(identifier: Id, plan: Plan) -> Response:
     _found(plan.delete_event, identifier)
+    return Response(status_code=204)
+
+
+# Day plans (plan P6)
+
+
+@router.post("/plans/{identifier}/apply")
+def apply_plan(identifier: Id, body: PlanApply, plan: Plan) -> dict:
+    status, applied, action_id = _found(plan.apply_plan, identifier, body.items)
+    return {"proposal_id": identifier, "status": status, "applied": applied, "action_id": action_id}
+
+
+@router.post("/plans/{identifier}/reject", status_code=204)
+def reject_plan(identifier: Id, plan: Plan) -> Response:
+    if not plan.reject_plan(identifier):
+        raise HTTPException(409, "That plan was already answered or replaced")
     return Response(status_code=204)
 
 

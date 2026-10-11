@@ -14,7 +14,17 @@ from pydantic import Field
 
 from ..planner import Change, Planner
 from ..timeutil import spoken, to_storage
-from . import Arguments, Tool, ToolOutcome, ToolResult, current_action_key
+from datetime import datetime, timedelta, timezone
+
+from ..protocol import PlanProposed, PlanUpdated
+
+PLAN_CARD_LIFETIME = timedelta(minutes=30)
+
+
+def planner_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+from . import Arguments, Tool, ToolOutcome, ToolResult, current_action_key, current_turn_id
 
 LocalTime = Field(min_length=10, max_length=32, description="Local time, e.g. 2026-10-12T15:00")
 
@@ -70,6 +80,15 @@ class CalendarDeleteArguments(Arguments):
 class ReminderSetArguments(Arguments):
     text: str = Field(min_length=1, max_length=300)
     due_at: str = LocalTime
+
+
+class DayPlanProposeArguments(Arguments):
+    date: str | None = Field(default=None, min_length=10, max_length=10, description="Local date; today when missing")
+
+
+class DayPlanApplyArguments(Arguments):
+    proposal_id: str = Field(min_length=1, max_length=64)
+    items: list[int] | None = Field(default=None, max_length=20, description="Which items to apply; all when missing")
 
 
 class ReminderUpdateArguments(Arguments):
@@ -166,6 +185,31 @@ def planner_tools(planner: Planner) -> list[Tool]:
         return _out(await run(planner.update_reminder, args.id, due_at=args.due_at, cancel=args.cancel),
                     "Reminder changed")
 
+    async def day_plan_propose(args: DayPlanProposeArguments) -> ToolOutcome:
+        proposal_id, day, items = await asyncio.to_thread(planner.propose_day, args.date, current_turn_id.get())
+        card = PlanProposed(
+            proposal_id=proposal_id, message_id=current_turn_id.get() or "turn", date=day, items=items,
+            expires_at=(planner_now() + PLAN_CARD_LIFETIME).isoformat(timespec="seconds"),
+        )
+        summary = "; ".join(f"{i.title} {i.starts_at[11:16]}–{i.ends_at[11:16]} ({i.reason})" for i in items)
+        text = f"proposal_id={proposal_id}. {summary}" if items else "Nothing needs a block today: no free time or no urgent tasks."
+        return ToolOutcome([ToolResult("Day plan", "", text)], None, False, (card,) if items else ())
+
+    async def day_plan_apply(args: DayPlanApplyArguments) -> ToolOutcome:
+        status, applied, action_id = await asyncio.to_thread(
+            planner.apply_plan, args.proposal_id, args.items, key=current_action_key.get(),
+        )
+        update = PlanUpdated(proposal_id=args.proposal_id, status=status, applied=applied, action_id=action_id)
+        text = f"{status}: {len(applied)} blocks added." + (" Some clashed with the calendar and were skipped." if status == "partially_applied" else "")
+        return ToolOutcome([ToolResult("Day plan", "", text)], action_id, action_id is not None, (update,))
+
+    def plan_lines(args: DayPlanApplyArguments) -> list[str]:
+        items = planner.plan_items(args.proposal_id)
+        return [
+            f"{i.starts_at[11:16]}–{i.ends_at[11:16]} {i.title}" for i in items
+            if args.items is None or i.index in args.items
+        ]
+
     reversible = dict(sensitive=False, mutates=True, confirm_when_tainted=True, data_kinds=PLAN_KINDS)
     asks = dict(mutates=True, data_kinds=PLAN_KINDS)
     return [
@@ -191,4 +235,10 @@ def planner_tools(planner: Planner) -> list[Tool]:
         Tool("reminder_update", "Move or cancel a reminder by id.", ReminderUpdateArguments, reminder_update,
              confirmation_summary=lambda a: "Cancel this reminder?" if a.cancel else f"Move the reminder to {when(a.due_at)}?",
              **asks),
+        Tool("day_plan_propose", "Propose blocks for the most urgent open tasks in today's free time. "
+             "Shows the user a plan card; nothing changes until they accept.",
+             DayPlanProposeArguments, day_plan_propose, sensitive=False),
+        Tool("day_plan_apply", "Apply a proposed day plan (all items, or the ones the user chose).",
+             DayPlanApplyArguments, day_plan_apply,
+             confirmation_summary=lambda a: "Add these blocks to your calendar?", confirmation_details=plan_lines, **asks),
     ]

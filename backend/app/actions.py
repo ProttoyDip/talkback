@@ -80,6 +80,13 @@ def _undo_row(tables, undo: dict) -> None:
     if undo["table"] not in ROW_TABLES:
         raise NotUndoable(undo["table"])
     repo = tables(undo["table"])
+    if undo["op"] == "rows.unadd":  # a day plan: all its blocks, or none
+        rows = [(repo.get(r["id"]), r) for r in undo["rows"]]
+        if any(cur is None or cur.get("deleted_at") or cur["title"] != r["title"] for cur, r in rows):
+            raise UndoConflict("a block of the plan changed since")
+        for current, _ in rows:
+            repo.update(current["id"], {"deleted_at": now()}, expect_updated_at=current["updated_at"])
+        return
     current = repo.get(undo["id"])
     # Changed since? Only the fields this action changed matter, so undoing
     # newer actions first (a stack) still works.
@@ -153,7 +160,7 @@ class ActionLedger:
         if row is None or row["status"] != "done" or not row.get("undo"):
             raise NotUndoable(action_id)
         undo = row["undo"]
-        if undo["op"].startswith("row."):
+        if undo["op"].startswith(("row.", "rows.")):
             if self.tables is None:
                 raise NotUndoable("no store")
             try:

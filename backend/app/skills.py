@@ -52,6 +52,7 @@ SKILL_TOOLS = frozenset({
     "weather", "web_search", "memory_read", "memory_suggest", "memory_delete",
     "task_list", "task_add", "task_update", "task_delete",
     "calendar_list", "calendar_add", "calendar_update", "calendar_delete", "reminder_set", "reminder_update",
+    "day_plan_propose", "day_plan_apply",
 })
 
 

@@ -34,6 +34,12 @@ TABLES: dict[str, Table] = {
         "text", "due_at", "status", "delivered_at", "delivered_via", "ack_at", "snooze_count", "deleted_at",
         "created_at", "updated_at",
     })),
+    # Day plans waiting for the user's OK (plan P6).
+    "proposals": Table(
+        "proposals",
+        frozenset({"date", "status", "items", "message_id", "expires_at", "created_at", "updated_at"}),
+        frozenset({"items"}),
+    ),
     "user_skills": Table(
         "user_skills",
         frozenset({"name", "triggers", "allowed_tools", "instructions", "summary", "enabled", "created_at", "updated_at"}),
@@ -143,5 +149,16 @@ SQLITE_MIGRATIONS: list[str] = [
         enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
     CREATE INDEX user_skills_user ON user_skills (user_id);
+    """,
+    # 5: day plans waiting for the user's OK (plan P6).
+    """
+    CREATE TABLE proposals (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, date TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending'
+            CHECK(status IN ('pending', 'accepted', 'partially_applied', 'rejected', 'superseded', 'expired')),
+        items TEXT NOT NULL, message_id TEXT, expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE INDEX proposals_user ON proposals (user_id, date, status);
     """,
 ]
