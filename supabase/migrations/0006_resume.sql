@@ -8,6 +8,7 @@ create table if not exists public.conversation_states (
   goal text not null check (char_length(goal) <= 200),
   decisions jsonb,
   pending jsonb,
+  tools_used jsonb,  -- tool names only: what the model may be told
   recent_turns jsonb,
   status text not null default 'open' check (status in ('open', 'resumed', 'dismissed')),
   closed_at timestamptz,

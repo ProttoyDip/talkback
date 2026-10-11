@@ -26,6 +26,7 @@ from .protocol import (
     SkillUpdate,
 )
 from .session import registry
+from . import resume
 from .skills import MAX_USER_SKILLS, SkillProblem, check_user_skill, load_skills, user_skill
 from .stores import repo
 
@@ -151,6 +152,7 @@ def update_settings(
     update: SettingsUpdate,
     settings: Annotated[Settings, Depends(get_settings)],
     store: Annotated[PrefsStore, Depends(get_prefs)],
+    claims: Claims,
 ) -> SettingsView:
     prefs = store.load()
     for name, enabled in (update.tools or {}).items():
@@ -165,8 +167,12 @@ def update_settings(
         prefs.answer_length = update.answer_length
     if update.resume_sessions is not None:
         prefs.resume_sessions = update.resume_sessions
+        if not update.resume_sessions:  # off: nothing stays stored
+            resume.forget(repo(settings, "conversation_states", claims.user_id))
     if update.keep_recent_turns is not None:
         prefs.keep_recent_turns = update.keep_recent_turns
+        if not update.keep_recent_turns:
+            resume.forget(repo(settings, "conversation_states", claims.user_id), turns_only=True)
     if update.timezone is not None:
         if not valid_zone(update.timezone):
             raise HTTPException(422, "Unknown time zone")

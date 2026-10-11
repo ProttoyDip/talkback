@@ -44,10 +44,10 @@ TABLES: dict[str, Table] = {
     "conversation_states": Table(
         "conversation_states",
         frozenset({
-            "session_id", "goal", "decisions", "pending", "recent_turns", "status", "closed_at",
+            "session_id", "goal", "decisions", "pending", "tools_used", "recent_turns", "status", "closed_at",
             "created_at", "updated_at",
         }),
-        frozenset({"decisions", "pending", "recent_turns"}),
+        frozenset({"decisions", "pending", "tools_used", "recent_turns"}),
     ),
     "user_skills": Table(
         "user_skills",
@@ -174,7 +174,7 @@ SQLITE_MIGRATIONS: list[str] = [
     """
     CREATE TABLE conversation_states (
         id TEXT PRIMARY KEY, user_id TEXT NOT NULL, session_id TEXT NOT NULL, goal TEXT NOT NULL,
-        decisions TEXT, pending TEXT, recent_turns TEXT,
+        decisions TEXT, pending TEXT, tools_used TEXT, recent_turns TEXT,
         status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'resumed', 'dismissed')),
         closed_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );

@@ -223,6 +223,7 @@ class ToolBridge:
                 error = "confirmation_timeout"
             finally:
                 self.pending.pop(call_id, None)
+                self.pending_summaries.pop(call_id, None)
         if error is None and (self.closed or call.name not in self.enabled):
             error = "disabled_tool"
         if error is None and is_current is not None and not is_current():

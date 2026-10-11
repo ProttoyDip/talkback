@@ -20,23 +20,27 @@ RECENT_TURNS = 6
 
 def save_state(
     states: Repo, actions: Repo, proposals: Repo, *, session_id: str, goal: str | None,
-    waiting_for: list[str], recent: list[dict] | None,
+    waiting_for: list[str], recent: list[dict] | None, since: str | None = None,
 ) -> dict | None:
-    """Keep what is needed to continue; nothing when there is nothing to continue."""
+    """Keep what is needed to continue; nothing when there is nothing to continue.
+
+    `since` is when this conversation started: only its own plans count.
+    """
     if not goal:
         return None
-    done = [
-        a["summary"] for a in actions.select({"session_id": session_id}, order="created_at.asc", limit=50)
-        if a["status"] == "done"
-    ][-10:]
+    latest = actions.select({"session_id": session_id}, order="created_at.desc", limit=10)
+    done = [a["summary"] for a in reversed(latest) if a["status"] == "done"]
+    tools = sorted({a["tool"] for a in latest if a["status"] == "done"})
     pending = list(waiting_for)
     for row in proposals.select({"status": "pending"}, limit=5):
-        if row["expires_at"] > iso(now_utc()):
+        if row["expires_at"] > iso(now_utc()) and (since is None or row["created_at"] >= since):
             pending.append(f"A day plan for {row['date']} was waiting for your OK")
     if not done and not pending:
         return None  # finished: nothing to pick up
     return states.insert({
         "session_id": session_id, "goal": goal[:200], "decisions": done, "pending": pending[:10],
+        # What the model may be told: tool names only, never model-written text (T1).
+        "tools_used": tools,
         "recent_turns": recent[-RECENT_TURNS:] if recent else None, "status": "open",
     })
 
@@ -56,10 +60,11 @@ def offer(states: Repo, current_session: str) -> SessionResumable | None:
     return None
 
 
-def answer(states: Repo, state_id: str, accept: bool) -> dict | None:
-    """Continue (resumed) or start fresh (dismissed). Only an open state."""
+def answer(states: Repo, state_id: str, accept: bool, current_session: str) -> dict | None:
+    """Continue (resumed) or start fresh (dismissed): only what offer() would offer."""
     row = states.get(state_id)
-    if row is None or row["status"] != "open":
+    cutoff = iso(now_utc() - RESUME_WITHIN)
+    if row is None or row["status"] != "open" or row["session_id"] == current_session or row["updated_at"] < cutoff:
         return None
     states.update(state_id, {"status": "resumed" if accept else "dismissed", "closed_at": iso(now_utc())})
     return row
@@ -67,9 +72,23 @@ def answer(states: Repo, state_id: str, accept: bool) -> dict | None:
 
 def context_note(row: dict) -> str:
     """What the model is told when the user continues: data, not instructions."""
+    # The goal is the user's own words. What was done and what is open come
+    # from model-written tool arguments, so the model gets counts and tool
+    # names only; it can list tasks or the calendar for details (T1).
     parts = [f'The user is continuing an earlier conversation. Their goal then, in their words: "{row["goal"]}".']
     if row.get("decisions"):
-        parts.append("Done then: " + "; ".join(row["decisions"]) + ".")
+        tools = ", ".join(row.get("tools_used") or []) or "tools"
+        parts.append(f"{len(row['decisions'])} change(s) were made then with: {tools}.")
     if row.get("pending"):
-        parts.append("Still open (ask again before doing any of it): " + "; ".join(row["pending"]) + ".")
+        parts.append(f"{len(row['pending'])} thing(s) were still waiting for their OK: ask what they want before doing any.")
     return "(" + " ".join(parts) + ")"
+
+
+def forget(states: Repo, turns_only: bool = False) -> None:
+    """Delete stored states (or just their kept turns): forgetting, or a switch turned off."""
+    for row in states.select(limit=500):
+        if turns_only:
+            if row.get("recent_turns"):
+                states.update(row["id"], {"recent_turns": None})
+        else:
+            states.delete(row["id"])

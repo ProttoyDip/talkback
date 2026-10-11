@@ -46,6 +46,7 @@ from .protocol import (
     SessionResume,
 )
 from . import resume
+from .timeutil import iso, now_utc
 from .stores import prefs_store, repo
 from .tokens import verify_token
 from .turn_taking import BargeInDecider, EnergyVad, heard_split, is_backchannel
@@ -159,6 +160,7 @@ class Session:
         self.decider = BargeInDecider()  # start_engine applies the user's setting
         self.log_transcripts = False  # start_engine applies the user's setting
         self.resume_on, self.keep_turns = False, False  # start_engine applies the user's settings (plan P7)
+        self.opened_at = iso(now_utc())  # only this conversation's plans count when resuming
         self.interim_user_text = ""
         self.last_text_input = -1.0  # loop time of the last typed turn (1 per second)
         self.overlapping = False
@@ -388,9 +390,15 @@ class Session:
     async def answer_resume(self, state_id: str, accept: bool) -> None:
         if self.settings is None:
             return
-        row = await asyncio.to_thread(resume.answer, self._tables()("conversation_states"), state_id, accept)
-        if row is not None and accept and hasattr(self.engine, "resume"):
-            self.engine.resume(resume.context_note(row), row.get("recent_turns"))
+        if accept and not hasattr(self.engine, "resume"):
+            return  # this engine cannot continue: the state stays open for one that can
+        row = await asyncio.to_thread(
+            resume.answer, self._tables()("conversation_states"), state_id, accept, self.session_id,
+        )
+        if row is not None and accept:
+            self.engine.resume(
+                resume.context_note(row), row.get("recent_turns"), goal=row["goal"], pending=row.get("pending") or [],
+            )
 
     async def save_resume_state(self) -> None:
         engine = self.engine
@@ -401,7 +409,7 @@ class Session:
             await asyncio.to_thread(
                 resume.save_state, tables("conversation_states"), tables("actions"), tables("proposals"),
                 session_id=self.session_id, goal=engine.goal, waiting_for=engine.waiting_for(),
-                recent=engine.recent_turns() if self.keep_turns else None,
+                recent=engine.recent_turns() if self.keep_turns else None, since=self.opened_at,
             )
         except Exception:
             log.warning("conversation state not saved", extra={"session_id": self.session_id})
