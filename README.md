@@ -21,7 +21,21 @@
 
 > [!NOTE]
 > TalkBack is in early development for the Nebius x NVIDIA Global AI Hackathon 2026 (Personal AI track).
-> The backend gateway, the conversation screen, live browser audio, and the onboarding, memory, skills and settings screens are built. The full-duplex voice model on an H100 and interruption handling are **planned**; see the [Roadmap](#roadmap).
+> Live voice works today with a turn-based NVIDIA speech pipeline and barge-in interruptions. The full-duplex voice model on an H100 is **planned**. See [What works today](#what-works-today) and the [Roadmap](#roadmap).
+
+### What works today
+
+| Feature | Live conversation | Recorded demo (`?replay`) |
+|---|---|---|
+| Talking and listening | Working: NVIDIA Parakeet speech-to-text, Nemotron, Magpie TTS (turn-based) | Simulated: a scripted conversation with a test tone |
+| Interrupting TalkBack | Working: barge-in detection stops it and keeps only the words you heard | Simulated |
+| Full-duplex voice (listens while talking) | Planned: NVIDIA VoiceChat on an H100 | — |
+| Weather and web search tools | Working | Simulated |
+| Memory: save by saying "remember that…", view, edit, delete | Working (delete asks first) | Sample data |
+| Skills: Morning brief, Quick research, Remind me | Working; "Remind me" keeps a note, it does not send alerts yet | Shown, but run only in a live conversation |
+| Settings: tools, privacy, interruptions, answer length, models | Working | Sample data |
+| Opt-in recording of your own voice | Working, kept in your browser only | — |
+| Accounts, tasks, calendar, timed reminders, documents | Planned | — |
 
 ## The problem
 
@@ -231,14 +245,16 @@ talkback/
 └── README.md
 ```
 
-Planned: `eval/` (evaluation scripts) and `backend/skills/` (skill files).
+`eval/` holds the turn-taking scenarios and `backend/skills/` the skill files.
 
 ## Evaluation
 
-The planned `eval/` folder will contain scripts for two metrics:
+`eval/` runs 50 scripted conversations through the same voice detection and barge-in rules the server uses:
 
-- **Latency:** the median time from the end of user speech to the first audio output, using the formula in [Results](#results).
-- **Interruption recovery:** the share of 50 scripted conversations where TalkBack stops, keeps only the words the user heard, and continues correctly from the user's correction.
+- **Interruption recovery** (`eval/interruptions.py`): the share of scenarios where TalkBack stops, keeps only the words the user heard, and ignores backchannels and short noises.
+- **Stop time** (`eval/latency.py`): how long the barge-in rule takes to decide.
+
+These use synthetic audio frames, so they do not include speech recognition, model or network time. End-to-end latency with real audio is not measured yet (planned).
 
 ## Roadmap
 
@@ -247,11 +263,11 @@ The planned `eval/` folder will contain scripts for two metrics:
 - [ ] NemotronLabs VoiceChat on an NVIDIA H100 on Nebius AI Cloud
 - [x] Interruption handling in the gateway: energy-based voice detection (Silero is not used yet), 250 ms minimum speech, backchannel rule, history trimmed at the playback position. Tested with scripted audio only
 - [x] Conversation controller: filler words ("umm") are not answered, unfinished sentences wait briefly, short reactions are read in context (English only)
-- [ ] Nemotron tool planning via Nebius Token Factory, with Tavily and Open-Meteo tools
-- [ ] Spoken filler during tool calls
+- [x] Nemotron tool calls (Nebius first, then backup providers) with weather, web search and memory tools
+- [x] Spoken filler during slow tool calls
 - [x] Conversation screen (React): live transcript, duplex timeline, tool chips, confirmation card
 - [x] Live audio in the frontend (microphone capture and playback)
-- [x] First-run onboarding, Memory panel, Skills panel and Settings (microphone choice, tools, privacy, models); Skills and Settings need backend routes that are not built yet, so they show an error unless you add `?mock`
+- [x] First-run onboarding, Memory panel, Skills panel and Settings (microphone choice, tools, privacy, models), all backed by live routes; the recorded demo shows sample data
 - [x] `eval/`: 50 scripted turn-taking scenarios (decision logic only; run `backend/.venv/bin/python eval/interruptions.py`). End-to-end latency with the real speech engine is not measured yet
 - [ ] Demo video
 - [ ] More languages, including low-resource languages

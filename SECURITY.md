@@ -111,7 +111,8 @@ Prompt injection is still considered an unsolved, architectural problem for AI a
 ### T10. Privacy of recordings and transcripts
 - Raw audio is **not stored** by default. Opt-in recording stores files only on the user's device.
 - Transcripts are kept in memory for the session and discarded when it ends, unless the user saves the conversation.
-- Server logs contain metadata (timings, tool names), not transcript text, unless debug mode is on locally.
+- Server logs contain metadata (timings, tool names), not transcript text, unless the user turns on Settings > Privacy > "Show transcripts in logs" (off by default; meant for debugging).
+- Opt-in recording ("Save recordings on this device") keeps the user's own microphone audio in the browser only; it is downloaded as a file and never uploaded.
 - "Forget everything" deletes all memories and local data in one action.
 
 ## 5. Security requirements checklist
