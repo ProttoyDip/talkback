@@ -192,6 +192,7 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
         name: event.name,
         status: event.status,
         sources: event.sources,
+        citations: event.citations,
         actionId: event.action_id,
         undoable: event.undoable,
       }

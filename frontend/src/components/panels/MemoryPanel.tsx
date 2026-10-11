@@ -4,7 +4,10 @@ import type { ActionItem, MemoryItem } from '../../api/types'
 import { useResource } from '../../api/useResource'
 import { Icon } from '../Icon'
 import { SettingsToggleRow } from '../SettingsToggleRow'
+import { Documents, Projects } from './Library'
 import { iconButton, ResourceView, secondaryButton } from './shared'
+
+const TABS = { memories: 'Memories', documents: 'Documents', projects: 'Projects', activity: 'Activity' } as const
 
 /** Where a memory's words came from (SECURITY.md T3: shown so wrong ones are easy to spot). */
 function SourceLine({ item }: { item: MemoryItem }) {
@@ -219,12 +222,12 @@ function Activity({ refreshKey }: { refreshKey?: string }) {
 
 /** design.md 5.3. `refreshKey` changes when TalkBack saves or changes memories by voice. */
 export function MemoryPanel({ refreshKey }: { refreshKey?: string }) {
-  const [tab, setTab] = useState<'memories' | 'activity'>('memories')
+  const [tab, setTab] = useState<keyof typeof TABS>('memories')
   const tabs = useId()
   return (
     <div className="flex min-h-full flex-col gap-4">
-      <div role="tablist" aria-label="Memory" className="flex gap-2">
-        {(['memories', 'activity'] as const).map((name) => (
+      <div role="tablist" aria-label="Memory" className="flex flex-wrap gap-2">
+        {(Object.keys(TABS) as Array<keyof typeof TABS>).map((name) => (
           <button
             key={name}
             type="button"
@@ -237,12 +240,15 @@ export function MemoryPanel({ refreshKey }: { refreshKey?: string }) {
               tab === name ? 'border-voice-assistant text-text' : 'border-border text-text-muted hover:text-text'
             }`}
           >
-            {name === 'memories' ? 'Memories' : 'Activity'}
+            {TABS[name]}
           </button>
         ))}
       </div>
       <div role="tabpanel" id={`${tabs}-panel`} aria-labelledby={`${tabs}-${tab}`} className="flex flex-1 flex-col">
-        {tab === 'memories' ? <Memories refreshKey={refreshKey} /> : <Activity refreshKey={refreshKey} />}
+        {tab === 'memories' && <Memories refreshKey={refreshKey} />}
+        {tab === 'documents' && <Documents refreshKey={refreshKey} />}
+        {tab === 'projects' && <Projects refreshKey={refreshKey} />}
+        {tab === 'activity' && <Activity refreshKey={refreshKey} />}
       </div>
     </div>
   )

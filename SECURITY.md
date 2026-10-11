@@ -44,6 +44,7 @@ Prompt injection is still considered an unsolved, architectural problem for AI a
 - Tool results can **never** write memory or trigger other tools on their own (see T3).
 - Only a short, sanitized excerpt (titles, URLs, snippets, max 2,000 characters per result) reaches the model. HTML, scripts and hidden text are stripped.
 - Sensitive actions always require user confirmation (see T5).
+- Uploaded documents and saved project notes are treated the same way (plan P8): `docs_search` and `project_search` results are wrapped as untrusted data, and a turn that read them cannot suggest memories or accept a spoken "yes" (the button only). A project note may cite only links that appeared in that conversation's web results. Uploads are checked by content (PDF, TXT, Markdown; 5 MB, 50 pages, 20 per user), never written to disk, and searched only within their owner's passages (the Supabase `match_chunks` function is not callable by browsers).
 
 ### T2. Audio prompt injection
 *Hidden or background audio (a video, a podcast, an ultrasonic carrier, another person) issues commands.*

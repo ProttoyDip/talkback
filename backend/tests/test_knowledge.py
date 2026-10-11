@@ -277,3 +277,11 @@ def test_projects_rest(client, token):
     assert [p["name"] for p in client.get("/api/projects", headers=auth(token)).json()["items"]] == ["Heat pumps"]
     assert client.delete(f"/api/projects/{project_id}", headers=auth(token)).status_code == 204
     assert client.get(f"/api/projects/{project_id}", headers=auth(token)).status_code == 404
+
+
+def test_a_document_deleted_while_it_is_read_leaves_no_passages(settings):
+    store = Knowledge(lambda t: repo(settings, t, "local"), "local", WordEmbedder())
+    item, kind = store.add_document("a.txt", b"short lived text")
+    assert store.delete_document(item.id)
+    asyncio.run(store.ingest(item.id, kind, b"short lived text"))
+    assert repo(settings, "knowledge_chunks", "local").select() == []

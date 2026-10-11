@@ -8,9 +8,12 @@ import { mockRequest } from './mock'
 import { requestSession } from './session'
 import type {
   ActionItem,
+  DocumentItem,
   EventItem,
   MemoryItem,
   MemoryUpdate,
+  ProjectDetail,
+  ProjectItem,
   ReminderItem,
   SettingsUpdate,
   SettingsView,
@@ -90,6 +93,28 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T)
 }
 
+/** An upload (multipart): the server's reason comes back as plain words ("Files can be up to 5 MB."). */
+async function upload<T>(path: string, file: File): Promise<T> {
+  if (USE_MOCK) return mockRequest<T>('POST', path, { name: file.name, size: file.size })
+  const form = new FormData()
+  form.append('file', file)
+  let response: Response
+  try {
+    response = await fetch(path, { method: 'POST', headers: { Authorization: `Bearer ${await token()}` }, body: form })
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    throw new ApiError(0, 'Could not reach the server.')
+  }
+  if (!response.ok) {
+    const detail = await response
+      .json()
+      .then((body: { detail?: unknown }) => (typeof body.detail === 'string' ? body.detail : undefined))
+      .catch(() => undefined)
+    throw new ApiError(response.status, detail ?? 'The server could not add this file.')
+  }
+  return (await response.json()) as T
+}
+
 export const api = {
   listMemories: (q: string, history = false) =>
     request<{ items: MemoryItem[] }>(
@@ -154,5 +179,14 @@ export const api = {
   choosePlanItems: (id: string, items: number[]) =>
     request<void>('POST', `/api/plans/${encodeURIComponent(id)}/choose`, { items }),
   cancelReminder: (id: string) => request<void>('DELETE', `/api/reminders/${encodeURIComponent(id)}`),
+  listDocuments: () => request<{ items: DocumentItem[] }>('GET', '/api/documents').then((r) => r.items),
+  uploadDocument: (file: File) => upload<DocumentItem>('/api/documents', file),
+  deleteDocument: (id: string) => request<void>('DELETE', `/api/documents/${encodeURIComponent(id)}`),
+  listProjects: () => request<{ items: ProjectItem[] }>('GET', '/api/projects').then((r) => r.items),
+  createProject: (name: string) => request<ProjectItem>('POST', '/api/projects', { name }),
+  getProject: (id: string) => request<ProjectDetail>('GET', `/api/projects/${encodeURIComponent(id)}`),
+  deleteProject: (id: string) => request<void>('DELETE', `/api/projects/${encodeURIComponent(id)}`),
+  deleteNote: (projectId: string, noteId: string) =>
+    request<void>('DELETE', `/api/projects/${encodeURIComponent(projectId)}/notes/${encodeURIComponent(noteId)}`),
   updateSettings: (update: SettingsUpdate) => request<SettingsView>('PATCH', '/api/settings', update),
 }

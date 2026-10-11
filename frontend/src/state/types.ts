@@ -1,4 +1,4 @@
-import type { ToolCallStatus, ToolName } from '../session/protocol'
+import type { Citation, ToolCallStatus, ToolName } from '../session/protocol'
 
 /** Conversation states from docs/design.md, section 6. */
 export type ConversationState =
@@ -42,6 +42,8 @@ export interface ToolCall {
   name: ToolName
   status: ToolStatus
   sources?: Source[]
+  /** Document or project passages the answer used (plan P8). */
+  citations?: Citation[]
   /** The change this call made, and whether it can be undone (Activity). */
   actionId?: string
   undoable?: boolean

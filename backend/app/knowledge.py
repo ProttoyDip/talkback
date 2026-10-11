@@ -197,7 +197,10 @@ class Knowledge:
                 raise DocumentProblem(422, "No text found. Is it a scan?")
             await self._index("document", document_id, None, pieces)
             pages = len(parts) if kind == "pdf" else None
-            await asyncio.to_thread(repo.update, document_id, {"status": "ready", "chunks": len(pieces), "pages": pages})
+            if await asyncio.to_thread(repo.update, document_id, {"status": "ready", "chunks": len(pieces), "pages": pages}) is None:
+                # Deleted while it was being read: drop what was just indexed.
+                await asyncio.to_thread(
+                    self.tables("knowledge_chunks").delete_where, {"kind": "document", "source_id": document_id})
         except DocumentProblem as problem:
             await asyncio.to_thread(repo.update, document_id, {"status": "failed", "error": problem.message})
         except Exception as exc:
