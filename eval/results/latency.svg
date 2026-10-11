@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="154" viewBox="0 0 760 154" font-family="system-ui, sans-serif" font-size="12">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="8" y="16" fill="#333">Warm latency, milliseconds (bar: p50, light extension: p95)</text>
+<text x="8" y="43" fill="#333">Local server: Spoken question → first audio</text>
+<rect x="300" y="32" width="420.0" height="16" fill="#9ecae1"/>
+<rect x="300" y="32" width="405.6" height="16" fill="#2171b5"/>
+<text x="726.0" y="44" fill="#333">1977 / 2047</text>
+<text x="8" y="77" fill="#333">Local server: Typed question → first audio</text>
+<rect x="300" y="66" width="313.1" height="16" fill="#9ecae1"/>
+<rect x="300" y="66" width="241.1" height="16" fill="#2171b5"/>
+<text x="619.1" y="78" fill="#333">1175 / 1526</text>
+<text x="8" y="111" fill="#333">Local server: &quot;Wait, stop&quot; → audio stops</text>
+<rect x="300" y="100" width="334.0" height="16" fill="#9ecae1"/>
+<rect x="300" y="100" width="321.3" height="16" fill="#2171b5"/>
+<text x="640.0" y="112" fill="#333">1566 / 1628</text>
+</svg>

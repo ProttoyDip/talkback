@@ -1,0 +1,199 @@
+{
+  "meta": {
+    "target": "local",
+    "url": "http://127.0.0.1:8000",
+    "date": "2026-10-11",
+    "commit": "1e4cace",
+    "runs": 3
+  },
+  "summary": {
+    "latency_ms": {
+      "question": {
+        "p50": 1977,
+        "p95": 2047,
+        "n": 3
+      },
+      "typed": {
+        "p50": 1175,
+        "p95": 1526,
+        "n": 3
+      },
+      "barge_in": {
+        "p50": 1566,
+        "p95": 1628,
+        "n": 3
+      }
+    },
+    "recovery": {
+      "barge_in": 1.0,
+      "backchannel": 1.0,
+      "cancel_tool": 1.0
+    },
+    "outdated_actions": 0,
+    "runs": {
+      "question": {
+        "ok": 3,
+        "total": 3
+      },
+      "typed": {
+        "ok": 3,
+        "total": 3
+      },
+      "barge_in": {
+        "ok": 3,
+        "total": 3
+      },
+      "backchannel": {
+        "ok": 3,
+        "total": 3
+      },
+      "cancel_tool": {
+        "ok": 3,
+        "total": 3
+      }
+    }
+  },
+  "results": [
+    {
+      "scenario": "question",
+      "ok": true,
+      "ms": 1976.915300001565,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "heard": "What is the capital of Australia?"
+      }
+    },
+    {
+      "scenario": "typed",
+      "ok": true,
+      "ms": 1174.891699993168,
+      "note": "",
+      "outdated_action": false,
+      "details": {}
+    },
+    {
+      "scenario": "barge_in",
+      "ok": true,
+      "ms": 1627.6476999992155,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "heard_words": 7
+      }
+    },
+    {
+      "scenario": "backchannel",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {}
+    },
+    {
+      "scenario": "cancel_tool",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "said": "Tokyo ",
+        "stopped": true
+      }
+    },
+    {
+      "scenario": "question",
+      "ok": true,
+      "ms": 2047.3796000005677,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "heard": "What is the capital of Australia?"
+      }
+    },
+    {
+      "scenario": "typed",
+      "ok": true,
+      "ms": 941.8392000006861,
+      "note": "",
+      "outdated_action": false,
+      "details": {}
+    },
+    {
+      "scenario": "barge_in",
+      "ok": true,
+      "ms": 1566.3688000058755,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "heard_words": 8
+      }
+    },
+    {
+      "scenario": "backchannel",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {}
+    },
+    {
+      "scenario": "cancel_tool",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "said": "Tokyo ",
+        "stopped": true
+      }
+    },
+    {
+      "scenario": "question",
+      "ok": true,
+      "ms": 1676.4060000059544,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "heard": "What is the capital of Australia?"
+      }
+    },
+    {
+      "scenario": "typed",
+      "ok": true,
+      "ms": 1526.1836999998195,
+      "note": "",
+      "outdated_action": false,
+      "details": {}
+    },
+    {
+      "scenario": "barge_in",
+      "ok": true,
+      "ms": 911.5041999975801,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "heard_words": 4
+      }
+    },
+    {
+      "scenario": "backchannel",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {}
+    },
+    {
+      "scenario": "cancel_tool",
+      "ok": true,
+      "ms": null,
+      "note": "",
+      "outdated_action": false,
+      "details": {
+        "said": "",
+        "stopped": true
+      }
+    }
+  ]
+}

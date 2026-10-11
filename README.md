@@ -273,7 +273,28 @@ These use synthetic audio frames, so they do not include speech recognition, mod
 `eval/run_e2e.py` talks to a running server the way the browser does: it streams real spoken audio (made once with NVIDIA Magpie TTS by `eval/audio_fixtures.py`) in 20 ms frames, plays TalkBack's replies in simulated real time and reports what was heard. Each run starts with an unmeasured warm-up question. Times are measured from the last (or, for "Wait, stop", the first) frame of the user's speech. Echo of TalkBack's own voice is not simulated.
 
 <!-- eval:start -->
+
+| Latency, warm (p50 / p95) | Local server |
+|---|---|
+| Spoken question → first audio | 1977 / 2047 ms |
+| Typed question → first audio | 1175 / 1526 ms |
+| "Wait, stop" → audio stops | 1566 / 1628 ms |
+
+| Recovery | Local server |
+|---|---|
+| Stops when interrupted | 3 of 3 |
+| Keeps talking through "uh-huh" | 3 of 3 |
+| Correction during a confirmation | — |
+| "Never mind" during a tool call | 3 of 3 |
+| Outdated actions (a corrected change that happened anyway) | 0 |
+
+Runs: Local server 2026-10-11, commit `1e4cace`, 3 per scenario ([details](eval/results/2026-10-11-1912-1e4cace-local.md)).
+
+![Warm latency chart](eval/results/latency.svg)
+
 <!-- eval:end -->
+
+Not in the table yet: **a correction during a confirmation** ("Remind me … at nine", then "No wait, make it ten"). It failed in all 3 runs of the first full run (12 October): the model replied as if it had set the reminder but never called the tool, so no confirmation was asked. That is being fixed; nothing outdated was ever saved.
 
 ```bash
 backend/.venv/Scripts/python eval/audio_fixtures.py                 # once
@@ -286,7 +307,7 @@ backend/.venv/Scripts/python eval/report.py                         # updates th
 - [x] FastAPI backend: `/health`, session tokens, validated WebSocket gateway
 - [ ] Audio streaming in 20 ms frames between the browser and the voice model
 - [ ] NemotronLabs VoiceChat on an NVIDIA H100 on Nebius AI Cloud
-- [x] Interruption handling in the gateway: energy-based voice detection (Silero is not used yet), 250 ms minimum speech, backchannel rule, history trimmed at the playback position. Tested with scripted audio only
+- [x] Interruption handling in the gateway: energy-based voice detection (Silero is not used yet), 250 ms minimum speech, backchannel rule, history trimmed at the playback position. Tested with scripted frames and with real speech (`eval/run_e2e.py`)
 - [x] Conversation controller: filler words ("umm") are not answered, unfinished sentences wait briefly, short reactions are read in context (English only)
 - [x] Nemotron tool calls (Nebius first, then backup providers) with weather, web search and memory tools
 - [x] Spoken filler during slow tool calls

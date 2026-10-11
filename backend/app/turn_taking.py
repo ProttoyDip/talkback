@@ -77,6 +77,8 @@ class EnergyVad:
 BACKCHANNELS = frozenset(
     {
         "mm", "mmm", "mhm", "mm-hm", "mmhm", "uh-huh", "uhhuh", "hmm", "hm",
+        # How the recognizer (Parakeet) writes them: "uh huh", "aha" (found with real audio).
+        "uh huh", "uh", "aha", "ah ha",
         "yeah", "yep", "yup", "ok", "okay", "right", "sure", "alright", "all right",
         "i see", "got it", "cool", "great", "nice", "oh", "ah", "wow",
     }

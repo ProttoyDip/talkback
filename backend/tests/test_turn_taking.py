@@ -338,3 +338,11 @@ def test_vad_hangover_does_not_lengthen_the_speech():
     run(vad, 5000, 22)  # a 440 ms "mm-hm"
     longest = max(run(vad, 0, 1).speech_ms for _ in range(15))
     assert longest <= 440  # so it stays under the 600 ms backchannel limit
+
+
+def test_backchannels_as_the_recognizer_writes_them():
+    from app.turn_taking import is_backchannel
+
+    for text in ("Uh huh.", "uh huh", "uh", "Aha.", "Mm hm."):
+        assert is_backchannel(text), text
+    assert not is_backchannel("uh, stop")
