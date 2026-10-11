@@ -115,18 +115,28 @@ KNOWLEDGE_WORDS = re.compile(
     re.IGNORECASE,
 )
 ACTION_REQUESTS = (
-    ("reminder_set", re.compile(r"\b(?:remind me|set (?:a )?reminder|create (?:a )?reminder)\b", re.IGNORECASE)),
+    # "Remind me to/at/tomorrow…", not "remind me what the capital is" (a question).
+    ("reminder_set", re.compile(
+        r"\b(?:remind me (?:to|at|in|on|about|tomorrow|tonight|today|this|next|every)|"
+        r"set (?:a |an )?reminder|create (?:a |an )?reminder|add (?:a |an )?reminder)\b",
+        re.IGNORECASE,
+    )),
     (
         "task_add",
+        # "Add buy milk to my list", "add a task to…"; not "make a list of tasks for my trip".
         re.compile(
-            r"\b(?:add|create|make|put)\b.{0,80}\b(?:tasks?|to-?dos?|my list)\b|"
-            r"\b(?:tasks?|to-?dos?)\b.{0,80}\b(?:add|create|make|put)\b",
+            r"\b(?:add|create|put)\b.{0,80}\b(?:to my (?:list|tasks|to-?dos?)|as a task|a task|a to-?do)\b|"
+            r"\bnew (?:task|to-?do)\b",
             re.IGNORECASE,
         ),
     ),
 )
+# Positive completion claims only: "I won't set it" or "nothing was saved"
+# after a decline are honest and must stay (found in review).
 ACTION_CLAIM = re.compile(
-    r"\b(?:i(?:'ll| will) remind you|added|saved|set|scheduled|created)\b",
+    r"\b(?:i(?:'ll| will) remind you|i(?:'ve| have) (?:set|added|saved|scheduled|created)|i (?:added|saved|scheduled|created)|"
+    r"(?:is|has been|have been|are) (?:now )?(?:set|added|saved|scheduled|created)|"
+    r"(?:reminder|task) (?:set|added|saved|created)|all set|done)\b",
     re.IGNORECASE,
 )
 MAX_HISTORY_TURNS = 20

@@ -148,3 +148,26 @@ def test_declining_with_a_correction_carries_the_skill_and_tool_forward():
     assert engine.skill_next is skill
     assert engine.action_tool_next == "reminder_set"
     assert engine.user_turns.get_nowait() == ("make it ten.", False)
+
+
+def test_only_real_action_requests_force_a_tool():
+    from app.cascade_engine import _required_action_tool
+
+    tools = [{"name": "reminder_set"}, {"name": "task_add"}]
+    assert _required_action_tool("Remind me to call mom tomorrow at nine", tools) == "reminder_set"
+    assert _required_action_tool("Set a reminder for 9 am", tools) == "reminder_set"
+    assert _required_action_tool("Add buy milk to my list", tools) == "task_add"
+    assert _required_action_tool("Add a task to call the bank", tools) == "task_add"
+    for question in ("Remind me what the capital of Australia is", "Remind me, what's the weather?",
+                     "Make a list of tasks for my trip", "What tasks do I have?"):
+        assert _required_action_tool(question, tools) is None, question
+
+
+def test_a_decline_is_not_called_a_failure():
+    from app.cascade_engine import _claims_action
+
+    for honest in ("Okay, I won't set it.", "Nothing was saved.", "Okay, I didn't add it.", "What time should I set?"):
+        assert not _claims_action(honest), honest
+    for claim in ("I'll remind you at 9.", "I've set the reminder.", "Your task has been added.", "Reminder set.",
+                  "All set!"):
+        assert _claims_action(claim), claim
