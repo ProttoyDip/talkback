@@ -86,6 +86,7 @@ class ToolBridge:
         self.user_id = "local"
         # Turns that saw web results: they may not suggest memories (SECURITY.md T1, T3).
         self.tainted: set[str] = set()
+        self.pending_summaries: dict[str, str] = {}  # call id -> the card's summary (plan P7)
         self.finishing: dict[str, asyncio.Task] = {}  # changes running now
         self.abandoned: set[str] = set()  # ...whose turn was cancelled; they report themselves
         self.applied: set[str] = set()  # changes that finished (the race with a cancel)
@@ -211,6 +212,7 @@ class ToolBridge:
         if error is None and asks:
             future = asyncio.get_running_loop().create_future()
             self.pending[call_id] = (future, self.clock() + self.confirmation_timeout)
+            self.pending_summaries[call_id] = summary
             try:
                 details = tool.confirmation_details(arguments) if tool.confirmation_details else []
                 await self.emit(ToolConfirmRequest(
@@ -221,6 +223,7 @@ class ToolBridge:
                 error = "confirmation_timeout"
             finally:
                 self.pending.pop(call_id, None)
+                self.pending_summaries.pop(call_id, None)
         if error is None and (self.closed or call.name not in self.enabled):
             error = "disabled_tool"
         if error is None and is_current is not None and not is_current():

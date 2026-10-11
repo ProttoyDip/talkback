@@ -40,6 +40,15 @@ TABLES: dict[str, Table] = {
         frozenset({"date", "status", "items", "chosen", "message_id", "expires_at", "created_at", "updated_at"}),
         frozenset({"items", "chosen"}),
     ),
+    # What to pick up in a later conversation (plan P7).
+    "conversation_states": Table(
+        "conversation_states",
+        frozenset({
+            "session_id", "goal", "decisions", "pending", "tools_used", "recent_turns", "status", "closed_at",
+            "created_at", "updated_at",
+        }),
+        frozenset({"decisions", "pending", "tools_used", "recent_turns"}),
+    ),
     "user_skills": Table(
         "user_skills",
         frozenset({"name", "triggers", "allowed_tools", "instructions", "summary", "enabled", "created_at", "updated_at"}),
@@ -160,5 +169,15 @@ SQLITE_MIGRATIONS: list[str] = [
         created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
     CREATE INDEX proposals_user ON proposals (user_id, date, status);
+    """,
+    # 6: resume an unfinished conversation (plan P7).
+    """
+    CREATE TABLE conversation_states (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, session_id TEXT NOT NULL, goal TEXT NOT NULL,
+        decisions TEXT, pending TEXT, tools_used TEXT, recent_turns TEXT,
+        status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'resumed', 'dismissed')),
+        closed_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE INDEX conversation_states_user ON conversation_states (user_id, status, updated_at);
     """,
 ]

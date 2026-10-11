@@ -8,6 +8,7 @@ from .auth import Claims, session_claims
 from .config import Settings, get_settings
 from .memory import MemoryStore
 from .protocol import Id, MemoryItem, MemoryList, MemoryUpdate
+from . import resume
 from .actions import ActionLedger
 from .stores import memory_store, repo
 
@@ -82,4 +83,6 @@ def forget_everything(store: Store, ledger: Ledger) -> Response:
             undo={"op": "memory.restore", "rows": rows},
         )
         ledger.forget_history(keep=action["id"])  # only this undo keeps a copy, for 24 hours
+    # Saved conversation states can hold memory text too (plan P7).
+    resume.forget(ledger.tables("conversation_states"))
     return Response(status_code=204)

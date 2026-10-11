@@ -43,8 +43,11 @@ from .protocol import (
     TranscriptTrim,
     client_message,
     TextInput,
+    SessionResume,
 )
-from .stores import prefs_store
+from . import resume
+from .timeutil import iso, now_utc
+from .stores import prefs_store, repo
 from .tokens import verify_token
 from .turn_taking import BargeInDecider, EnergyVad, heard_split, is_backchannel
 from .voice_engine import (
@@ -156,6 +159,8 @@ class Session:
         self.vad = EnergyVad()
         self.decider = BargeInDecider()  # start_engine applies the user's setting
         self.log_transcripts = False  # start_engine applies the user's setting
+        self.resume_on, self.keep_turns = False, False  # start_engine applies the user's settings (plan P7)
+        self.opened_at = iso(now_utc())  # only this conversation's plans count when resuming
         self.interim_user_text = ""
         self.last_text_input = -1.0  # loop time of the last typed turn (1 per second)
         self.overlapping = False
@@ -196,6 +201,7 @@ class Session:
         # The user's Interruptions setting applies when a session starts.
         self.decider = BargeInDecider.for_sensitivity(prefs.interrupt_sensitivity)
         self.log_transcripts = self.settings.allow_transcript_logs and prefs.transcripts_in_logs
+        self.resume_on, self.keep_turns = prefs.resume_sessions, prefs.keep_recent_turns
         choice = await asyncio.to_thread(self.engine_factory, self.settings, self.user_id, prefs)
         self.engine_choice = choice
         if choice.problem:
@@ -369,7 +375,47 @@ class Session:
         self.turn_epoch += 1
         await self.send(StateEvent(state="idle"))
 
+    # Resume (plan P7)
+
+    def _tables(self):
+        return lambda table: repo(self.settings, table, self.user_id)
+
+    async def offer_resume(self) -> None:
+        if self.settings is None or self.engine is None or not self.resume_on:
+            return
+        found = await asyncio.to_thread(resume.offer, self._tables()("conversation_states"), self.session_id)
+        if found is not None:
+            await self.send(found)
+
+    async def answer_resume(self, state_id: str, accept: bool) -> None:
+        if self.settings is None:
+            return
+        if accept and not hasattr(self.engine, "resume"):
+            return  # this engine cannot continue: the state stays open for one that can
+        row = await asyncio.to_thread(
+            resume.answer, self._tables()("conversation_states"), state_id, accept, self.session_id,
+        )
+        if row is not None and accept:
+            self.engine.resume(
+                resume.context_note(row), row.get("recent_turns"), goal=row["goal"], pending=row.get("pending") or [],
+            )
+
+    async def save_resume_state(self) -> None:
+        engine = self.engine
+        if self.settings is None or engine is None or not self.resume_on or not getattr(engine, "goal", None):
+            return
+        tables = self._tables()
+        try:
+            await asyncio.to_thread(
+                resume.save_state, tables("conversation_states"), tables("actions"), tables("proposals"),
+                session_id=self.session_id, goal=engine.goal, waiting_for=engine.waiting_for(),
+                recent=engine.recent_turns() if self.keep_turns else None, since=self.opened_at,
+            )
+        except Exception:
+            log.warning("conversation state not saved", extra={"session_id": self.session_id})
+
     async def close(self) -> None:
+        await self.save_resume_state()  # before the engine forgets what was open
         for task in list(self.tasks):
             task.cancel()
         await asyncio.gather(*self.tasks, return_exceptions=True)
@@ -397,6 +443,7 @@ class Session:
                 self.started = True
                 await self.send(StateEvent(state="idle"))
                 await self.start_engine()
+                await self.offer_resume()
             case ControlMute(muted=muted):
                 self.require_started()
                 self.muted = muted
@@ -407,6 +454,9 @@ class Session:
             case ControlStop():
                 self.require_started()
                 await self.interrupt_assistant("stopped")
+            case SessionResume(state_id=state_id, accept=accept):
+                self.require_started()
+                await self.answer_resume(state_id, accept)
             case TextInput(text=text):
                 self.require_started()
                 await self.on_text_input(text)

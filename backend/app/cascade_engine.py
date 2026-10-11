@@ -156,6 +156,8 @@ class CascadeEngine:
         self.ledger = ledger  # the user's action history: saves can be undone
         self.timezone = timezone  # for "tomorrow at 3" (plan P5)
         self.plan_turns_left = 0  # turns that still offer the planning tools
+        self.goal: str | None = None  # the first real request, in the user's words (plan P7)
+        self.carried: list[str] = []  # open items from a conversation this one continues
         self.next_typed = False  # the input being handled was typed, not said
         self.held_typed = False  # the held (unfinished) turn includes typed words
         self.skills = skills or []
@@ -362,6 +364,31 @@ class CascadeEngine:
         """Stop pressed while TalkBack is thinking or running a tool."""
         self._cancel_reply(reason)
 
+    def waiting_for(self) -> list[str]:
+        """A question still open (a confirmation), for resuming later."""
+        waiting = list(self.carried)
+        if self.bridge is not None and self.bridge.pending_call() is not None:
+            summary = self.bridge.pending_summaries.get(self.bridge.pending_call())
+            if summary:
+                waiting.append(f"Waiting for your OK: {summary}")
+        return waiting
+
+    def recent_turns(self) -> list[dict]:
+        """What was said and heard (heard words only), for "keep the last 6 turns"."""
+        return [{"role": t["role"], "content": t["content"]} for t in self.history if t.get("content")]
+
+    def resume(self, note: str, recent: list[dict] | None, *, goal: str | None = None,
+               pending: list[str] | None = None) -> None:
+        """Continue an earlier conversation: its facts as a note, and its turns if kept.
+
+        The goal and open items carry forward, so leaving again keeps them.
+        """
+        self.notes.append(note)
+        if recent:
+            self.history = [*recent, *self.history]
+        self.goal = self.goal or goal
+        self.carried = list(pending or [])
+
     async def announce(self, text: str) -> None:
         """Say something the server started (a due reminder), unless TalkBack is answering."""
         if self.reply is not None and not self.reply.done():
@@ -507,6 +534,11 @@ class CascadeEngine:
 
     async def _answer(self, user_text: str, typed: bool = False) -> None:
         generation = self.generation
+        if self.goal is None:
+            if self.skill_next is not None:
+                self.goal = f"Run {self.skill_next.name}"
+            elif len(user_text.split()) >= 3:
+                self.goal = user_text[:200]
         self.current_request = user_text
         self.reply_speaking = False
         self.history.append({"role": "user", "content": user_text})
