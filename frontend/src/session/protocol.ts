@@ -13,6 +13,16 @@ export type ToolName =
   | 'memory_delete'
   | 'memory_suggest'
   | 'skill_run'
+  | 'task_list'
+  | 'task_add'
+  | 'task_update'
+  | 'task_delete'
+  | 'calendar_list'
+  | 'calendar_add'
+  | 'calendar_update'
+  | 'calendar_delete'
+  | 'reminder_set'
+  | 'reminder_update'
 
 /**
  * declined: the user said no or did not answer; cancelled: stopped before it ran;
@@ -28,6 +38,8 @@ export type ToolStatusReason =
   | 'interrupted'
   | 'session_closed'
   | 'already_done'
+
+import type { ReminderItem } from '../api/types'
 
 export const CLIENT_SAMPLE_RATE = 16_000
 export const SERVER_SAMPLE_RATE = 22_050
@@ -111,6 +123,8 @@ export type ServerEvent =
       summary: string
       message_id?: string
       name?: ToolName
+      /** More lines for the card (a day plan). */
+      details?: string[]
       expires_in_ms?: number
     }
   | {
@@ -123,7 +137,9 @@ export type ServerEvent =
       action_id?: string
     }
   /** Stored data changed by voice: open panels reload. */
-  | { type: 'data.changed'; kinds: Array<'memories' | 'actions'> }
+  | { type: 'data.changed'; kinds: Array<'memories' | 'actions' | 'tasks' | 'calendar' | 'reminders' | 'skills'> }
+  /** A reminder is due now (plan P5). */
+  | { type: 'reminder.due'; reminder: ReminderItem }
   | { type: 'metrics'; latency_ms: number }
   | { type: 'error'; code: ErrorCode; message: string; retry_in_ms?: number }
   | { type: 'model.active'; role: ModelRole; provider: ProviderId; model: string; backup: boolean }
@@ -139,6 +155,7 @@ const SERVER_EVENT_TYPES = new Set<ServerEvent['type']>([
   'tool.confirm_request',
   'memory.saved',
   'data.changed',
+  'reminder.due',
   'metrics',
   'error',
   'model.active',

@@ -2,6 +2,7 @@
  * Conversation model: a pure reducer from session events to what the screen
  * shows. No timers, no I/O, so it is easy to test against the shared fixture.
  */
+import type { ReminderItem } from '../api/types'
 import type { ConfirmRequest, ConversationState, Segment, ToolCall, Turn } from '../state/types'
 import type { ErrorCode, ModelRole, ProviderId, ServerEvent, SessionEndReason, ToolName } from './protocol'
 
@@ -55,6 +56,8 @@ export interface ConversationModel {
   remembered?: Remembered
   /** Bumped by data.changed: open panels reload. */
   dataVersion: number
+  /** The last reminder that came due (reminder.due), for its toast. */
+  reminder?: ReminderItem
   /**
    * Where the user started talking over TalkBack: the playing turn and its
    * text length at that moment. A backchannel caption arrives after the
@@ -214,6 +217,9 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
 
     case 'data.changed':
       return { ...model, dataVersion: model.dataVersion + 1 }
+
+    case 'reminder.due':
+      return { ...model, reminder: event.reminder }
 
     case 'error':
       return {

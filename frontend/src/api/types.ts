@@ -53,6 +53,10 @@ export interface SkillItem {
   allowed_tools: ToolName[]
   /** One plain sentence: what the skill does and what to say. */
   summary?: string
+  /** Built-in skills are read-only (but can be copied). */
+  builtin?: boolean
+  enabled?: boolean
+  instructions?: string | null
 }
 
 export interface ProviderInfo {
@@ -88,6 +92,8 @@ export interface ToolSetting {
 }
 
 export interface SettingsView {
+  /** IANA time zone for tasks, calendar and reminders. */
+  timezone?: string
   tools: Partial<Record<ToolName, ToolSetting>>
   save_recordings: boolean
   transcripts_in_logs: boolean
@@ -104,4 +110,49 @@ export interface SettingsUpdate {
   answer_length?: AnswerLength
   planner_model?: string
   providers?: Partial<Record<ProviderId, boolean>>
+  timezone?: string
+}
+
+// Tasks, calendar and reminders (plan P5). Times are ISO 8601 with an offset.
+
+export interface TaskItem {
+  id: string
+  title: string
+  notes?: string | null
+  status: 'open' | 'done' | 'cancelled'
+  due_at?: string | null
+  priority: 'low' | 'normal' | 'high'
+  created_at: string
+  updated_at?: string | null
+  completed_at?: string | null
+}
+
+export interface EventItem {
+  id: string
+  title: string
+  starts_at: string
+  ends_at: string
+  kind: 'block' | 'meeting' | 'focus' | 'personal'
+  status: 'confirmed' | 'cancelled'
+  task_id?: string | null
+  created_at: string
+  updated_at?: string | null
+}
+
+export interface ReminderItem {
+  id: string
+  text: string
+  due_at: string
+  status: 'scheduled' | 'delivered' | 'acknowledged' | 'cancelled' | 'missed'
+  delivered_at?: string | null
+  snooze_count: number
+  created_at: string
+}
+
+export interface SkillCreate {
+  name: string
+  triggers: string[]
+  allowed_tools: ToolName[]
+  instructions: string
+  summary?: string | null
 }

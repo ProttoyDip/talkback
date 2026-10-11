@@ -3,6 +3,7 @@ import { useId, useState } from 'react'
 import type { ToolCall } from '../state/types'
 import { enter, exit } from '../styles/motion'
 import { api } from '../api/client'
+import { TOOL_LABEL } from './panels/toolLabels'
 import { Icon, type IconName } from './Icon'
 
 const RUNNING_COPY: Record<ToolCall['name'], string> = {
@@ -12,6 +13,16 @@ const RUNNING_COPY: Record<ToolCall['name'], string> = {
   memory_write: 'Saving to memory…',
   memory_delete: 'Deleting a memory…',
   memory_suggest: 'Suggesting a memory…',
+  task_list: 'Checking your tasks…',
+  task_add: 'Adding the task…',
+  task_update: 'Updating the task…',
+  task_delete: 'Deleting the task…',
+  calendar_list: 'Checking your calendar…',
+  calendar_add: 'Adding to your calendar…',
+  calendar_update: 'Moving the calendar block…',
+  calendar_delete: 'Removing the calendar block…',
+  reminder_set: 'Setting the reminder…',
+  reminder_update: 'Changing the reminder…',
   skill_run: 'Running a skill…',
 }
 
@@ -22,6 +33,16 @@ const FAILED_COPY: Record<ToolCall['name'], string> = {
   memory_write: "Couldn't save to memory",
   memory_delete: "Couldn't delete the memory",
   memory_suggest: "Couldn't save the suggestion",
+  task_list: "Couldn't read your tasks",
+  task_add: "Couldn't add the task",
+  task_update: "Couldn't update the task",
+  task_delete: "Couldn't delete the task",
+  calendar_list: "Couldn't read your calendar",
+  calendar_add: "Couldn't add to your calendar",
+  calendar_update: "Couldn't move the calendar block",
+  calendar_delete: "Couldn't remove the calendar block",
+  reminder_set: "Couldn't set the reminder",
+  reminder_update: "Couldn't change the reminder",
   skill_run: "Couldn't finish the skill",
 }
 
@@ -31,6 +52,16 @@ const DONE_COPY: Record<Exclude<ToolCall['name'], 'web_search'>, string> = {
   memory_write: 'Saved to memory',
   memory_delete: 'Memory deleted',
   memory_suggest: 'Suggested a memory for your OK',
+  task_list: 'Checked your tasks',
+  task_add: 'Task added',
+  task_update: 'Task updated',
+  task_delete: 'Task deleted',
+  calendar_list: 'Checked your calendar',
+  calendar_add: 'Added to your calendar',
+  calendar_update: 'Calendar block moved',
+  calendar_delete: 'Calendar block removed',
+  reminder_set: 'Reminder set',
+  reminder_update: 'Reminder changed',
   skill_run: 'Skill finished',
 }
 
@@ -100,7 +131,7 @@ function UndoableChip({ call, label, icon }: { call: ToolCall; label: string; ic
 export function ToolChip({ call }: { call: ToolCall }) {
   const [open, setOpen] = useState(false)
   const listId = useId()
-  const toolIcon = call.name === 'weather' ? 'weather' : call.name === 'web_search' ? 'globe' : call.name === 'skill_run' ? 'skills' : 'memory'
+  const toolIcon = TOOL_LABEL[call.name].icon
 
   if (call.status === 'running') {
     return (

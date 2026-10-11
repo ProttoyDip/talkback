@@ -111,15 +111,16 @@ One WebSocket: `wss://<host>/ws/session?token=<session-token>`. The token comes 
 | S → C | `transcript.delta` | `{message_id, speaker, text, final, backchannel, typed}` | Live captions. Deltas with the same `message_id` form one turn: user deltas carry the full text so far, assistant deltas append words as they start playing. `backchannel: true` marks a "mm-hm" that did not interrupt |
 | S → C | `transcript.trim` | `{message_id, heard_text, unheard_text}` | After an interruption, the message keeps `heard_text` in history. `unheard_text` (what it had planned to say) is only shown, faded |
 | S → C | `tool.status` | `{call_id, message_id, name, status, reason?, action_id?, undoable, sources}` | Tool chip under assistant turn `message_id`; `sources` lists web results. `status` is `running`, `done`, `failed`, `declined` (the user said no or did not answer), `cancelled` (stopped before it ran) or `expired`. `reason`: `user_declined`, `timeout`, `superseded`, `stopped`, `interrupted`, `session_closed`, `already_done`. Any final status closes the call's confirmation card |
-| S → C | `tool.confirm_request` | `{call_id, summary, message_id?, name?, expires_in_ms}` | Ask the user before a sensitive action (30 s) |
+| S → C | `tool.confirm_request` | `{call_id, summary, message_id?, name?, details[], expires_in_ms}` | Ask the user before a sensitive action (30 s); `details` adds up to 10 lines (a day plan) |
 | S → C | `memory.saved` | `{id, text, status, replaced_id?, replaced_text?, action_id?}` | Show the "Remembered" toast with Undo (through `action_id`). `status: suggested` is a suggestion waiting for the user's OK; `replaced_*` names the memory a correction replaced |
-| S → C | `data.changed` | `{kinds: ["memories" \| "actions"]}` | Stored data changed by voice: open panels reload |
+| S → C | `data.changed` | `{kinds: [memories \| actions \| tasks \| calendar \| reminders \| skills]}` | Stored data changed by voice: open panels reload |
+| S → C | `reminder.due` | `{reminder: ReminderItem}` | A reminder is due: show it (a notification when the page is hidden) |
 | S → C | `metrics` | `{latency_ms}` | Live latency readout (debug mode) |
 | S → C | `error` | `{code, message, retry_in_ms?}` | A problem to show the user (`voice_engine_offline`, `tool_failed`, `rate_limited`, `internal`). The session stays open |
 | S → C | `model.active` | `{role, provider, model, backup}` | Which model serves `voice`, `planner` or `search`. Sent at session start and on every switch; `backup: true` shows the "Backup model" label (plan.md section 8) |
 | S → C | `session.end` | `{reason}` | Sent just before the server closes (`idle`, `time_limit`, `server_shutdown`, `protocol_error`) |
 
-Tool names: `weather`, `web_search`, `memory_read`, `memory_write`, `memory_delete`, `memory_suggest`, `skill_run`.
+Tool names: `weather`, `web_search`, `memory_read`, `memory_write`, `memory_delete`, `memory_suggest`, `skill_run`, `task_list`, `task_add`, `task_update`, `task_delete`, `calendar_list`, `calendar_add`, `calendar_update`, `calendar_delete`, `reminder_set`, `reminder_update`.
 
 ### 3.2 REST API
 
@@ -134,11 +135,21 @@ All routes except `/health`, `GET /api/auth-config` and `POST /api/session` need
 | `GET /api/memories?q=` | optional search text | `MemoryList` | Memory panel |
 | `GET /api/memories?q=&history=1` | `history=1` adds replaced memories | `MemoryList` (each memory: `status, source, updated_at?, superseded_by?`) | Memory panel history |
 | `PATCH /api/memories/{id}` | `MemoryUpdate` (`text`, `kind`, or `status: confirmed \| dismissed` for a suggestion) | `MemoryItem` | Edit a memory, or confirm or dismiss a suggestion |
+| `GET /api/tasks?status=` | `open`, `done` or all | `TaskList` (`id, title, notes?, status, due_at?, priority, created_at, updated_at?, completed_at?`) | Plan panel |
+| `POST /api/tasks` | `TaskCreate {title, notes?, due_at?, priority}` | `TaskItem` (`201`) | Add a task |
+| `PATCH /api/tasks/{id}` | `TaskUpdate` (complete: `status: done`; reschedule: `due_at`) | `TaskItem` | Edit, complete, reschedule |
+| `DELETE /api/tasks/{id}` | — | `204` | Delete (undoable from Activity) |
+| `GET /api/calendar?from=&to=` | ISO times | `EventList` | Day agenda |
+| `POST /api/calendar`, `PATCH /api/calendar/{id}`, `DELETE /api/calendar/{id}` | `EventCreate`, `EventUpdate` | `EventItem`, `204` | Calendar blocks |
+| `GET /api/reminders?due_before=` | ISO time | `ReminderList` (scheduled ones due before then) | The page sets timers and shows missed ones |
+| `POST /api/reminders` | `ReminderCreate {text, due_at}` | `ReminderItem` | Set a reminder |
+| `POST /api/reminders/{id}/delivered`, `/ack`, `/snooze` (`{minutes}`), `DELETE /api/reminders/{id}` | — | `ReminderItem`, `204` | Shown, done, snooze, cancel |
+| `POST /api/skills`, `PATCH /api/skills/{id}`, `DELETE /api/skills/{id}` | `SkillCreate`, `SkillUpdate` | `SkillItem`, `204` | Your own skills; built-ins are read-only |
 | `GET /api/actions?limit=` | — | `ActionList` (newest first: `id, tool, status, summary, created_at, finished_at?, undoable, undone_at?`) | Activity panel |
 | `POST /api/actions/{id}/undo` | optional `Idempotency-Key` header | `ActionItem` (`status: undone`); `409` if the target changed since, `404` if not undoable | Undo in the Activity panel and toasts |
 | `DELETE /api/memories/{id}` | — | `204` | Delete a memory |
 | `DELETE /api/memories` | — | `204` | "Forget everything" |
-| `GET /api/skills` | — | `SkillList` (each skill: `id, name, triggers, allowed_tools, summary?`) | Skills panel |
+| `GET /api/skills` | — | `SkillList` (each skill: `id, name, triggers, allowed_tools, summary?, builtin, enabled, instructions?`) | Skills panel |
 | `POST /api/skills/{id}/run` | — | `SkillRunAccepted` (`202`) | "Run" button; progress arrives on the WebSocket |
 | `GET /api/settings` | — | `SettingsView` | Settings, including `models`: the voice engine serving now and whether it is `full_duplex`, the planner allowlist and the providers in backup order |
 | `PATCH /api/settings` | `SettingsUpdate` | `SettingsView` | Tool toggles, privacy switches, planner model, backups on or off |

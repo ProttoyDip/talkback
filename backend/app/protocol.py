@@ -31,6 +31,9 @@ ConversationState = Literal[
 
 ToolName = Literal[
     "weather", "web_search", "memory_read", "memory_write", "memory_delete", "memory_suggest", "skill_run",
+    "task_list", "task_add", "task_update", "task_delete",
+    "calendar_list", "calendar_add", "calendar_update", "calendar_delete",
+    "reminder_set", "reminder_update",
 ]
 
 # Ids are short opaque strings created by the server.
@@ -183,6 +186,8 @@ class ToolConfirmRequest(Message):
     # The assistant turn and tool the request belongs to.
     message_id: Id | None = None
     name: ToolName | None = None
+    # More lines for the card when one summary is not enough (a day plan).
+    details: list[str] = Field(default_factory=list, max_length=10)
     # The request expires after 30 seconds (SECURITY.md T5).
     expires_in_ms: int = Field(default=30_000, gt=0)
 
@@ -200,11 +205,21 @@ class MemorySaved(Message):
     action_id: Id | None = None
 
 
+DataKind = Literal["memories", "actions", "tasks", "calendar", "reminders", "skills"]
+
+
 class DataChanged(Message):
     """Stored data changed outside the panel (by voice): open panels reload."""
 
     type: Literal["data.changed"] = "data.changed"
-    kinds: list[Literal["memories", "actions"]] = Field(min_length=1, max_length=8)
+    kinds: list[DataKind] = Field(min_length=1, max_length=8)
+
+
+class ReminderDue(Message):
+    """A reminder is due now: the page shows it (and a notification if hidden)."""
+
+    type: Literal["reminder.due"] = "reminder.due"
+    reminder: "ReminderItem"
 
 
 class Metrics(Message):
@@ -257,6 +272,7 @@ ServerMessage = Annotated[
     | ToolConfirmRequest
     | MemorySaved
     | DataChanged
+    | ReminderDue
     | Metrics
     | ErrorEvent
     | ModelActive
@@ -361,6 +377,126 @@ class SkillItem(Rest):
     allowed_tools: list[ToolName]
     # One plain sentence: what the skill does and what to say.
     summary: str | None = Field(default=None, max_length=200)
+    # Built-in skills ship with TalkBack and cannot be edited (but can be copied).
+    builtin: bool = True
+    enabled: bool = True
+    # What TalkBack does when the skill runs (shown and editable for your own skills).
+    instructions: str | None = Field(default=None, max_length=2000)
+
+
+class SkillCreate(Rest):
+    name: str = Field(min_length=1, max_length=60)
+    triggers: list[Annotated[str, Field(min_length=4, max_length=60)]] = Field(min_length=1, max_length=10)
+    allowed_tools: list[ToolName] = Field(max_length=12)
+    instructions: str = Field(min_length=1, max_length=2000)
+    summary: str | None = Field(default=None, max_length=200)
+
+
+class SkillUpdate(Rest):
+    name: str | None = Field(default=None, min_length=1, max_length=60)
+    triggers: list[Annotated[str, Field(min_length=4, max_length=60)]] | None = Field(default=None, min_length=1, max_length=10)
+    allowed_tools: list[ToolName] | None = Field(default=None, max_length=12)
+    instructions: str | None = Field(default=None, min_length=1, max_length=2000)
+    summary: str | None = Field(default=None, max_length=200)
+    enabled: bool | None = None
+
+
+# Tasks, calendar and reminders (plan P5). Times are ISO 8601 with an offset;
+# the server works in the user's time zone (SettingsView.timezone).
+
+TaskStatus = Literal["open", "done", "cancelled"]
+Priority = Literal["low", "normal", "high"]
+
+
+class TaskItem(Rest):
+    id: Id
+    title: str = Field(max_length=200)
+    notes: str | None = Field(default=None, max_length=2000)
+    status: TaskStatus = "open"
+    due_at: str | None = None
+    priority: Priority = "normal"
+    created_at: str
+    updated_at: str | None = None
+    completed_at: str | None = None
+
+
+class TaskCreate(Rest):
+    title: str = Field(min_length=1, max_length=200)
+    notes: str | None = Field(default=None, max_length=2000)
+    due_at: str | None = None
+    priority: Priority = "normal"
+
+
+class TaskUpdate(Rest):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    notes: str | None = Field(default=None, max_length=2000)
+    status: TaskStatus | None = None
+    due_at: str | None = None
+    priority: Priority | None = None
+
+
+class TaskList(Rest):
+    items: list[TaskItem]
+
+
+EventKind = Literal["block", "meeting", "focus", "personal"]
+
+
+class EventItem(Rest):
+    id: Id
+    title: str = Field(max_length=200)
+    starts_at: str
+    ends_at: str
+    kind: EventKind = "block"
+    status: Literal["confirmed", "cancelled"] = "confirmed"
+    task_id: Id | None = None
+    created_at: str
+    updated_at: str | None = None
+
+
+class EventCreate(Rest):
+    title: str = Field(min_length=1, max_length=200)
+    starts_at: str
+    ends_at: str
+    kind: EventKind = "block"
+    task_id: Id | None = None
+
+
+class EventUpdate(Rest):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    starts_at: str | None = None
+    ends_at: str | None = None
+    kind: EventKind | None = None
+
+
+class EventList(Rest):
+    items: list[EventItem]
+
+
+ReminderStatus = Literal["scheduled", "delivered", "acknowledged", "cancelled", "missed"]
+
+
+class ReminderItem(Rest):
+    id: Id
+    text: str = Field(max_length=300)
+    due_at: str
+    status: ReminderStatus = "scheduled"
+    delivered_at: str | None = None
+    snooze_count: int = 0
+    created_at: str
+
+
+class ReminderCreate(Rest):
+    text: str = Field(min_length=1, max_length=300)
+    due_at: str
+
+
+class ReminderSnooze(Rest):
+    minutes: int = Field(ge=1, le=24 * 60)
+
+
+class ReminderList(Rest):
+    items: list[ReminderItem]
 
 
 class SkillList(Rest):
@@ -419,6 +555,8 @@ class SettingsView(Rest):
     # How long spoken answers are.
     answer_length: AnswerLength = "normal"
     models: ModelsView
+    # IANA time zone for tasks, calendar and reminders ("Asia/Dhaka").
+    timezone: str = "UTC"
 
 
 class SettingsUpdate(Rest):
@@ -429,3 +567,7 @@ class SettingsUpdate(Rest):
     answer_length: AnswerLength | None = None
     planner_model: Id | None = None  # must be an available ModelOption id
     providers: dict[ProviderId, bool] | None = None  # turn backups on or off
+    timezone: str | None = Field(default=None, min_length=1, max_length=64)  # IANA name, checked by the server
+
+
+ReminderDue.model_rebuild()
