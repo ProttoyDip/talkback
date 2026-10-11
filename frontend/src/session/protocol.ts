@@ -66,6 +66,8 @@ export type ClientMessage =
   | { type: 'control.mute'; muted: boolean }
   | { type: 'control.stop' }
   | { type: 'tool.confirm'; call_id: string; approved: boolean }
+  /** Continue the earlier conversation, or start fresh (plan P7). */
+  | { type: 'session.resume'; state_id: string; accept: boolean }
   /** A typed turn, handled like a spoken one; works while muted. */
   | { type: 'text.input'; text: string }
 
@@ -167,6 +169,8 @@ export type ServerEvent =
       applied?: number[]
       action_id?: string
     }
+  /** An unfinished conversation from earlier (plan P7). */
+  | { type: 'session.resumable'; state_id: string; goal: string; decisions?: string[]; pending?: string[]; updated_at: string }
   /** A reminder is due now (plan P5). */
   | { type: 'reminder.due'; reminder: ReminderItem }
   | { type: 'metrics'; latency_ms: number }
@@ -185,6 +189,7 @@ const SERVER_EVENT_TYPES = new Set<ServerEvent['type']>([
   'memory.saved',
   'data.changed',
   'reminder.due',
+  'session.resumable',
   'plan.proposed',
   'plan.updated',
   'metrics',

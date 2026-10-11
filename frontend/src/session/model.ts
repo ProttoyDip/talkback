@@ -68,6 +68,8 @@ export interface ConversationModel {
   remembered?: Remembered
   /** Bumped by data.changed: open panels reload. */
   dataVersion: number
+  /** An unfinished conversation the user may continue (plan P7). */
+  resumable?: { id: string; goal: string; decisions: string[]; pending: string[]; updatedAt: string }
   /** The latest "Prepare my day" plan (plan P6), for its card. */
   plan?: DayPlan
   /** Reminders the server sent as due during this conversation (reminder.due). */
@@ -243,6 +245,15 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
       return model.plan?.id === event.proposal_id
         ? { ...model, plan: { ...model.plan, status: event.status, applied: event.applied, actionId: event.action_id } }
         : model
+
+    case 'session.resumable':
+      return {
+        ...model,
+        resumable: {
+          id: event.state_id, goal: event.goal, decisions: event.decisions ?? [], pending: event.pending ?? [],
+          updatedAt: event.updated_at,
+        },
+      }
 
     case 'reminder.due':
       return { ...model, reminders: [...model.reminders, event.reminder] }

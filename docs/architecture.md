@@ -104,6 +104,7 @@ One WebSocket: `wss://<host>/ws/session?token=<session-token>`. The token comes 
 | C → S | `control.mute` | `{muted}` | User mute toggle |
 | C → S | `control.stop` | `{}` | Stop TalkBack now (Esc or Stop button). The server flushes audio (`audio.flush` with reason `stopped`), trims the message to the heard words and returns to `idle` |
 | C → S | `tool.confirm` | `{call_id, approved}` | Answer to a confirmation request |
+| C → S | `session.resume` | `{state_id, accept}` | Continue the earlier conversation (`accept: true`) or start fresh |
 | C → S | `text.input` | `{text}` (1–2000 characters) | A typed turn, handled like a spoken one; works while muted. The server echoes it as a user `transcript.delta` with `typed: true` |
 | S → C | `state` | `{state, tool?}` | Drives the UI state machine; `tool` is set with state `tool` |
 | S → C | `audio.chunk` | `{seq, samples}` | Header before each audio binary message |
@@ -116,6 +117,7 @@ One WebSocket: `wss://<host>/ws/session?token=<session-token>`. The token comes 
 | S → C | `data.changed` | `{kinds: [memories \| actions \| tasks \| calendar \| reminders \| skills]}` | Stored data changed by voice: open panels reload |
 | S → C | `plan.proposed` | `{proposal_id, message_id, date, items: [{index, op: create_block, title, starts_at, ends_at, task_id?, reason}], expires_at}` | "Prepare my day": a plan card to accept (all or some) or decline. Nothing changes until accepted |
 | S → C | `plan.updated` | `{proposal_id, status, applied[], action_id?}` | The plan was accepted, partly applied, declined, replaced by a newer one, or expired |
+| S → C | `session.resumable` | `{state_id, goal, decisions[], pending[], updated_at}` | Right after `session.start`: an unfinished conversation from the last 24 hours. Facts only; open items are asked again, never run automatically |
 | S → C | `reminder.due` | `{reminder: ReminderItem}` | A reminder is due: show it (a notification when the page is hidden) |
 | S → C | `metrics` | `{latency_ms}` | Live latency readout (debug mode) |
 | S → C | `error` | `{code, message, retry_in_ms?}` | A problem to show the user (`voice_engine_offline`, `tool_failed`, `rate_limited`, `internal`). The session stays open |
