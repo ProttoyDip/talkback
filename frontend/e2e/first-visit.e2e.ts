@@ -62,3 +62,24 @@ test('settings use plain tool names, show the running engine and hide model IDs'
   await panel.getByRole('switch', { name: 'Show transcripts in logs' }).click({ force: true })
   await expect(panel.getByText('Default: off · Now: on')).toBeVisible()
 })
+
+test('approving the delete in the recorded demo removes it from the sample memory', async ({ page }) => {
+  await page.goto('/?replay&speed=8')
+  await page.getByRole('button', { name: 'Start talking' }).first().click()
+  const card = page.getByRole('alertdialog')
+  await expect(card).toBeVisible({ timeout: 15_000 })
+  await card.getByRole('button', { name: 'Yes, do it' }).click()
+  await expect(page.getByText('Memory deleted')).toBeVisible()
+  await page.getByRole('button', { name: 'Memory' }).first().click()
+  const panel = page.getByRole('complementary', { name: 'Memory' })
+  await expect(panel.getByText('Prefers Celsius')).toBeVisible()
+  await expect(panel.getByText('Home city is Lisbon')).toHaveCount(0)
+})
+
+test('recording your voice is a choice kept in this browser', async ({ page }) => {
+  await page.goto('/?state=idle&mock')
+  await page.getByRole('button', { name: 'Settings' }).first().click()
+  const panel = page.getByRole('complementary', { name: 'Settings' })
+  await panel.getByRole('switch', { name: 'Save recordings on this device' }).click({ force: true })
+  expect(await page.evaluate(() => localStorage.getItem('talkback.effects'))).toContain('"saveRecordings":true')
+})

@@ -190,7 +190,7 @@ class Session:
         prefs = await asyncio.to_thread(prefs_store(self.settings).load)
         # The user's Interruptions setting applies when a session starts.
         self.decider = BargeInDecider.for_sensitivity(prefs.interrupt_sensitivity)
-        self.log_transcripts = prefs.transcripts_in_logs
+        self.log_transcripts = self.settings.allow_transcript_logs and prefs.transcripts_in_logs
         choice = await asyncio.to_thread(self.engine_factory, self.settings)
         self.engine_choice = choice
         if choice.problem:

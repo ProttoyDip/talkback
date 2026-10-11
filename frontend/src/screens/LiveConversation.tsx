@@ -10,7 +10,7 @@ import { useSession, type SessionMode } from '../session/useSession'
 import type { ConversationState } from '../state/types'
 import { AccessCodeError, requestSession } from '../api/session'
 import { useEffectsSetting } from '../background/effects'
-import { api, rememberSessionToken } from '../api/client'
+import { rememberSessionToken } from '../api/client'
 import { downloadBlob } from '../state/exportTranscript'
 import { AccessGate } from './AccessGate'
 import { hasOnboarded } from './onboarded'
@@ -84,6 +84,7 @@ export function LiveConversation({
   const meters = useRef<LevelMeters>({ user: 0, assistant: 0 })
   const timeline = useLevelHistory(meters, model.interrupts)
 
+  const effects = useEffectsSetting()
   const engineRef = useRef<AudioEngine | null>(null)
   const [starting, setStarting] = useState(false)
   const [micProblem, setMicProblem] = useState<MicProblem | null>(null)
@@ -127,15 +128,11 @@ export function LiveConversation({
       // The replay does not listen, so it never asks for the microphone.
       if (mode === 'live') {
         await engine.startMic()
-        // Opt-in recording (Settings > Privacy): kept in this browser, never uploaded.
-        api
-          .getSettings()
-          .then((settings) => {
-            if (!settings.save_recordings) return
-            engine.startRecording()
-            setRecording(true)
-          })
-          .catch(() => {})
+        // Opt-in recording (Settings > Privacy), chosen in this browser: never uploaded.
+        if (effects.saveRecordings) {
+          engine.startRecording()
+          setRecording(true)
+        }
       }
     } catch (error) {
       await engine.close()
@@ -168,7 +165,7 @@ export function LiveConversation({
   }
 
   // Push-to-talk (Settings > On this device): muted until Space or the mic is held.
-  const { pushToTalk } = useEffectsSetting()
+  const { pushToTalk } = effects
   useEffect(() => {
     if (started && pushToTalk) {
       engineRef.current?.setMuted(true)

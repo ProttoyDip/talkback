@@ -172,3 +172,34 @@ def test_registry_is_cleaned_up_after_disconnect(client, token):
     # Give the server task a moment to run its finally block.
     client.get("/health")
     assert not registry.sessions
+
+
+@pytest.mark.parametrize(
+    "allowed, opted_in, logged",
+    [(False, False, False), (False, True, False), (True, False, False), (True, True, True)],
+)
+def test_transcripts_are_logged_only_when_the_server_allows_and_the_user_opts_in(
+    settings, tmp_path, monkeypatch, allowed, opted_in, logged
+):
+    import asyncio
+    import json as jsonlib
+    from unittest.mock import AsyncMock
+
+    from app import session as gateway
+    from app.engines import EngineChoice
+    from app.voice_engine import TurnEnded, UserTranscript
+
+    lines = []
+    monkeypatch.setattr(gateway.transcript_log, "info", lambda msg, extra: lines.append(msg))
+    settings.settings_path = str(tmp_path / "settings.json")
+    (tmp_path / "settings.json").write_text(jsonlib.dumps({"transcripts_in_logs": opted_in}), encoding="utf-8")
+    settings.allow_transcript_logs = allowed
+
+    async def scenario():
+        live = gateway.Session(AsyncMock(), "s1", settings, lambda _: EngineChoice(None))
+        await live.start_engine()
+        await live.on_engine_event(UserTranscript("u1", "Hello there", True))
+        await live.on_engine_event(TurnEnded("a1", "Hi."))
+
+    asyncio.run(scenario())
+    assert lines == (["user: Hello there", "assistant: Hi."] if logged else [])

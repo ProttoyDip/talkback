@@ -250,7 +250,7 @@ export function ConversationScreen({
                     </li>
                   ))}
                 </ul>
-                <p aria-live="polite" className="min-h-[1lh] text-transcript text-text-muted">
+                <p aria-live="polite" className="min-h-target text-transcript text-text-muted">
                   {example && <>Say: “{example}”</>}
                 </p>
               </div>

@@ -5,6 +5,7 @@
  * creates a quiet voice-like tone for each audio.chunk.
  */
 import fixture from '../../../docs/fixtures/demo_session.jsonl?raw'
+import { mockRequest } from '../api/mock'
 import { SERVER_SAMPLE_RATE, type ClientMessage, type ServerEvent } from './protocol'
 import type { Transport, TransportHandlers } from './transport'
 
@@ -81,6 +82,8 @@ export class ReplayTransport implements Transport {
           reason: message.approved ? undefined : 'user_declined',
         })
       }
+      // The sample Memory panel agrees with the answer (m0 is "Home city is Lisbon").
+      if (message.approved && pending?.name === 'memory_delete') void mockRequest('DELETE', '/api/memories/m0')
       emit({ type: 'state', state: 'idle' })
     }
   }

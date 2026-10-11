@@ -42,7 +42,10 @@ def parse_calls(raw: str) -> list[ToolCall]:
 OUTCOMES = {
     "confirmation_denied": ("declined", "user_declined"),
     "confirmation_timeout": ("expired", "timeout"),
+    "session_closed": ("cancelled", "session_closed"),
 }
+# How a pending confirmation was settled -> the error it gives (None: approved).
+ANSWERS = {"approved": None, "denied": "confirmation_denied", "late": "confirmation_timeout", "closed": "session_closed"}
 
 
 class ToolBridge:
@@ -87,14 +90,14 @@ class ToolBridge:
         if future.done():
             return False
         accepted = self.clock() < deadline
-        future.set_result(message.approved is True and accepted)
+        future.set_result("late" if not accepted else "approved" if message.approved is True else "denied")
         return accepted
 
     def close(self) -> None:
         self.closed = True
         for future, _ in self.pending.values():
             if not future.done():
-                future.set_result(False)
+                future.set_result("closed")
         self.pending.clear()
 
     def _log(self, code: str, turn_id: str, cause: str | None = None) -> None:
@@ -150,8 +153,7 @@ class ToolBridge:
                     await self.emit(ToolConfirmRequest(
                         call_id=call_id, summary=summary, message_id=turn_id, name=tool.name,
                     ))
-                    if not await asyncio.wait_for(future, self.confirmation_timeout):
-                        error = "confirmation_denied"
+                    error = ANSWERS[await asyncio.wait_for(future, self.confirmation_timeout)]
                 except TimeoutError:
                     error = "confirmation_timeout"
                 finally:

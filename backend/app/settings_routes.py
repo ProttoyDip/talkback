@@ -32,6 +32,17 @@ TOOL_DESCRIPTIONS = {
     "memory_read": "Reads the memories you asked TalkBack to keep.",
     "memory_delete": "Deletes memories, only after you say yes.",
 }
+def voice_engine_view(settings: Settings) -> tuple[str, bool]:
+    """What can actually serve voice now (engines.py), and whether it is full-duplex."""
+    if settings.voice_engine == "cascade" and not settings.nvidia_api_key.get_secret_value():
+        return "Speech is not set up on this server", False
+    if settings.voice_engine not in BUILT_ENGINES:
+        return "Speech is not available on this server", False
+    return VOICE_ENGINES[settings.voice_engine]
+
+
+# Engines this build can start (engines.create_engine); VoiceChat is planned.
+BUILT_ENGINES = {"cascade", "fake", "none"}
 # What serves voice for each VOICE_ENGINE, and whether it is full-duplex.
 VOICE_ENGINES = {
     "cascade": ("NVIDIA Parakeet speech-to-text + Magpie TTS", False),
@@ -103,7 +114,7 @@ def build_view(settings: Settings, prefs: Prefs) -> SettingsView:
         name: ToolSetting(enabled=prefs.tool_enabled(name), description=text)
         for name, text in TOOL_DESCRIPTIONS.items()
     }
-    voice_model, full_duplex = VOICE_ENGINES.get(settings.voice_engine, (settings.voice_engine, False))
+    voice_model, full_duplex = voice_engine_view(settings)
     return SettingsView(
         tools=tools,
         save_recordings=prefs.save_recordings,

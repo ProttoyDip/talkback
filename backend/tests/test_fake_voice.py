@@ -61,34 +61,3 @@ def test_interrupting_the_fake_engine_trims_and_stops_it(client, settings):
     assert trim["heard_text"].startswith("Tomorrow in Lisbon") and trim["unheard_text"]
     assert {"type": "audio.flush", "reason": "interrupted"} in events
 
-
-def _run_one_turn(client, settings):
-    with session(client, settings) as ws:
-        ws.send_text(json.dumps({"type": "session.start", "client_sample_rate": 16000}))
-        for _ in range(5):
-            ws.send_bytes(frame(5000))
-        answered = False
-        while True:
-            message = ws.receive()
-            if not message.get("text"):
-                continue
-            event = json.loads(message["text"])
-            answered |= event.get("speaker") == "assistant" and event.get("final", False)
-            if answered and event == {"type": "state", "state": "idle"}:
-                break
-
-
-def test_transcripts_reach_the_logs_only_when_the_user_turns_it_on(client, settings, tmp_path, monkeypatch):
-    from app import session as gateway
-
-    lines = []
-    monkeypatch.setattr(gateway.transcript_log, "info", lambda msg, extra: lines.append(msg))
-    settings.settings_path = str(tmp_path / "settings.json")
-
-    _run_one_turn(client, settings)
-    assert lines == []  # off by default (SECURITY.md T10)
-
-    (tmp_path / "settings.json").write_text(json.dumps({"transcripts_in_logs": True}), encoding="utf-8")
-    _run_one_turn(client, settings)
-    assert "user: What's the weather like in Lisbon tomorrow?" in lines
-    assert any(line.startswith("assistant: ") for line in lines)

@@ -328,6 +328,31 @@ def test_a_no_is_reported_as_declined_not_failed(approved):
     assert (final.status, final.reason) == (("done", None) if approved else ("declined", "user_declined"))
 
 
+def test_closing_the_session_cancels_a_pending_confirmation():
+    instance, handler, emit, _ = bridge(sensitive=True)
+    async def event(message):
+        if isinstance(message, ToolConfirmRequest):
+            instance.close()
+    emit.side_effect = event
+    asyncio.run(instance.execute(request(), 'turn'))
+    handler.assert_not_called()
+    final = emit.await_args_list[-1].args[0]
+    assert (final.status, final.reason) == ("cancelled", "session_closed")
+
+
+def test_a_yes_after_the_deadline_is_expired_not_declined():
+    now = [0.0]
+    instance, handler, emit, _ = bridge(sensitive=True, clock=lambda: now[0])
+    async def event(message):
+        if isinstance(message, ToolConfirmRequest):
+            now[0] = 31.0
+            assert not instance.confirm(ToolConfirm(type='tool.confirm', call_id=message.call_id, approved=True))
+    emit.side_effect = event
+    asyncio.run(instance.execute(request(), 'turn'))
+    handler.assert_not_called()
+    assert emit.await_args_list[-1].args[0].status == "expired"
+
+
 def test_an_unanswered_confirmation_is_reported_as_expired():
     instance, _, emit, _ = bridge(sensitive=True, confirmation_timeout=0.001)
     asyncio.run(instance.execute(request(), 'turn'))

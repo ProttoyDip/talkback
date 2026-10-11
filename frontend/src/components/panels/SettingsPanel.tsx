@@ -46,6 +46,7 @@ function VisualEffects() {
 }
 
 export function SettingsPanel({ active }: { active: ConversationModel['models'] }) {
+  const effects = useEffectsSetting()
   const { state, reload, set } = useResource(() => api.getSettings(), 'settings')
   const [failed, setFailed] = useState(false)
 
@@ -85,14 +86,14 @@ export function SettingsPanel({ active }: { active: ConversationModel['models'] 
             <SectionTitle>Privacy</SectionTitle>
             <SettingsToggleRow
               label="Save recordings on this device"
-              description="Keeps your own voice in this browser so you can download it from the top bar. Never uploaded. Starts with the next conversation."
-              status={onOff(settings.save_recordings)}
-              checked={settings.save_recordings}
-              onChange={(save_recordings) => void update({ save_recordings })}
+              description="Keeps up to 15 minutes of your own voice in this browser while the mic is on, so you can download it from the top bar. Never uploaded. Starts with the next conversation."
+              status={onOff(effects.saveRecordings)}
+              checked={effects.saveRecordings}
+              onChange={(saveRecordings) => setEffects({ saveRecordings })}
             />
             <SettingsToggleRow
               label="Show transcripts in logs"
-              description="Server logs include what you and TalkBack say. Use it only for debugging."
+              description="Server logs include what you and TalkBack say. For local debugging: it works only on a server that allows it."
               status={onOff(settings.transcripts_in_logs)}
               checked={settings.transcripts_in_logs}
               onChange={(transcripts_in_logs) => void update({ transcripts_in_logs })}

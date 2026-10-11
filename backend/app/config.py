@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     skills_dir: str = "skills"
     # Built frontend (frontend/dist) served by this app, for one-URL deployment.
     frontend_dist: str = ""
+    # Settings are shared by every visitor until accounts exist, so the
+    # "Show transcripts in logs" switch only works where the operator allows
+    # it (local debugging). Off: no transcript text is ever logged (T10).
+    allow_transcript_logs: bool = False
     # Public demo gate (SECURITY.md T8). Empty: no code needed.
     access_code: SecretStr = SecretStr("")
     perplexity_api_key: SecretStr = SecretStr("")

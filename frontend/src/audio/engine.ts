@@ -131,6 +131,9 @@ export class AudioEngine {
     const capture = new AudioWorkletNode(context, 'talkback-capture', { numberOfInputs: 1, numberOfOutputs: 0 })
     const track = stream.getAudioTracks()[0]
     let silentFrames = 0
+    // Noise gates send zeros between words, so only a mic that has never made
+    // a sound (or one the system mutes) counts as silent.
+    let heardSound = false
     capture.port.onmessage = (event: MessageEvent<CaptureMessage>) => {
       if (this.muted) return // muted audio never leaves the page
       this.callbacks.onInputLevel(event.data.level)
@@ -139,7 +142,8 @@ export class AudioEngine {
         this.recorded.push(new Int16Array(event.data.frame.slice(0)))
       }
       // A mic muted by the system still sends frames, but they are empty.
-      if (event.data.silent || track?.muted) {
+      if (!event.data.silent) heardSound = true
+      if (track?.muted || (event.data.silent && !heardSound)) {
         if (++silentFrames === SILENT_FRAMES) this.callbacks.onSilentMic?.(true)
       } else {
         if (silentFrames >= SILENT_FRAMES) this.callbacks.onSilentMic?.(false)

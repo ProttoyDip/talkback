@@ -121,8 +121,13 @@ def test_settings_name_the_voice_engine_running_and_whether_it_is_full_duplex(cl
     models = client.get("/api/settings", headers=authed).json()["models"]
     assert models["voice_model"] == "No voice engine" and models["full_duplex"] is False
     settings.voice_engine = "cascade"
+    assert client.get("/api/settings", headers=authed).json()["models"]["voice_model"] == "Speech is not set up on this server"
+    settings.nvidia_api_key = SecretStr("key")
     models = client.get("/api/settings", headers=authed).json()["models"]
     assert models["voice_model"] == "NVIDIA Parakeet speech-to-text + Magpie TTS" and models["full_duplex"] is False
+    settings.voice_engine = "voicechat"  # planned, not in this build
+    models = client.get("/api/settings", headers=authed).json()["models"]
+    assert models["voice_model"] == "Speech is not available on this server" and models["full_duplex"] is False
 
 
 def test_shipped_skills_carry_a_summary(client, authed):
