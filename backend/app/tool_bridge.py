@@ -92,6 +92,7 @@ class ToolBridge:
         self.finishing: dict[str, asyncio.Task] = {}  # changes running now
         self.abandoned: set[str] = set()  # ...whose turn was cancelled; they report themselves
         self.applied: set[str] = set()  # changes that finished (the race with a cancel)
+        self.completed_mutations: dict[str, set[str]] = {}
         self.closed = False
 
     def model_tools(self) -> list[dict]:
@@ -103,6 +104,14 @@ class ToolBridge:
 
     def set_enabled(self, names: set[str]) -> None:
         self.enabled = names & self.tools.keys()
+
+    def mutations_for(self, turn_id: str) -> frozenset[str]:
+        """Mutating tools that completed successfully in an assistant turn."""
+        return frozenset(self.completed_mutations.get(turn_id, ()))
+
+    def _record_mutation(self, turn_id: str, tool: Tool) -> None:
+        if tool.mutates:
+            self.completed_mutations.setdefault(turn_id, set()).add(tool.name)
 
     def confirm(self, message: ToolConfirm) -> bool:
         pending = self.pending.pop(message.call_id, None)
@@ -241,6 +250,7 @@ class ToolBridge:
             key = idempotency_key(self.user_id, turn_id, tool.name, call.arguments)
             earlier = await asyncio.to_thread(self.ledger.find, key)
             if earlier is not None:
+                self._record_mutation(turn_id, tool)
                 # The same change, asked again in this turn: it already happened.
                 self.reported.add(call_id)
                 await self.emit(ToolStatus(
@@ -268,6 +278,7 @@ class ToolBridge:
                     action_id, undoable, follow_up = output.action_id, output.undoable, output.events
                     citations = list(output.citations)[:10]
                     output = output.results
+                self._record_mutation(turn_id, tool)
                 if tool.name == "web_search" or tool.taints:
                     self.tainted.add(turn_id)
                 data = [sanitize(item) for item in output[:10]]
