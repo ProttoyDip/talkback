@@ -6,9 +6,13 @@ edit an old one; append), and a numbered SQL file in supabase/migrations.
 
 from .repo import Table
 
-# Tables reached through Repo (stores.repo). Memories still use MemoryStore,
-# which needs full-text search; it moves here when it gains a user (plan P2).
-TABLES: dict[str, Table] = {}
+# Tables reached through Repo (stores.repo). Memories use MemoryStore, which
+# needs full-text search, but it is limited to one user the same way.
+TABLES: dict[str, Table] = {
+    # Supabase only (locally, settings are one JSON file per user).
+    # One row per user (id = user_id): their settings as JSON (prefs.Prefs).
+    "user_settings": Table("user_settings", frozenset({"data", "created_at", "updated_at"}), frozenset({"data"})),
+}
 
 # Run in order, once each (PRAGMA user_version). Append only.
 SQLITE_MIGRATIONS: list[str] = [
@@ -34,5 +38,10 @@ SQLITE_MIGRATIONS: list[str] = [
             VALUES ('delete', old.rowid, old.text);
         INSERT INTO memories_fts(rowid, text) VALUES (new.rowid, new.text);
     END;
+    """,
+    # 2: accounts. Existing memories belong to the local user.
+    """
+    ALTER TABLE memories ADD COLUMN user_id TEXT NOT NULL DEFAULT 'local';
+    CREATE INDEX IF NOT EXISTS memories_user ON memories (user_id, created_at);
     """,
 ]

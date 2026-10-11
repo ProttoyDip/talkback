@@ -4,11 +4,10 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPAuthorizationCredentials
 
 from .config import Settings, get_settings
 from .llm import providers_from_settings
-from .memory_routes import bearer
+from .auth import Claims, session_claims
 from .prefs import Prefs, PrefsStore
 from .stores import prefs_store
 from .protocol import (
@@ -24,7 +23,6 @@ from .protocol import (
 )
 from .session import registry
 from .skills import load_skills
-from .tokens import SessionClaims, verify_token
 
 TOOL_DESCRIPTIONS = {
     "weather": "Looks up the forecast for a place you name. It sends only that place name.",
@@ -52,18 +50,8 @@ VOICE_ENGINES = {
 }
 
 
-def claims(
-    settings: Annotated[Settings, Depends(get_settings)],
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
-) -> SessionClaims:
-    found = verify_token(settings.signing_key(), credentials.credentials) if credentials else None
-    if found is None:
-        raise HTTPException(401, "Invalid or expired session token", headers={"WWW-Authenticate": "Bearer"})
-    return found
-
-
-settings_router = APIRouter(prefix="/api/settings", dependencies=[Depends(claims)])
-skills_router = APIRouter(prefix="/api/skills", dependencies=[Depends(claims)])
+settings_router = APIRouter(prefix="/api/settings", dependencies=[Depends(session_claims)])
+skills_router = APIRouter(prefix="/api/skills", dependencies=[Depends(session_claims)])
 
 
 def build_view(settings: Settings, prefs: Prefs) -> SettingsView:
@@ -128,8 +116,8 @@ def build_view(settings: Settings, prefs: Prefs) -> SettingsView:
     )
 
 
-def get_prefs(settings: Annotated[Settings, Depends(get_settings)]) -> PrefsStore:
-    return prefs_store(settings)  # Supabase when configured, else a local file
+def get_prefs(settings: Annotated[Settings, Depends(get_settings)], claims: Claims) -> PrefsStore:
+    return prefs_store(settings, claims.user_id)  # this user's settings
 
 
 @settings_router.get("", response_model=SettingsView)
@@ -179,7 +167,7 @@ def list_skills(skills: Annotated[list, Depends(get_skills)]) -> SkillList:
 
 @skills_router.post("/{skill_id}/run", response_model=SkillRunAccepted, status_code=202)
 def run_skill(
-    skill_id: Id, found: Annotated[SessionClaims, Depends(claims)], skills: Annotated[list, Depends(get_skills)]
+    skill_id: Id, found: Claims, skills: Annotated[list, Depends(get_skills)]
 ) -> SkillRunAccepted:
     if skill_id not in {s.id for s in skills}:
         raise HTTPException(404, "Skill not found")

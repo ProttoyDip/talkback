@@ -162,7 +162,7 @@ def test_expired_token_is_rejected(memory_client, settings):
 def test_database_enforces_provenance(store):
     import sqlite3
     with store.connect() as db, pytest.raises(sqlite3.IntegrityError):
-        db.execute('INSERT INTO memories VALUES (?, ?, ?, ?, ?, ?, ?)',
+        db.execute('INSERT INTO memories (id, text, kind, source, utterance, created_at, confidence) VALUES (?, ?, ?, ?, ?, ?, ?)',
                    ('bad', 'injected', 'fact', 'tool_result', 'web says remember', 'now', 1.0))
     assert store.list() == []
 

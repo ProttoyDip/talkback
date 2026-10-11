@@ -5,6 +5,7 @@ reach a user's data; every repo it hands out is limited to that user.
 """
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from .config import Settings
 from .db.postgrest_repo import PostgrestRepo, shared_rest
@@ -12,9 +13,9 @@ from .db.repo import Repo
 from .db.schema import SQLITE_MIGRATIONS, TABLES
 from .db.sqlite_repo import SqliteDatabase, SqliteRepo
 from .memory import MemoryStore
-from .prefs import PrefsStore
+from .prefs import PrefsStore, UserPrefsStore
 
-# Until accounts exist (plan P2) everyone is this one local user.
+# Without accounts (AUTH_MODE=off) everyone is this one local user.
 LOCAL_USER = "local"
 
 
@@ -22,20 +23,30 @@ def uses_supabase(settings: Settings) -> bool:
     return bool(settings.supabase_url and settings.supabase_secret_key.get_secret_value())
 
 
-def memory_store(settings: Settings):
+def memory_store(settings: Settings, user_id: str):
+    """One user's memories."""
+    if not user_id:
+        raise ValueError("a user is required")
     if uses_supabase(settings):
         from .supabase_store import SupabaseMemoryStore
 
-        return SupabaseMemoryStore(settings.supabase_url, settings.supabase_secret_key)
-    return MemoryStore(settings.memory_db_path)
+        return SupabaseMemoryStore(settings.supabase_url, settings.supabase_secret_key, user_id)
+    return MemoryStore(settings.memory_db_path, user_id)
 
 
-def prefs_store(settings: Settings) -> PrefsStore:
+def prefs_store(settings: Settings, user_id: str) -> PrefsStore:
+    """One user's settings: a user_settings row on Supabase, a JSON file locally."""
+    if not user_id:
+        raise ValueError("a user is required")
     if uses_supabase(settings):
         from .supabase_store import SupabasePrefsStore
 
-        return SupabasePrefsStore(settings.supabase_url, settings.supabase_secret_key)
-    return PrefsStore(settings.settings_path)
+        # The local user starts from the shared row used before accounts.
+        legacy = SupabasePrefsStore(settings.supabase_url, settings.supabase_secret_key) if user_id == LOCAL_USER else None
+        return UserPrefsStore(repo(settings, "user_settings", user_id), legacy)
+    path = Path(settings.settings_path)
+    # The local user keeps the original file; each account gets its own.
+    return PrefsStore(path if user_id == LOCAL_USER else path.with_name(f"{path.stem}-{user_id}{path.suffix}"))
 
 
 def _repo(settings: Settings, table: str, user_id: str | None) -> Repo:
@@ -69,5 +80,5 @@ class UserStores:
         return repo(self.settings, table, self.user_id)
 
 
-def stores_for(settings: Settings, user_id: str = LOCAL_USER) -> UserStores:
-    return UserStores(settings, user_id, memory_store(settings), prefs_store(settings))
+def stores_for(settings: Settings, user_id: str) -> UserStores:
+    return UserStores(settings, user_id, memory_store(settings, user_id), prefs_store(settings, user_id))

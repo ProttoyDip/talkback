@@ -3,6 +3,7 @@
 import logging
 import secrets
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -34,6 +35,13 @@ class Settings(BaseSettings):
     # "Show transcripts in logs" switch only works where the operator allows
     # it (local debugging). Off: no transcript text is ever logged (T10).
     allow_transcript_logs: bool = False
+    # Accounts (Supabase Auth): "off" = everyone is one local user (local
+    # development); "required" = a live session needs a signed-in user or a
+    # guest with the access code; "optional" = sign-in is offered, and
+    # visitors without it share the local user.
+    auth_mode: Literal["off", "optional", "required"] = "off"
+    # Public; the browser uses it to sign in. Safe to expose (RLS protects data).
+    supabase_publishable_key: str = ""
     # Public demo gate (SECURITY.md T8). Empty: no code needed.
     access_code: SecretStr = SecretStr("")
     perplexity_api_key: SecretStr = SecretStr("")

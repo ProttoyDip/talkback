@@ -13,7 +13,7 @@ from .test_turn_taking import ScriptedEngine
 
 def test_stop_flushes_trims_and_returns_to_idle(client):
     engine = ScriptedEngine(utterance="")
-    app.dependency_overrides[get_engine_factory] = lambda: lambda _s: EngineChoice(engine)
+    app.dependency_overrides[get_engine_factory] = lambda: lambda *_: EngineChoice(engine)
     token = client.post("/api/session").json()["token"]
     received: list[dict] = []
     with client.websocket_connect(f"/ws/session?token={token}", headers={"origin": ORIGIN}) as ws:

@@ -32,8 +32,12 @@ def _rest(url: str, key: SecretStr, transport: httpx.BaseTransport | None) -> Re
 
 
 class SupabaseMemoryStore:
-    def __init__(self, url: str, key: SecretStr, transport: httpx.BaseTransport | None = None) -> None:
+    def __init__(
+        self, url: str, key: SecretStr, user_id: str = "local", transport: httpx.BaseTransport | None = None
+    ) -> None:
         self.rest = _rest(url, key, transport)
+        self.user_id = user_id  # every request below is limited to this user
+        self.mine = f"eq.{user_id}"
 
     @staticmethod
     def _item(row: dict) -> MemoryItem:
@@ -49,6 +53,7 @@ class SupabaseMemoryStore:
             "utterance": write.utterance,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "confidence": write.confidence,
+            "user_id": self.user_id,
         }
         response = self.rest.call(
             "POST", "/memories", json=row, params={"select": FIELDS},
@@ -57,7 +62,7 @@ class SupabaseMemoryStore:
         return self._item(response.json()[0])
 
     def list(self, query: str = "") -> list[MemoryItem]:
-        params = {"select": FIELDS, "order": "created_at.asc,id.asc"}
+        params = {"select": FIELDS, "order": "created_at.asc,id.asc", "user_id": self.mine}
         if query.strip():
             # A phrase search on the full-text column: the words, in order.
             # PostgREST passes the value as data, never as SQL.
@@ -69,24 +74,26 @@ class SupabaseMemoryStore:
         if set(changes) - {"text", "kind"}:
             raise ValueError("invalid memory field")
         if not changes:
-            rows = self.rest.call("GET", "/memories", params={"select": FIELDS, "id": f"eq.{identifier}"}).json()
+            rows = self.rest.call(
+                "GET", "/memories", params={"select": FIELDS, "id": f"eq.{identifier}", "user_id": self.mine}
+            ).json()
         else:
             rows = self.rest.call(
-                "PATCH", "/memories", json=changes, params={"select": FIELDS, "id": f"eq.{identifier}"},
+                "PATCH", "/memories", json=changes,
+                params={"select": FIELDS, "id": f"eq.{identifier}", "user_id": self.mine},
                 headers={"Prefer": "return=representation"},
             ).json()
         return self._item(rows[0]) if rows else None
 
     def delete(self, identifier: str, expected_text: str | None = None) -> bool:
-        params = {"id": f"eq.{identifier}", "select": "id"}
+        params = {"id": f"eq.{identifier}", "select": "id", "user_id": self.mine}
         if expected_text is not None:
             params["text"] = f"eq.{expected_text}"
         rows = self.rest.call("DELETE", "/memories", params=params, headers={"Prefer": "return=representation"}).json()
         return len(rows) == 1
 
     def delete_all(self) -> None:
-        # PostgREST refuses an unfiltered delete; this filter matches every row.
-        self.rest.call("DELETE", "/memories", params={"id": "not.is.null"})
+        self.rest.call("DELETE", "/memories", params={"user_id": self.mine})
 
 
 class SupabasePrefsStore(PrefsStore):

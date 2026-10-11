@@ -196,7 +196,7 @@ def test_transcripts_are_logged_only_when_the_server_allows_and_the_user_opts_in
     settings.allow_transcript_logs = allowed
 
     async def scenario():
-        live = gateway.Session(AsyncMock(), "s1", settings, lambda _: EngineChoice(None))
+        live = gateway.Session(AsyncMock(), "s1", settings, lambda *_: EngineChoice(None))
         await live.start_engine()
         await live.on_engine_event(UserTranscript("u1", "Hello there", True))
         await live.on_engine_event(TurnEnded("a1", "Hi."))

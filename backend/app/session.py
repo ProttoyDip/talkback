@@ -125,9 +125,11 @@ class Session:
         session_id: str,
         settings: Settings | None = None,
         engine_factory: EngineFactory | None = None,
+        user_id: str = "local",
     ) -> None:
         self.websocket = websocket
         self.session_id = session_id
+        self.user_id = user_id  # whose memories and settings this session uses
         self.settings = settings
         self.engine_factory = engine_factory
         self.started = False
@@ -187,11 +189,11 @@ class Session:
             return
         # Settings may live in Supabase behind a blocking HTTP client, so these
         # run on a worker thread: on the event loop they froze every session.
-        prefs = await asyncio.to_thread(prefs_store(self.settings).load)
+        prefs = await asyncio.to_thread(prefs_store(self.settings, self.user_id).load)
         # The user's Interruptions setting applies when a session starts.
         self.decider = BargeInDecider.for_sensitivity(prefs.interrupt_sensitivity)
         self.log_transcripts = self.settings.allow_transcript_logs and prefs.transcripts_in_logs
-        choice = await asyncio.to_thread(self.engine_factory, self.settings)
+        choice = await asyncio.to_thread(self.engine_factory, self.settings, self.user_id, prefs)
         self.engine_choice = choice
         if choice.problem:
             await self.send(ErrorEvent(code="voice_engine_offline", message=choice.problem))
@@ -466,7 +468,7 @@ async def session_endpoint(
 
     await websocket.accept()
     registry.add(claims.session_id, ip)
-    session = Session(websocket, claims.session_id, settings, engine_factory)
+    session = Session(websocket, claims.session_id, settings, engine_factory, claims.user_id)
     registry.live[claims.session_id] = session
     log.info("session opened", extra={"session_id": claims.session_id})
     try:

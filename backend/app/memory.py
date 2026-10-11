@@ -26,8 +26,9 @@ class MemoryWrite(BaseModel):
 
 
 class MemoryStore:
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, user_id: str = "local") -> None:
         self.path = Path(path)
+        self.user_id = user_id  # every query below is limited to this user
         self.database = SqliteDatabase(self.path, SQLITE_MIGRATIONS)
 
     def connect(self):
@@ -43,10 +44,12 @@ class MemoryStore:
         identifier = uuid.uuid4().hex
         created_at = datetime.now(timezone.utc).isoformat()
         with self.connect() as db:
-            db.execute("INSERT INTO memories VALUES (?, ?, ?, ?, ?, ?, ?)", (
-                identifier, write.text, write.kind, write.source, write.utterance,
-                created_at, write.confidence,
-            ))
+            db.execute(
+                "INSERT INTO memories (id, text, kind, source, utterance, created_at, confidence, user_id)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (identifier, write.text, write.kind, write.source, write.utterance,
+                 created_at, write.confidence, self.user_id),
+            )
         return MemoryItem(id=identifier, text=write.text, kind=write.kind,
                           utterance=write.utterance, created_at=created_at)
 
@@ -56,10 +59,12 @@ class MemoryStore:
                 # A literal phrase, not user-controlled FTS operators or SQL.
                 phrase = '"' + query.replace('"', '""') + '"'
                 rows = db.execute("""SELECT m.* FROM memories m JOIN memories_fts f
-                    ON m.rowid = f.rowid WHERE memories_fts MATCH ?
-                    ORDER BY rank, m.id""", (phrase,)).fetchall()
+                    ON m.rowid = f.rowid WHERE memories_fts MATCH ? AND m.user_id = ?
+                    ORDER BY rank, m.id""", (phrase, self.user_id)).fetchall()
             else:
-                rows = db.execute("SELECT * FROM memories ORDER BY created_at, id").fetchall()
+                rows = db.execute(
+                    "SELECT * FROM memories WHERE user_id = ? ORDER BY created_at, id", (self.user_id,)
+                ).fetchall()
         return [self.item(row) for row in rows]
 
     def update(self, identifier: str, update: MemoryUpdate) -> MemoryItem | None:
@@ -69,21 +74,28 @@ class MemoryStore:
                 # Field names come exclusively from the validated contract model.
                 if field not in {"text", "kind"}:
                     raise ValueError("invalid memory field")
-                db.execute(f"UPDATE memories SET {field} = ? WHERE id = ?", (value, identifier))
-            row = db.execute("SELECT * FROM memories WHERE id = ?", (identifier,)).fetchone()
+                db.execute(
+                    f"UPDATE memories SET {field} = ? WHERE id = ? AND user_id = ?", (value, identifier, self.user_id)
+                )
+            row = db.execute(
+                "SELECT * FROM memories WHERE id = ? AND user_id = ?", (identifier, self.user_id)
+            ).fetchone()
         return self.item(row) if row else None
 
     def delete(self, identifier: str, expected_text: str | None = None) -> bool:
         with self.connect() as db:
             if expected_text is None:
-                cursor = db.execute("DELETE FROM memories WHERE id = ?", (identifier,))
+                cursor = db.execute("DELETE FROM memories WHERE id = ? AND user_id = ?", (identifier, self.user_id))
             else:
-                cursor = db.execute("DELETE FROM memories WHERE id = ? AND text = ?", (identifier, expected_text))
+                cursor = db.execute(
+                    "DELETE FROM memories WHERE id = ? AND text = ? AND user_id = ?",
+                    (identifier, expected_text, self.user_id),
+                )
             return cursor.rowcount == 1
 
     def delete_all(self) -> None:
         with self.connect() as db:
-            db.execute("DELETE FROM memories")
+            db.execute("DELETE FROM memories WHERE user_id = ?", (self.user_id,))
             # Drop obsolete FTS segments containing deleted words.
             db.execute("INSERT INTO memories_fts(memories_fts) VALUES ('rebuild')")
 

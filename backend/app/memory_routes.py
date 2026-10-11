@@ -1,32 +1,20 @@
-"""Bearer-authenticated memory panel routes for the single-user deployment."""
+"""Memory panel routes. Each request reaches only the token's user's memories."""
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from .auth import Claims, session_claims
 from .config import Settings, get_settings
 from .memory import MemoryStore
-from .stores import memory_store
 from .protocol import Id, MemoryItem, MemoryList, MemoryUpdate
-from .tokens import verify_token
+from .stores import memory_store
 
-bearer = HTTPBearer(auto_error=False)
-
-
-def require_session(
-    settings: Annotated[Settings, Depends(get_settings)],
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
-) -> None:
-    if credentials is None or verify_token(settings.signing_key(), credentials.credentials) is None:
-        raise HTTPException(401, "Invalid or expired session token", headers={"WWW-Authenticate": "Bearer"})
+router = APIRouter(prefix="/api/memories", dependencies=[Depends(session_claims)])
 
 
-router = APIRouter(prefix="/api/memories", dependencies=[Depends(require_session)])
-
-
-def get_memory_store(settings: Annotated[Settings, Depends(get_settings)]) -> MemoryStore:
-    return memory_store(settings)  # Supabase when configured, else local SQLite
+def get_memory_store(settings: Annotated[Settings, Depends(get_settings)], claims: Claims) -> MemoryStore:
+    return memory_store(settings, claims.user_id)  # Supabase when configured, else local SQLite
 
 
 Store = Annotated[MemoryStore, Depends(get_memory_store)]

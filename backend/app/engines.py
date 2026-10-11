@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import httpx
 
 from .config import Settings
+from .prefs import Prefs
 from .voice_engine import VoiceEngine
 
 
@@ -18,10 +19,12 @@ class EngineChoice:
     http: httpx.AsyncClient | None = None
 
 
-EngineFactory = Callable[[Settings], EngineChoice]
+# (settings, user_id, that user's settings) -> engine. The session loads the
+# settings once and passes them in.
+EngineFactory = Callable[[Settings, str, Prefs], EngineChoice]
 
 
-def create_engine(settings: Settings) -> EngineChoice:
+def create_engine(settings: Settings, user_id: str, prefs: Prefs) -> EngineChoice:
     kind = settings.voice_engine
     if kind == "none":
         return EngineChoice(None)
@@ -36,16 +39,15 @@ def create_engine(settings: Settings) -> EngineChoice:
         from .cascade_engine import CascadeEngine
         from .llm import LlmClient, providers_from_settings
         from .speech.nvidia import RivaStreamingASR, RivaTTS
-        from .stores import memory_store, prefs_store
+        from .stores import memory_store
         from .skills import load_skills
         from .tool_bridge import ToolBridge
         from .tools.memory import memory_tools
         from .tools.weather import weather_tool
         from .tools.web_search import web_search_tool
 
-        prefs = prefs_store(settings).load()
         http = httpx.AsyncClient(follow_redirects=False)
-        memory = memory_store(settings)
+        memory = memory_store(settings, user_id)
         # Weather needs no key (Open-Meteo). Web search needs a Tavily or Perplexity key.
         tools = [weather_tool(http), *memory_tools(memory)]
         if settings.tavily_api_key.get_secret_value() or settings.perplexity_api_key.get_secret_value():
