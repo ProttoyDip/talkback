@@ -7,8 +7,9 @@ services:
     runtime: docker
     plan: free # sleeps after 15 min idle; "starter" stays awake for demos
     region: singapore
-    # Change to "main" once this branch is merged.
-    branch: claude/render
+    # Deploys main. Before the first deploy of this version, apply
+    # supabase/migrations/0002-0007 (in order) to the Supabase project.
+    branch: main
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -40,4 +41,12 @@ services:
       - key: SUPABASE_URL
         value: https://tkcxgytklxbhayjwkvyf.supabase.co
       - key: SUPABASE_SECRET_KEY
+        sync: false
+      # Accounts: "off" (one shared user), "optional" or "required" (sign in
+      # or continue as a guest with ACCESS_CODE). Turn on anonymous sign-ins
+      # and the email link in Supabase Auth first; see backend/.env.example.
+      - key: AUTH_MODE
+        sync: false
+      # Public: the browser signs in with it. Supabase > Project Settings > API Keys.
+      - key: SUPABASE_PUBLISHABLE_KEY
         sync: false

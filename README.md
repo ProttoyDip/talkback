@@ -266,7 +266,20 @@ talkback/
 - **Interruption recovery** (`eval/interruptions.py`): the share of scenarios where TalkBack stops, keeps only the words the user heard, and ignores backchannels and short noises.
 - **Stop time** (`eval/latency.py`): how long the barge-in rule takes to decide.
 
-These use synthetic audio frames, so they do not include speech recognition, model or network time. End-to-end latency with real audio is not measured yet (planned).
+These use synthetic audio frames, so they do not include speech recognition, model or network time.
+
+### End-to-end, with real speech
+
+`eval/run_e2e.py` talks to a running server the way the browser does: it streams real spoken audio (made once with NVIDIA Magpie TTS by `eval/audio_fixtures.py`) in 20 ms frames, plays TalkBack's replies in simulated real time and reports what was heard. Each run starts with an unmeasured warm-up question. Times are measured from the last (or, for "Wait, stop", the first) frame of the user's speech. Echo of TalkBack's own voice is not simulated.
+
+<!-- eval:start -->
+<!-- eval:end -->
+
+```bash
+backend/.venv/Scripts/python eval/audio_fixtures.py                 # once
+backend/.venv/Scripts/python eval/run_e2e.py --target http://127.0.0.1:8000 --runs 3
+backend/.venv/Scripts/python eval/report.py                         # updates the table above
+```
 
 ## Roadmap
 
@@ -280,7 +293,7 @@ These use synthetic audio frames, so they do not include speech recognition, mod
 - [x] Conversation screen (React): live transcript, duplex timeline, tool chips, confirmation card
 - [x] Live audio in the frontend (microphone capture and playback)
 - [x] First-run onboarding, Memory panel, Skills panel and Settings (microphone choice, tools, privacy, models), all backed by live routes; the recorded demo shows sample data
-- [x] `eval/`: 50 scripted turn-taking scenarios (decision logic only; run `backend/.venv/bin/python eval/interruptions.py`). End-to-end latency with the real speech engine is not measured yet
+- [x] `eval/`: 50 scripted turn-taking scenarios (decision logic only), and end-to-end runs with real speech against a live server (`eval/run_e2e.py`)
 - [ ] Demo video
 - [ ] More languages, including low-resource languages
 - [ ] On-device version for NVIDIA Jetson
