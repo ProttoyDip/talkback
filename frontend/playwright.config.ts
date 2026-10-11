@@ -49,6 +49,9 @@ export default defineConfig({
         ALLOWED_ORIGINS: 'http://localhost:5174',
         SETTINGS_PATH: 'data/e2e-settings.json',
         MEMORY_DB_PATH: 'data/e2e-memories.sqlite3',
+        // Blank values override backend/.env: no demo gate, local files not Supabase.
+        ACCESS_CODE: '',
+        SUPABASE_URL: '',
       },
     },
     {
