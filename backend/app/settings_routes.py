@@ -42,7 +42,8 @@ TOOL_DESCRIPTIONS = {
 # One switch covers a group: turning off task_add turns off every task tool.
 TOOL_GROUPS = {
     "task_add": ("task_list", "task_add", "task_update", "task_delete"),
-    "calendar_add": ("calendar_list", "calendar_add", "calendar_update", "calendar_delete"),
+    "calendar_add": ("calendar_list", "calendar_add", "calendar_update", "calendar_delete", "day_plan_propose",
+                     "day_plan_apply"),
     "reminder_set": ("reminder_set", "reminder_update"),
 }
 def voice_engine_view(settings: Settings) -> tuple[str, bool]:

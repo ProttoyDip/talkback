@@ -44,7 +44,8 @@
 | Answering "yes" or "no" by voice to a confirmation | Working | Simulated (buttons) |
 | Typing instead of talking | Working, also without a microphone | — |
 | Accounts: email sign-in link or guest, private memories and settings | Built; turned on with `AUTH_MODE` and Supabase Auth (see `backend/.env.example`) | — |
-| "Prepare my day", documents, research projects | Planned | — |
+| "Prepare my day": focus blocks for urgent tasks in your free time | Working; you accept all or some of the plan, and one Undo removes it | — |
+| Documents, research projects | Planned | — |
 
 ## The problem
 

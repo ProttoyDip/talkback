@@ -141,6 +141,16 @@ export const api = {
   reminderDone: (id: string) => request<ReminderItem>('POST', `/api/reminders/${encodeURIComponent(id)}/ack`),
   snoozeReminder: (id: string, minutes: number) =>
     request<ReminderItem>('POST', `/api/reminders/${encodeURIComponent(id)}/snooze`, { minutes }),
+  applyPlan: (id: string, items?: number[]) =>
+    request<{ proposal_id: string; status: 'accepted' | 'partially_applied'; applied: number[]; action_id?: string | null }>(
+      'POST',
+      `/api/plans/${encodeURIComponent(id)}/apply`,
+      { items },
+    ).then((result) => {
+      dataChanged()
+      return result
+    }),
+  rejectPlan: (id: string) => request<void>('POST', `/api/plans/${encodeURIComponent(id)}/reject`),
   cancelReminder: (id: string) => request<void>('DELETE', `/api/reminders/${encodeURIComponent(id)}`),
   updateSettings: (update: SettingsUpdate) => request<SettingsView>('PATCH', '/api/settings', update),
 }

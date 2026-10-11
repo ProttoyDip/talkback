@@ -6,12 +6,15 @@ an offset) and are stored in UTC; items go out in the user's local time.
 """
 
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 
 from .actions import ActionLedger
 from .db.repo import Gte, In, IsNull, Lte, Repo
-from .protocol import EventItem, ReminderItem, TaskItem
-from .timeutil import iso, local, now_utc, parse, spoken, to_storage
+from .protocol import EventItem, PlanItem, ReminderItem, TaskItem
+
+PLAN_LIFETIME = timedelta(minutes=30)  # an unanswered plan expires
+from .planning import free_slots, schedule
+from .timeutil import day_bounds, iso, local, now_utc, parse, spoken, to_storage, zone
 
 MAX_ITEMS = 500  # per list; plenty for one person
 
@@ -259,3 +262,93 @@ class Planner:
             "snooze_count": (current.get("snooze_count") or 0) + 1,
         })
         return self.reminder(row)
+
+    # Prepare my day (plan P6)
+
+    def propose_day(self, day: str | None = None, message_id: str | None = None) -> tuple[str, str, list[PlanItem]]:
+        """A plan for the day: (proposal id, local date, items). Nothing changes yet."""
+        today = now_utc().astimezone(zone(self.tz)).date()
+        when = date.fromisoformat(day) if day else today
+        start, end = day_bounds(when, self.tz)
+        busy = [
+            (datetime.fromisoformat(r["starts_at"]), datetime.fromisoformat(r["ends_at"]))
+            for r in self.repo("events").select(
+                {"deleted_at": IsNull(), "status": "confirmed", "starts_at": Lte(end), "ends_at": Gte(start)}, limit=200,
+            )
+        ]
+        planned = {
+            r["task_id"] for r in self.repo("events").select(
+                {"deleted_at": IsNull(), "starts_at": Lte(end), "ends_at": Gte(start)}, limit=200,
+            ) if r.get("task_id")
+        }
+        tasks = [
+            t for t in self.repo("tasks").select({"deleted_at": IsNull(), "status": "open"}, limit=MAX_ITEMS)
+            if t["id"] not in planned
+        ]
+        slots = free_slots(busy, when, self.tz, now_utc() if when == today else datetime.combine(when, datetime.min.time(), zone(self.tz)))
+        plan = schedule(tasks, slots, when, self.tz)
+        items = [
+            PlanItem(index=i, title=p.title, starts_at=local(iso(p.start), self.tz), ends_at=local(iso(p.end), self.tz),
+                     task_id=p.task_id, reason=p.reason)
+            for i, p in enumerate(plan)
+        ]
+        proposals = self.repo("proposals")
+        for older in proposals.select({"date": when.isoformat(), "status": "pending"}, limit=20):
+            proposals.update(older["id"], {"status": "superseded"})  # only the newest plan can be applied
+        row = proposals.insert({
+            "date": when.isoformat(), "status": "pending", "message_id": message_id,
+            "items": [item.model_dump() for item in items], "expires_at": iso(now_utc() + PLAN_LIFETIME),
+        })
+        return row["id"], when.isoformat(), items
+
+    def plan_items(self, proposal_id: str) -> list[PlanItem]:
+        row = self.repo("proposals").get(proposal_id)
+        return [PlanItem(**item) for item in row["items"]] if row else []
+
+    def apply_plan(self, proposal_id: str, indices: list[int] | None = None,
+                   key: str | None = None) -> tuple[str, list[int], str | None]:
+        """Create the chosen blocks as one action; undo removes them all.
+
+        Returns (status, applied indices, action id). A plan that was
+        replaced, declined or expired is refused (ValueError); a block that
+        now clashes with the calendar is skipped (partially_applied).
+        """
+        proposals = self.repo("proposals")
+        row = proposals.get(proposal_id)
+        if row is None:
+            raise LookupError(proposal_id)
+        if row["status"] != "pending":
+            raise ValueError(f"that plan was {row['status']}")
+        if row["expires_at"] < iso(now_utc()):
+            proposals.update(proposal_id, {"status": "expired"})
+            raise ValueError("that plan expired; ask for a new one")
+        items = [PlanItem(**item) for item in row["items"]]
+        chosen = [i for i in items if indices is None or i.index in indices]
+        created, applied = [], []
+        for item in chosen:
+            start, end = to_storage(item.starts_at, self.tz), to_storage(item.ends_at, self.tz)
+            if self.overlaps(start, end):
+                continue  # the calendar changed since the plan was made
+            event = self.repo("events").insert({
+                "title": item.title, "starts_at": start, "ends_at": end, "kind": "focus",
+                "status": "confirmed", "task_id": item.task_id,
+            })
+            created.append({"id": event["id"], "title": event["title"]})
+            applied.append(item.index)
+        status = "accepted" if len(applied) == len(items) else "partially_applied"
+        proposals.update(proposal_id, {"status": status})
+        action_id = None
+        if created and self.ledger is not None:
+            action = self.ledger.record(
+                "day_plan_apply", "done", f"Planned your day: {len(created)} block{'s' if len(created) != 1 else ''}",
+                target_kind="events", undo={"op": "rows.unadd", "table": "events", "rows": created}, key=key,
+            )
+            action_id = action["id"]
+        return status, applied, action_id
+
+    def reject_plan(self, proposal_id: str) -> bool:
+        row = self.repo("proposals").get(proposal_id)
+        if row is None or row["status"] != "pending":
+            return False
+        self.repo("proposals").update(proposal_id, {"status": "rejected"})
+        return True

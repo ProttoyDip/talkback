@@ -96,7 +96,7 @@ ANSWER_LENGTH = {
 CHUNK_SAMPLES = 4_410  # 200 ms at 22.05 kHz
 PLAN_TOOLS = {
     "task_list", "task_add", "task_update", "task_delete", "calendar_list", "calendar_add",
-    "calendar_update", "calendar_delete", "reminder_set", "reminder_update",
+    "calendar_update", "calendar_delete", "reminder_set", "reminder_update", "day_plan_propose", "day_plan_apply",
 }
 PLAN_WORDS = re.compile(
     r"\b(?:tasks?|to-?dos?|calendar|schedul\w*|remind\w*|meetings?|appointments?|block|plan\w*|agenda|"

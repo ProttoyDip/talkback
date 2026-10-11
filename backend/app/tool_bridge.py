@@ -13,7 +13,7 @@ from pydantic import Field, TypeAdapter, ValidationError
 
 from .protocol import DataChanged, ServerMessage, Source, ToolConfirm, ToolConfirmRequest, ToolStatus
 from .tool_results import sanitize, wrap_results
-from .tools import Arguments, Tool, ToolOutcome, current_action_key
+from .tools import Arguments, Tool, ToolOutcome, current_action_key, current_turn_id
 
 log = logging.getLogger("talkback.tools")
 
@@ -212,8 +212,9 @@ class ToolBridge:
             future = asyncio.get_running_loop().create_future()
             self.pending[call_id] = (future, self.clock() + self.confirmation_timeout)
             try:
+                details = tool.confirmation_details(arguments) if tool.confirmation_details else []
                 await self.emit(ToolConfirmRequest(
-                    call_id=call_id, summary=summary, message_id=turn_id, name=tool.name,
+                    call_id=call_id, summary=summary, message_id=turn_id, name=tool.name, details=details[:10],
                 ))
                 error = ANSWERS[await asyncio.wait_for(future, self.confirmation_timeout)]
             except TimeoutError:
@@ -242,11 +243,12 @@ class ToolBridge:
                 return {"call_id": call_id, "untrusted": True, "results": [{"note": "already done"}]}
         if error is None:
             await self.emit(ToolStatus(call_id=call_id, message_id=turn_id, name=tool.name, status="running"))
-            token = current_action_key.set(key)
+            token, turn = current_action_key.set(key), current_turn_id.set(turn_id)
             try:
-                task = asyncio.create_task(tool.run(arguments))  # copies the key into the task
+                task = asyncio.create_task(tool.run(arguments))  # copies both into the task
             finally:
                 current_action_key.reset(token)
+                current_turn_id.reset(turn)
             filler = asyncio.create_task(self._filler(task))
             if tool.mutates:
                 # A change already under way finishes, so it is never half done;
@@ -292,9 +294,10 @@ class ToolBridge:
                 call_id=call_id, message_id=turn_id, name=tool.name, status=status, reason=reason,
                 sources=sources if not error else [], action_id=action_id, undoable=undoable and not error,
             ))
-            if action_id is not None and not error:
+            if not error:
                 for message in follow_up:
                     await self.emit(message)
+            if action_id is not None and not error:
                 await self.emit(DataChanged(kinds=list(tool.data_kinds)))
         return {"call_id": call_id, "error": error} if error else {
             "call_id": call_id, "untrusted": True,

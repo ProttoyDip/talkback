@@ -208,7 +208,7 @@ function applyEvent(model: ConversationModel, event: ServerEvent, at: number): C
     }
 
     case 'tool.confirm_request':
-      return { ...model, confirm: { callId: event.call_id, summary: event.summary } }
+      return { ...model, confirm: { callId: event.call_id, summary: event.summary, details: event.details } }
 
     case 'audio.flush':
       return event.reason === 'interrupted'

@@ -31,6 +31,15 @@ export function ConfirmCard({ request, onAnswer, className = '' }: ConfirmCardPr
           <p id={`confirm-${request.callId}`} className="text-transcript text-text">
             {request.summary}
           </p>
+          {request.details && request.details.length > 0 && (
+            <ul className="flex flex-col gap-1 text-body text-text">
+              {request.details.map((line) => (
+                <li key={line} className="font-mono text-data">
+                  {line}
+                </li>
+              ))}
+            </ul>
+          )}
           <p className="text-body text-text-muted">Say “yes” or “no”, or choose below.</p>
         </div>
       </div>

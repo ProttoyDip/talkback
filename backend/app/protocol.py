@@ -215,7 +215,7 @@ class DataChanged(Message):
     kinds: list[DataKind] = Field(min_length=1, max_length=8)
 
 
-class PlanItem(Rest):
+class PlanItem(Message):
     """One proposed change in a day plan: a block for a task in free time."""
 
     index: int = Field(ge=0, le=20)
@@ -247,7 +247,7 @@ class PlanUpdated(Message):
     action_id: Id | None = None
 
 
-class PlanApply(Rest):
+class PlanApply(Message):
     """POST /api/plans/{id}/apply: which items to apply (all when missing)."""
 
     items: list[int] | None = Field(default=None, max_length=20)

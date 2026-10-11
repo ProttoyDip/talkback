@@ -10,6 +10,8 @@ from pydantic import BaseModel, ConfigDict
 # Set by the tool bridge while a tool runs: one key per (user's turn, tool,
 # arguments), so the same change asked twice is recorded and run once.
 current_action_key: ContextVar[str | None] = ContextVar("current_action_key", default=None)
+# The assistant turn a tool runs in (a plan card belongs to it).
+current_turn_id: ContextVar[str | None] = ContextVar("current_turn_id", default=None)
 
 
 class Arguments(BaseModel):
@@ -47,5 +49,7 @@ class Tool:
     # A reversible change that runs without asking, except in a turn that saw
     # web results, where it asks like a sensitive one (plan P5, T5).
     confirm_when_tainted: bool = False
+    # More lines for the confirmation card (a day plan's blocks).
+    confirmation_details: Callable[[Arguments], list[str]] | None = None
     # What open panels reload after it changes something.
     data_kinds: tuple[str, ...] = ("memories", "actions")

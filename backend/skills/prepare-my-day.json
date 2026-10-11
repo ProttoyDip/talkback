@@ -1,0 +1,8 @@
+{
+  "id": "prepare-my-day",
+  "name": "Prepare my day",
+  "summary": "Plans focus time for today's most urgent tasks around your calendar. You accept the plan before anything changes.",
+  "triggers": ["prepare my day", "plan my day", "plan today"],
+  "allowed_tools": ["day_plan_propose", "day_plan_apply", "task_list", "calendar_list", "memory_read", "weather"],
+  "instructions": "Call day_plan_propose for today. Then say in two short sentences what the plan does, for example how many blocks and the first one, and ask if they want it. The plan card on screen lets them accept all or some. If they say yes, call day_plan_apply with the proposal id. If they want changes, such as keeping the morning free, propose again after adjusting the tasks or calendar they mention. If nothing needs a block, say so."
+}
