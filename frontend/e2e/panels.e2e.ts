@@ -59,7 +59,7 @@ test('a panel without server support shows a plain error and a retry', async ({ 
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
 })
 
-for (const name of ['Memory', 'Skills', 'Settings']) {
+for (const name of ['Memory', 'Plan', 'Skills', 'Settings']) {
   test(`${name} panel has no WCAG 2.2 AA violations and fits 375 px`, async ({ page }) => {
     await page.goto('/?state=idle&mock')
     await page.getByRole('button', { name }).first().click()

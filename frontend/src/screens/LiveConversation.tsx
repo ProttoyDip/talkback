@@ -11,7 +11,8 @@ import type { ConversationState } from '../state/types'
 import { authConfig } from '../api/auth'
 import { AccessCodeError, SignInRequiredError, requestSession } from '../api/session'
 import { useEffectsSetting } from '../background/effects'
-import { rememberSessionToken } from '../api/client'
+import { api, rememberSessionToken } from '../api/client'
+import { useReminders } from '../session/useReminders'
 import { downloadBlob } from '../state/exportTranscript'
 import { AccessGate } from './AccessGate'
 import { SignIn } from './SignIn'
@@ -121,6 +122,18 @@ export function LiveConversation({
   }, [access])
 
   useEffect(() => () => void engineRef.current?.close(), [])
+
+  // Reminders while the page is open (plan P5), and the user's time zone, so
+  // "tomorrow at 3" means their 3 PM.
+  const reminders = useReminders(mode === 'live' && access === 'open', model.reminder)
+  useEffect(() => {
+    if (mode !== 'live' || access !== 'open') return
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    api
+      .getSettings()
+      .then((settings) => (zone && settings.timezone !== zone ? api.updateSettings({ timezone: zone }) : undefined))
+      .catch(() => {})
+  }, [mode, access])
 
   // Typing can start a conversation without the microphone (plan P3).
   const [micOn, setMicOn] = useState(false)
@@ -271,6 +284,8 @@ export function LiveConversation({
     dataVersion: model.dataVersion,
     sessionOpen: model.connection === 'open',
     replay: mode === 'replay',
+    reminders: reminders.due,
+    onDismissReminder: reminders.dismiss,
     onSaveRecording: recording
       ? () => {
           const wav = engineRef.current?.recording()

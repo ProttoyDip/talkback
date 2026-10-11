@@ -13,6 +13,9 @@ import { VoiceSection } from './VoiceSection'
 import { ResourceView, SectionTitle, secondaryButton } from './shared'
 import { TOOL_LABEL } from './toolLabels'
 
+/** One switch covers a group of tools (backend TOOL_GROUPS). */
+const GROUP_LABEL: Record<string, string> = { task_add: 'Tasks', calendar_add: 'Calendar', reminder_set: 'Reminders' }
+
 /** Default and current value side by side, so "off by default" never reads as "off now". */
 const onOff = (now: boolean) => `Default: off · Now: ${now ? 'on' : 'off'}`
 
@@ -108,7 +111,7 @@ export function SettingsPanel({ active }: { active: ConversationModel['models'] 
             {Object.entries(settings.tools).map(([name, tool]) => (
               <SettingsToggleRow
                 key={name}
-                label={TOOL_LABEL[name as ToolName]?.label ?? name}
+                label={GROUP_LABEL[name] ?? TOOL_LABEL[name as ToolName]?.label ?? name}
                 description={tool.description}
                 checked={tool.enabled}
                 onChange={(enabled) => void update({ tools: { [name]: enabled } })}
